@@ -120,8 +120,8 @@ Stop condition: no theme/settings system.
 Goal: make `.app` use repeatable.
 
 - Keep `Scripts/build-app.sh`.
-- Add `Scripts/run-app.sh` if manual launch stays annoying.
-- Add bundle identifier/version notes.
+- [x] Add `Scripts/run-app.sh`.
+- [x] Add bundle identifier/version notes.
 - Confirm login item behavior from `.build/Launch.app`.
 - Run checks and build.
 - Commit: `build: tighten app packaging`.
@@ -136,4 +136,3 @@ Every phase must prove:
 - `swift build` passes.
 - `Scripts/build-app.sh` passes.
 - `git status --short` is clean after commit.
-
