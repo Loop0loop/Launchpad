@@ -5,25 +5,22 @@ import LaunchCore
 final class LauncherLifecycle {
     private let state: AppState
     private let window: NSWindow
+    private weak var mouseMonitor: LauncherMouseMonitor?
     private var previousApp: NSRunningApplication?
-    private var isAnimating = false
     private var menuBarHidden = false
+    private var hideToken = UUID()
 
-    init(state: AppState, window: NSWindow) {
+    init(state: AppState, window: NSWindow, mouseMonitor: LauncherMouseMonitor? = nil) {
         self.state = state
         self.window = window
+        self.mouseMonitor = mouseMonitor
     }
 
     var isVisible: Bool {
-        window.isVisible && (state.launcherVisible || isAnimating)
+        window.isVisible && state.launcherVisible
     }
 
     func toggle() {
-        LaunchLog.line("lifecycle toggle visible=\(isVisible) animating=\(isAnimating)")
-        guard !isAnimating else {
-            LaunchLog.line("lifecycle toggle ignored: animating")
-            return
-        }
         if isVisible {
             hide()
         } else {
@@ -32,61 +29,73 @@ final class LauncherLifecycle {
     }
 
     func show() {
-        LaunchLog.line("lifecycle show requested visible=\(isVisible) animating=\(isAnimating)")
-        guard !isAnimating else {
-            LaunchLog.line("lifecycle show ignored: animating")
-            return
-        }
-        if isVisible {
-            LaunchLog.line("lifecycle show ignored: already visible")
-            return
-        }
+        guard !isVisible else { return }
 
+        hideToken = UUID()
         rememberPreviousApp()
         state.query = ""
         state.openFolder = nil
         state.clearSelection()
 
         applyWindowBrowsingMode()
-        resetWindowAlpha()
-        state.launcherVisible = false
+        state.launcherVisible = true
+        state.pageDragOffset = 0
+
+        preparePresentationLayer()
+        setPresentationScale(LaunchConstants.Lifecycle.hiddenScale)
+        window.alphaValue = 0
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-        LaunchLog.line("window ordered front frame=\(window.frame) screen=\(String(describing: NSScreen.main?.frame))")
+        mouseMonitor?.setEnabled(true)
 
-        isAnimating = true
-        DispatchQueue.main.async {
-            self.state.launcherVisible = true
-            self.finishPresentation(after: LaunchConstants.Lifecycle.windowDuration) {
-                self.isAnimating = false
+        runPresentationAnimation(toVisible: true) { [weak self] in
+            DispatchQueue.main.async {
+                self?.state.focusSearchField()
             }
         }
+        LaunchLog.line("lifecycle show requested visible=\(state.launcherVisible)")
     }
 
     func hide() {
-        LaunchLog.line("lifecycle hide requested visible=\(window.isVisible) animating=\(isAnimating)")
-        guard !isAnimating, window.isVisible else {
-            LaunchLog.line("lifecycle hide ignored")
-            return
+        guard window.isVisible, state.launcherVisible else { return }
+        LaunchLog.line("lifecycle hide requested visible=\(state.launcherVisible)")
+        mouseMonitor?.setEnabled(false)
+
+        let token = UUID()
+        hideToken = token
+
+        runPresentationAnimation(toVisible: false) { [weak self] in
+            guard let self, self.hideToken == token else { return }
+            self.state.launcherVisible = false
+            self.setMenuBarHidden(false)
+            self.window.orderOut(nil)
+            self.resetPresentation()
+            self.activatePreviousApp()
         }
-        animatePresentation(visible: false, restorePreviousApp: true)
     }
 
     func dismiss() {
+        mouseMonitor?.setEnabled(false)
         setMenuBarHidden(false)
         state.launcherVisible = false
         window.orderOut(nil)
-        resetWindowAlpha()
+        resetPresentation()
     }
 
     func launch(_ app: LaunchApp) {
-        guard !isAnimating else {
-            AppSystemAdapter.launch(app)
-            dismiss()
-            return
-        }
         AppSystemAdapter.launch(app)
-        animatePresentation(visible: false, restorePreviousApp: false)
+        if window.isVisible {
+            mouseMonitor?.setEnabled(false)
+            runPresentationAnimation(toVisible: false) { [weak self] in
+                guard let self else { return }
+                self.state.launcherVisible = false
+                self.setMenuBarHidden(false)
+                self.window.orderOut(nil)
+                self.resetPresentation()
+            }
+        } else {
+            dismiss()
+        }
     }
 
     func revealInFinder(_ app: LaunchApp) {
@@ -98,7 +107,7 @@ final class LauncherLifecycle {
         let screenFrame = NSScreen.main?.frame ?? window.frame
         window.setFrame(state.windowBrowsingMode ? windowedFrame(in: screenFrame) : screenFrame, display: true)
         updateWindowChrome()
-        LaunchLog.line("apply window mode windowed=\(state.windowBrowsingMode) frame=\(window.frame)")
+        preparePresentationLayer()
         guard state.launcherVisible || window.isVisible else {
             window.level = state.windowBrowsingMode ? .normal : .mainMenu
             return
@@ -106,39 +115,49 @@ final class LauncherLifecycle {
         setMenuBarHidden(!state.windowBrowsingMode)
     }
 
-    private func animatePresentation(visible: Bool, restorePreviousApp: Bool) {
-        LaunchLog.line("animate presentation visible=\(visible) restore=\(restorePreviousApp)")
-        isAnimating = true
-        state.launcherVisible = false
-        finishPresentation(after: LaunchConstants.Lifecycle.windowDuration) {
-            if !visible {
-                self.setMenuBarHidden(false)
-                self.window.orderOut(nil)
-                self.resetWindowAlpha()
-                if restorePreviousApp {
-                    self.activatePreviousApp()
-                }
+    /// Apple AppKit pattern: `NSAnimationContext.runAnimationGroup` + `animator()` proxies.
+    /// https://developer.apple.com/documentation/appkit/nsanimationcontext
+    private func runPresentationAnimation(toVisible: Bool, completion: @escaping @MainActor () -> Void) {
+        preparePresentationLayer()
+        let endScale = toVisible ? CGFloat(1) : LaunchConstants.Lifecycle.hiddenScale
+        let endAlpha = toVisible ? CGFloat(1) : CGFloat(0)
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = LaunchConstants.Lifecycle.windowDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            context.allowsImplicitAnimation = true
+            window.animator().alphaValue = endAlpha
+            setPresentationScale(endScale)
+        } completionHandler: {
+            Task { @MainActor in
+                completion()
             }
-            self.isAnimating = false
         }
     }
 
-    private func finishPresentation(after delay: TimeInterval, completion: @escaping () -> Void) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            completion()
-        }
+    private func preparePresentationLayer() {
+        guard let container = window.contentView as? LauncherPresentationContainer else { return }
+        container.wantsLayer = true
+        container.updateLayerPosition()
     }
 
-    private func resetWindowAlpha() {
+    private func setPresentationScale(_ scale: CGFloat) {
+        guard let container = window.contentView as? LauncherPresentationContainer else { return }
+        container.layer?.transform = CATransform3DMakeScale(scale, scale, 1)
+    }
+
+    private func resetPresentation() {
         window.alphaValue = 1
         window.contentView?.alphaValue = 1
+        setPresentationScale(1)
     }
 
     private func updateWindowChrome() {
         let windowed = state.windowBrowsingMode
-        window.contentView?.wantsLayer = true
-        window.contentView?.layer?.cornerRadius = windowed ? LaunchConstants.WindowBrowsing.cornerRadius : 0
-        window.contentView?.layer?.masksToBounds = windowed
+        guard let container = window.contentView as? LauncherPresentationContainer else { return }
+        container.wantsLayer = true
+        container.layer?.cornerRadius = windowed ? LaunchConstants.WindowBrowsing.cornerRadius : 0
+        container.layer?.masksToBounds = windowed
         window.hasShadow = windowed
     }
 

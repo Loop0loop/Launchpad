@@ -17,10 +17,13 @@ struct LauncherBackgroundView: View {
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .ignoresSafeArea()
+            .allowsHitTesting(false)
 
             Color.black.opacity(dimOpacity)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea()
+                .allowsHitTesting(false)
         }
+        .allowsHitTesting(false)
     }
 }

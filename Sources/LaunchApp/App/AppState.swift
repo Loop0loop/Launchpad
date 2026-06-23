@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import LaunchCore
 
@@ -23,6 +24,8 @@ final class AppState: ObservableObject {
     @Published var f4KeyState: PermissionState = .unknown
     @Published var trackpadGateState: TrackpadGateState = .unknown
     @Published var launcherVisible = false
+    @Published var pageDragOffset: CGFloat = 0
+    weak var searchField: NSTextField?
     @Published var appSourcePaths = AppSourceStore.load()
     @Published var hiddenAppIDs = Set(LayoutPersistenceAdapter.stringArray(forKey: LaunchConstants.Storage.hiddenAppsKey))
     @Published var gridLayout = GridLayoutStore.load() {

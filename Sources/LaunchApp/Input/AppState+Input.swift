@@ -37,6 +37,27 @@ extension AppState {
         handleEscape()
     }
 
+    func focusSearchField() {
+        guard let searchField else {
+            LaunchLog.line("search focus skipped field=nil")
+            return
+        }
+        searchField.isEditable = true
+        searchField.isSelectable = true
+        searchField.isEnabled = true
+        searchField.window?.makeKey()
+        let accepted = searchField.window?.makeFirstResponder(searchField) ?? false
+        let responder = String(describing: type(of: searchField.window?.firstResponder as Any))
+        LaunchLog.line("search focus ok=\(accepted) responder=\(responder)")
+    }
+
+    func isSearchFieldFocused() -> Bool {
+        guard let searchField, let firstResponder = searchField.window?.firstResponder else { return false }
+        if firstResponder === searchField { return true }
+        if firstResponder === searchField.currentEditor() { return true }
+        return false
+    }
+
     func moveSelection(by delta: Int) {
         keyboardSelectionActive = true
         let items = visibleItems
@@ -78,6 +99,7 @@ extension AppState {
     func selectPage(_ page: Int) {
         let nextPage = min(max(page, 0), pageCount - 1)
         guard nextPage != currentPage else { return }
+        LaunchLog.line("select page \(currentPage) -> \(nextPage) pageCount=\(pageCount)")
         currentPage = nextPage
         if keyboardSelectionActive {
             selectedItemID = items(forPage: nextPage).first?.id
@@ -95,7 +117,22 @@ extension AppState {
 
     func changePage(_ delta: Int) {
         guard delta != 0 else { return }
-        guard Date() >= pageChangeLockedUntil else { return }
+        guard query.isEmpty else {
+            LaunchLog.line("change page blocked query=\(query)")
+            return
+        }
+        guard openFolder == nil else {
+            LaunchLog.line("change page blocked openFolder")
+            return
+        }
+        guard displayMode == .paged else {
+            LaunchLog.line("change page blocked displayMode=\(displayMode.rawValue)")
+            return
+        }
+        guard Date() >= pageChangeLockedUntil else {
+            LaunchLog.line("change page blocked cooldown")
+            return
+        }
         let oldPage = currentPage
         selectPage(currentPage + delta)
         if currentPage != oldPage {

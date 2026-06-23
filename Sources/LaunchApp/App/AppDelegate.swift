@@ -9,11 +9,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     let trackpadMonitor = TrackpadGestureMonitor()
     let globalHotKey = GlobalHotKeyAdapter()
     let hotCornerMonitor = HotCornerMonitor()
+    let launcherMouseMonitor = LauncherMouseMonitor()
     var window: NSWindow?
     var launcherLifecycle: LauncherLifecycle?
     var settingsWindow: NSWindow?
     var statusItem: NSStatusItem?
     var keyMonitor: Any?
+    var statusRightClickMonitor: Any?
     private lazy var statusMenu: NSMenu = makeStatusMenu()
 
     public override init() {
@@ -42,18 +44,26 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
+        let presentationContainer = LauncherPresentationContainer()
+        presentationContainer.wantsLayer = true
+
         let rootView = LauncherView(state: state).environment(\.iconCache, iconCache)
         let hosting = NSHostingView(rootView: rootView)
         hosting.safeAreaRegions = []
         hosting.autoresizingMask = [.width, .height]
-        window.contentView = hosting
+        presentationContainer.addSubview(hosting)
+        hosting.frame = presentationContainer.bounds
+
+        window.contentView = presentationContainer
+        window.acceptsMouseMovedEvents = true
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = false
         window.level = .mainMenu
         self.window = window
-        launcherLifecycle = LauncherLifecycle(state: state, window: window)
+        launcherMouseMonitor.configure(window: window, state: state)
+        launcherLifecycle = LauncherLifecycle(state: state, window: window, mouseMonitor: launcherMouseMonitor)
         LaunchLog.line("window created frame=\(window.frame)")
         state.closeLauncher = { [weak self] in self?.launcherLifecycle?.hide() }
         state.dismissLauncher = { [weak self] in self?.launcherLifecycle?.dismiss() }
@@ -79,7 +89,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         button.target = self
         button.action = #selector(statusBarClicked(_:))
-        button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        button.sendAction(on: [.leftMouseUp])
+        startStatusRightClickMonitor(for: button)
         LaunchLog.line("status item ready")
     }
 
@@ -115,13 +126,21 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 LaunchLog.line("status bar action dropped self")
                 return
             }
-            let eventType = NSApp.currentEvent?.type
-            LaunchLog.line("status bar action event=\(String(describing: eventType))")
-            if eventType == .rightMouseUp {
-                statusMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
-            } else {
-                handleToggleLauncher()
+            LaunchLog.line("status bar left click")
+            handleToggleLauncher()
+        }
+    }
+
+    func startStatusRightClickMonitor(for button: NSStatusBarButton) {
+        statusRightClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.rightMouseDown, .rightMouseUp]) { [weak self, weak button] event in
+            guard let self, let button, event.window === button.window else { return event }
+            let point = button.convert(event.locationInWindow, from: nil)
+            guard button.bounds.contains(point) else { return event }
+            if event.type == .rightMouseUp {
+                LaunchLog.line("status bar right click")
+                statusMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
             }
+            return nil
         }
     }
 
@@ -257,11 +276,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             case .previousPage:
                 if self.launcherLifecycle?.isVisible == true {
-                    self.state.changePage(-1)
+                    withAnimation(LaunchConstants.Animation.spring) {
+                        self.state.changePage(-1)
+                    }
                 }
             case .nextPage:
                 if self.launcherLifecycle?.isVisible == true {
-                    self.state.changePage(1)
+                    withAnimation(LaunchConstants.Animation.spring) {
+                        self.state.changePage(1)
+                    }
                 }
             }
         }
@@ -297,7 +320,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func handleLauncherKey(_ event: NSEvent) -> NSEvent? {
-        if window?.firstResponder is NSTextView {
+        if state.isSearchFieldFocused() {
             switch event.keyCode {
             case 36, 76:
                 state.launchSelected()

@@ -2,21 +2,11 @@ import LaunchCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-private struct LauncherDismissArea: View {
-    let action: () -> Void
-
-    var body: some View {
-        Color.clear
-            .contentShape(Rectangle())
-            .onTapGesture(perform: action)
-    }
-}
-
 struct LauncherView: View {
-    @StateObject private var state: AppState
+    @ObservedObject var state: AppState
 
     init(state: AppState) {
-        _state = StateObject(wrappedValue: state)
+        self.state = state
     }
 
     var body: some View {
@@ -39,56 +29,13 @@ struct LauncherView: View {
                     windowed: state.windowBrowsingMode
                 )
 
-                LauncherDismissArea { state.dismissFromBackground() }
-                    .ignoresSafeArea()
-
-                VStack(spacing: 0) {
-                    LauncherDismissArea { state.dismissFromBackground() }
-                        .frame(height: layout.safeTopInset)
-
-                    LauncherSearchField(
-                        query: $state.query,
-                        isVisible: state.launcherVisible,
-                        onBackgroundTap: { state.dismissFromBackground() }
-                    )
-                    .frame(height: layout.searchBarHeight)
-
-                    LauncherDismissArea { state.dismissFromBackground() }
-                        .frame(height: layout.searchToGridGap)
-
-                    ZStack {
-                        LauncherDismissArea { state.dismissFromBackground() }
-
-                        if state.query.isEmpty, state.displayMode == .paged {
-                            PagedGridView(
-                                state: state,
-                                layout: layout,
-                                columns: columns,
-                                pageWidth: geometry.size.width,
-                                gridHeight: gridHeight,
-                                onBackgroundTap: { state.dismissFromBackground() }
-                            )
-                        } else {
-                            searchResultsGrid(layout: layout, columns: columns)
-                        }
-                    }
-                    .frame(height: gridHeight)
-
-                    if showsPageControl {
-                        LauncherDismissArea { state.dismissFromBackground() }
-                            .frame(height: layout.gridToPagerGap)
-
-                        LauncherPageControl(
-                            pageCount: state.pageCount,
-                            currentPage: state.currentPage,
-                            selectPage: state.selectPage
-                        )
-                            .frame(height: layout.pageControlHeight)
-                    }
-
-                    LauncherDismissArea { state.dismissFromBackground() }
-                        .frame(height: layout.safeBottomInset)
-                }
+                launcherContent(
+                    layout: layout,
+                    columns: columns,
+                    gridHeight: gridHeight,
+                    showsPageControl: showsPageControl,
+                    pageWidth: geometry.size.width
+                )
                 .frame(width: geometry.size.width, height: geometry.size.height)
 
                 if let folder = state.openFolder {
@@ -103,197 +50,172 @@ struct LauncherView: View {
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
-        .scaleEffect(state.launcherVisible ? 1 : LaunchConstants.Lifecycle.hiddenScale)
-        .opacity(state.launcherVisible ? 1 : 0)
-        .animation(LaunchConstants.Animation.presentation, value: state.launcherVisible)
         .ignoresSafeArea()
         .onExitCommand { state.handleEscape() }
     }
 
     @ViewBuilder
+    private func launcherContent(
+        layout: LaunchpadLayoutMetrics,
+        columns: [GridItem],
+        gridHeight: CGFloat,
+        showsPageControl: Bool,
+        pageWidth: CGFloat
+    ) -> some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: layout.safeTopInset)
+
+            LauncherSearchField(
+                query: $state.query,
+                isVisible: state.launcherVisible,
+                onFieldReady: { state.searchField = $0 }
+            )
+                .frame(height: layout.searchBarHeight)
+
+            Spacer(minLength: layout.searchToGridGap)
+
+            Group {
+                if state.query.isEmpty, state.displayMode == .paged {
+                    PagedGridView(
+                        state: state,
+                        layout: layout,
+                        columns: columns,
+                        pageWidth: pageWidth,
+                        gridHeight: gridHeight
+                    )
+                } else {
+                    searchResultsGrid(layout: layout, columns: columns)
+                }
+            }
+            .frame(height: gridHeight)
+
+            if showsPageControl {
+                Spacer(minLength: layout.gridToPagerGap)
+
+                LauncherPageControl(
+                    state: state,
+                    selectPage: state.selectPage
+                )
+                .frame(height: layout.pageControlHeight)
+            }
+
+            Spacer(minLength: layout.safeBottomInset)
+        }
+    }
+
+    @ViewBuilder
     private func searchResultsGrid(layout: LaunchpadLayoutMetrics, columns: [GridItem]) -> some View {
         ScrollView {
-            ZStack(alignment: .top) {
-                LauncherDismissArea { state.dismissFromBackground() }
-
-                LazyVGrid(columns: columns, spacing: layout.gridRowSpacing) {
-                    ForEach(state.visibleItems) { item in
-                        LauncherItemView(item: item, state: state, layout: layout)
-                    }
+            LazyVGrid(columns: columns, spacing: layout.gridRowSpacing) {
+                ForEach(state.visibleItems) { item in
+                    LauncherItemView(item: item, state: state, layout: layout)
                 }
-                .padding(.horizontal, layout.horizontalPadding)
             }
+            .padding(.horizontal, layout.horizontalPadding)
             .frame(minHeight: layout.gridHeight(showsPageControl: false), alignment: .top)
         }
     }
 }
 
 struct PagedGridView: View {
-    var state: AppState
+    @ObservedObject var state: AppState
     let layout: LaunchpadLayoutMetrics
     let columns: [GridItem]
     let pageWidth: CGFloat
     let gridHeight: CGFloat
-    var onBackgroundTap: () -> Void = {}
-
-    @State private var dragOffset: CGFloat = 0
-    @State private var dragStartPage = 0
-    @State private var pageLockedUntil = Date.distantPast
 
     var body: some View {
-        ZStack {
-            LauncherDismissArea(action: onBackgroundTap)
-
-            HStack(spacing: 0) {
-                ForEach(0..<state.pageCount, id: \.self) { page in
-                    ZStack(alignment: .top) {
-                        LauncherDismissArea(action: onBackgroundTap)
-
-                        LazyVGrid(columns: columns, spacing: layout.gridRowSpacing) {
-                            ForEach(state.items(forPage: page)) { item in
-                                LauncherItemView(item: item, state: state, layout: layout)
-                            }
-                        }
+        HStack(spacing: 0) {
+            ForEach(0..<state.pageCount, id: \.self) { page in
+                LazyVGrid(columns: columns, spacing: layout.gridRowSpacing) {
+                    ForEach(state.items(forPage: page)) { item in
+                        LauncherItemView(item: item, state: state, layout: layout)
                     }
-                    .frame(width: pageWidth, height: gridHeight, alignment: .top)
                 }
+                .frame(width: pageWidth, height: gridHeight, alignment: .top)
             }
-            .offset(x: pageOffset)
-            .frame(width: pageWidth, alignment: .leading)
-            .animation(isDragging ? nil : LaunchConstants.Animation.spring, value: state.currentPage)
-            .animation(isDragging ? nil : LaunchConstants.Animation.spring, value: dragOffset)
-            .clipped()
         }
+        .offset(x: pageOffset)
+        .frame(width: pageWidth, alignment: .leading)
+        .clipped()
+        .animation(LaunchConstants.Animation.spring, value: state.currentPage)
+        .animation(LaunchConstants.Animation.spring, value: state.pageDragOffset)
         .frame(height: gridHeight)
-        .gesture(pageDragGesture)
-    }
-
-    private var isDragging: Bool {
-        dragOffset != 0
     }
 
     private var pageOffset: CGFloat {
-        -CGFloat(state.currentPage) * pageWidth + dragOffset
-    }
-
-    private var pageDragGesture: some Gesture {
-        DragGesture(minimumDistance: LaunchConstants.Launcher.dragMinimumDistance)
-            .onChanged { value in
-                guard state.query.isEmpty, state.openFolder == nil else { return }
-                guard Date() >= pageLockedUntil else { return }
-
-                if dragOffset == 0 {
-                    dragStartPage = state.currentPage
-                }
-
-                let maxRubber = pageWidth * LaunchConstants.Launcher.pageRubberBandRatio
-                var next = value.translation.width
-
-                if dragStartPage == 0, next > 0 {
-                    next = min(next, maxRubber)
-                }
-                if dragStartPage == state.pageCount - 1, next < 0 {
-                    next = max(next, -maxRubber)
-                }
-
-                dragOffset = next
-            }
-            .onEnded { value in
-                guard state.query.isEmpty, state.openFolder == nil else {
-                    dragOffset = 0
-                    return
-                }
-
-                let threshold = max(pageWidth * LaunchConstants.Launcher.pageSwipeThresholdRatio, LaunchConstants.Launcher.pageDragThreshold)
-                var target = dragStartPage
-
-                if value.translation.width < -threshold {
-                    target = min(dragStartPage + 1, state.pageCount - 1)
-                } else if value.translation.width > threshold {
-                    target = max(dragStartPage - 1, 0)
-                }
-
-                withAnimation(LaunchConstants.Animation.spring) {
-                    if target != dragStartPage {
-                        state.goToPage(target)
-                    }
-                    dragOffset = 0
-                }
-
-                if target != dragStartPage {
-                    pageLockedUntil = Date().addingTimeInterval(LaunchConstants.Launcher.pageChangeCooldown)
-                }
-            }
+        -CGFloat(state.currentPage) * pageWidth + state.pageDragOffset
     }
 }
 
 struct LauncherSearchField: View {
     @Binding var query: String
     let isVisible: Bool
-    var onBackgroundTap: () -> Void = {}
-    @FocusState private var focused: Bool
+    var onFieldReady: (NSTextField) -> Void
 
     var body: some View {
-        HStack(spacing: 0) {
-            LauncherDismissArea(action: onBackgroundTap)
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.white.opacity(0.7))
+                .allowsHitTesting(false)
 
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.7))
+            LauncherNativeSearchField(
+                text: $query,
+                requestFocus: isVisible,
+                onFieldReady: onFieldReady
+            )
+            .frame(minWidth: 180, maxWidth: .infinity, minHeight: LaunchConstants.Launcher.searchHeight)
 
-                TextField(LaunchConstants.Launcher.searchPlaceholder, text: $query)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: LaunchConstants.Launcher.searchFontSize, weight: .regular))
-                    .foregroundStyle(.white)
-                    .focused($focused)
-
-                if !query.isEmpty {
-                    Button { query = "" } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 14))
-                            .foregroundStyle(.white.opacity(0.55))
-                    }
-                    .buttonStyle(.plain)
+            if !query.isEmpty {
+                Button { query = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.white.opacity(0.55))
                 }
+                .buttonStyle(.plain)
             }
-            .padding(.horizontal, LaunchConstants.Launcher.searchHorizontalPadding)
-            .frame(width: LaunchConstants.Launcher.searchWidth, height: LaunchConstants.Launcher.searchHeight)
-            .tahoeSearchChrome()
-            .contentShape(Rectangle())
-            .onTapGesture {
-                LaunchLog.line("search focus requested")
-                focused = true
-            }
-
-            LauncherDismissArea(action: onBackgroundTap)
+        }
+        .padding(.horizontal, LaunchConstants.Launcher.searchHorizontalPadding)
+        .frame(width: LaunchConstants.Launcher.searchWidth, height: LaunchConstants.Launcher.searchHeight)
+        .background {
+            Capsule()
+                .fill(.white.opacity(0.14))
+                .background(.ultraThinMaterial, in: Capsule())
+                .overlay {
+                    Capsule()
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [.white.opacity(0.45), .white.opacity(0.12)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                            lineWidth: 0.5
+                        )
+                }
+                .allowsHitTesting(false)
         }
         .frame(maxWidth: .infinity)
-        .onAppear { focused = true }
-        .onChange(of: isVisible) { _, visible in
-            if visible { focused = true }
-        }
     }
 }
 
 struct LauncherPageControl: View {
-    let pageCount: Int
-    let currentPage: Int
+    @ObservedObject var state: AppState
     let selectPage: (Int) -> Void
 
     var body: some View {
         HStack(spacing: LaunchConstants.Launcher.pageDotSpacing) {
-            ForEach(0..<pageCount, id: \.self) { page in
+            ForEach(0..<state.pageCount, id: \.self) { page in
                 Circle()
-                    .fill(page == currentPage ? .white : .white.opacity(LaunchConstants.Launcher.inactivePageOpacity))
+                    .fill(page == state.currentPage ? .white : .white.opacity(LaunchConstants.Launcher.inactivePageOpacity))
                     .frame(
                         width: LaunchConstants.Launcher.pageDotSize,
                         height: LaunchConstants.Launcher.pageDotSize
                     )
-                    .scaleEffect(page == currentPage ? LaunchConstants.Launcher.pageIndicatorActiveScale : 1)
+                    .scaleEffect(page == state.currentPage ? LaunchConstants.Launcher.pageIndicatorActiveScale : 1)
                     .padding(6)
                     .contentShape(Rectangle())
-                    .animation(LaunchConstants.Animation.fade, value: currentPage)
+                    .animation(LaunchConstants.Animation.fade, value: state.currentPage)
                     .onTapGesture {
                         LaunchLog.line("page dot tapped page=\(page)")
                         withAnimation(LaunchConstants.Animation.spring) {
@@ -318,7 +240,7 @@ private func keyboardSelectionBackground(isSelected: Bool) -> some View {
 
 struct LauncherItemView: View {
     let item: LauncherItem
-    var state: AppState
+    @ObservedObject var state: AppState
     let layout: LaunchpadLayoutMetrics
 
     var body: some View {
@@ -333,7 +255,7 @@ struct LauncherItemView: View {
 
 struct AppIcon: View {
     let app: LaunchApp
-    var state: AppState
+    @ObservedObject var state: AppState
     @Environment(\.iconCache) private var iconCache
     let layout: LaunchpadLayoutMetrics
 
@@ -385,7 +307,7 @@ func launcherAppContextMenu(app: LaunchApp, state: AppState) -> some View {
 struct FolderIcon: View {
     let folder: LaunchFolder
     let apps: [LaunchApp]
-    var state: AppState
+    @ObservedObject var state: AppState
     @Environment(\.iconCache) private var iconCache
     let layout: LaunchpadLayoutMetrics
 
@@ -436,7 +358,7 @@ struct FolderIcon: View {
 
 struct FolderOverlay: View {
     let folder: LaunchFolder
-    var state: AppState
+    @ObservedObject var state: AppState
     @State private var isVisible = false
 
     private var columns: [GridItem] {
@@ -494,7 +416,7 @@ struct FolderOverlay: View {
 
 struct FolderOverlayAppIcon: View {
     let app: LaunchApp
-    var state: AppState
+    @ObservedObject var state: AppState
     @Environment(\.iconCache) private var iconCache
 
     var body: some View {
