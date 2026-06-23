@@ -15,4 +15,23 @@ let apps = [
 assert(LayoutOrder.apply(["c", "a"], to: apps).map(\.id) == ["c", "a", "b"])
 assert(LayoutOrder.move("c", before: "b", in: ["a", "b", "c"]) == ["a", "c", "b"])
 
+let folderResult = FolderLayout.createFolder(
+    id: "folder-1",
+    draggedID: "c",
+    targetID: "a",
+    folders: [],
+    order: ["a", "b", "c"]
+)
+assert(folderResult.folders == [LaunchFolder(id: "folder-1", name: "Folder", appIDs: ["a", "c"])])
+assert(folderResult.order == ["folder-1", "b"])
+
+let reorderedFolderResult = FolderLayout.createFolder(
+    id: "folder-2",
+    draggedID: "c",
+    targetID: "a",
+    folders: [],
+    order: ["c", "a", "b"]
+)
+assert(reorderedFolderResult.order == ["folder-2", "b"])
+
 print("LaunchCheck OK")

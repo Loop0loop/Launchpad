@@ -31,9 +31,9 @@ LaunchOS 느낌의 macOS Launchpad 대체 앱. Pro/결제/라이선스 없음.
 
 ## Phase 4 - Folders
 
-- [ ] Drop app on app to create folder
-- [ ] Glass folder overlay
-- [ ] Launch apps inside folder
+- [x] Drop app on app to create folder
+- [x] Glass folder overlay
+- [x] Launch apps inside folder
 
 ## Phase 5 - Trackpad
 
