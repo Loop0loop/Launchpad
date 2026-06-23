@@ -36,26 +36,27 @@ enum LaunchConstants {
     }
 
     enum Launcher {
-        static let searchPlaceholder = "Search Applications"
+        static let searchPlaceholder = "Search"
         static let pageSize = 35
         static let columns = 7
-        static let gridItemWidth: CGFloat = 112
-        static let gridSpacing: CGFloat = 18
-        static let gridRowSpacing: CGFloat = 22
-        static let verticalSpacing: CGFloat = 34
+        static let gridItemWidth: CGFloat = 108
+        static let gridSpacing: CGFloat = 16
+        static let gridRowSpacing: CGFloat = 28
+        static let verticalSpacing: CGFloat = 36
         static let gridHeight: CGFloat = 620
-        static let topPadding: CGFloat = 70
-        static let searchWidth: CGFloat = 420
-        static let searchHeight: CGFloat = 44
-        static let searchHorizontalPadding: CGFloat = 18
-        static let searchFontSize: CGFloat = 18
-        static let backgroundOpacity = 0.22
-        static let overlayOpacity = 0.28
-        static let pageDotSize: CGFloat = 7
-        static let pageDotSpacing: CGFloat = 8
-        static let pageDotHeight: CGFloat = 14
-        static let inactivePageOpacity = 0.35
-        static let contentHiddenScale = 0.96
+        static let topPadding: CGFloat = 64
+        static let searchWidth: CGFloat = 320
+        static let searchHeight: CGFloat = 36
+        static let searchHorizontalPadding: CGFloat = 14
+        static let searchFontSize: CGFloat = 15
+        static let backgroundMaterial: NSVisualEffectView.Material = .fullScreenUI
+        static let backgroundOpacity = 0.18
+        static let overlayOpacity = 0.32
+        static let pageDotSize: CGFloat = 6
+        static let pageDotSpacing: CGFloat = 7
+        static let pageDotHeight: CGFloat = 28
+        static let inactivePageOpacity = 0.38
+        static let contentHiddenScale = 0.94
         static let pageTransitionScale = 0.985
         static let contentAnimationDuration = 0.18
         static let pageAnimationDuration = 0.16
@@ -64,15 +65,15 @@ enum LaunchConstants {
     }
 
     enum Icon {
-        static let imageSize: CGFloat = 72
-        static let miniImageSize: CGFloat = 22
-        static let miniGridItemWidth: CGFloat = 24
-        static let labelWidth: CGFloat = 104
-        static let labelHeight: CGFloat = 34
-        static let labelFontSize: CGFloat = 13
-        static let spacing: CGFloat = 8
+        static let imageSize: CGFloat = 64
+        static let miniImageSize: CGFloat = 20
+        static let miniGridItemWidth: CGFloat = 22
+        static let labelWidth: CGFloat = 96
+        static let labelHeight: CGFloat = 32
+        static let labelFontSize: CGFloat = 12
+        static let spacing: CGFloat = 6
         static let draggedOpacity = 0.35
-        static let folderCornerRadius: CGFloat = 18
+        static let folderCornerRadius: CGFloat = 16
         static let folderPreviewColumns = 2
         static let folderPreviewLimit = 4
     }

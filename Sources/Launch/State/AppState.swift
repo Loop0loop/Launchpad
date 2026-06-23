@@ -9,6 +9,7 @@ final class AppState: ObservableObject {
         didSet { currentPage = 0 }
     }
     @Published var currentPage = 0
+    @Published private(set) var pageDirection = 0
     @Published var draggedAppID: String?
     @Published var openFolder: LaunchFolder?
     @Published var launchAtLogin = false
@@ -152,7 +153,11 @@ final class AppState: ObservableObject {
     }
 
     func changePage(_ delta: Int) {
-        currentPage = min(max(currentPage + delta, 0), pageCount - 1)
+        guard delta != 0 else { return }
+        let nextPage = min(max(currentPage + delta, 0), pageCount - 1)
+        guard nextPage != currentPage else { return }
+        pageDirection = delta
+        currentPage = nextPage
     }
 
     func dropApp(_ draggedID: String, on targetID: String) {
