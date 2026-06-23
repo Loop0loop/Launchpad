@@ -20,7 +20,7 @@ final class AppState: ObservableObject {
     @Published private var order: [String] = []
 
     private let layoutStore = LayoutStore()
-    private let pageSize = 35
+    private let pageSize = LaunchConstants.Launcher.pageSize
     var closeLauncher: (() -> Void)?
     var dismissLauncher: (() -> Void)?
     var launchApp: ((LaunchApp) -> Void)?

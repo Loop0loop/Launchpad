@@ -19,7 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func makeWindow() {
-        let frame = NSScreen.main?.frame ?? .init(x: 0, y: 0, width: 1440, height: 900)
+        let frame = NSScreen.main?.frame ?? LaunchConstants.App.fallbackWindowFrame
         let window = NSWindow(
             contentRect: frame,
             styleMask: [.borderless],
@@ -40,13 +40,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func makeStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem?.button?.title = "L"
+        statusItem?.button?.title = LaunchConstants.App.menuBarTitle
         let menu = NSMenu()
-        menu.addItem(withTitle: "Toggle Launch", action: #selector(toggleLauncher), keyEquivalent: "l")
-        menu.addItem(withTitle: "Settings", action: #selector(showSettings), keyEquivalent: ",")
-        menu.addItem(withTitle: "Refresh Apps", action: #selector(refreshApps), keyEquivalent: "r")
+        menu.addItem(withTitle: LaunchConstants.Menu.toggle, action: #selector(toggleLauncher), keyEquivalent: LaunchConstants.Menu.toggleKey)
+        menu.addItem(withTitle: LaunchConstants.Menu.settings, action: #selector(showSettings), keyEquivalent: LaunchConstants.Menu.settingsKey)
+        menu.addItem(withTitle: LaunchConstants.Menu.refreshApps, action: #selector(refreshApps), keyEquivalent: LaunchConstants.Menu.refreshKey)
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit", action: #selector(NSApp.terminate), keyEquivalent: "q")
+        menu.addItem(withTitle: LaunchConstants.Menu.quit, action: #selector(NSApp.terminate), keyEquivalent: LaunchConstants.Menu.quitKey)
         statusItem?.menu = menu
     }
 
@@ -61,12 +61,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func showSettings() {
         if settingsWindow == nil {
             let window = NSWindow(
-                contentRect: .init(x: 0, y: 0, width: 360, height: 180),
+                contentRect: .init(x: 0, y: 0, width: LaunchConstants.Settings.width, height: LaunchConstants.Settings.height),
                 styleMask: [.titled, .closable],
                 backing: .buffered,
                 defer: false
             )
-            window.title = "Launch Settings"
+            window.title = LaunchConstants.App.settingsTitle
             window.contentView = NSHostingView(rootView: SettingsView(state: state))
             settingsWindow = window
         }

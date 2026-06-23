@@ -42,7 +42,7 @@ final class LauncherLifecycle {
         NSApp.activate(ignoringOtherApps: true)
         state.launcherVisible = true
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.16
+            context.duration = LaunchConstants.Lifecycle.showDuration
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             window.animator().alphaValue = 1
         }
@@ -63,7 +63,7 @@ final class LauncherLifecycle {
         let token = dismissToken
         state.launcherVisible = false
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.12
+            context.duration = LaunchConstants.Lifecycle.hideDuration
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             window.animator().alphaValue = 0
         } completionHandler: {

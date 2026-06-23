@@ -3,8 +3,8 @@ import LaunchCore
 
 @MainActor
 final class LayoutStore {
-    private let layoutKey = "layoutOrder"
-    private let foldersKey = "folders"
+    private let layoutKey = LaunchConstants.Storage.layoutOrderKey
+    private let foldersKey = LaunchConstants.Storage.foldersKey
 
     func loadOrder() -> [String] {
         LayoutPersistenceAdapter.stringArray(forKey: layoutKey)

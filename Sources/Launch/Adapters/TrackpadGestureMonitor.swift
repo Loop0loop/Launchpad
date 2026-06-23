@@ -75,11 +75,11 @@ final class FourFingerContactMonitor {
 
     func start() {
         guard !isReady else { return }
-        handle = dlopen("/System/Library/PrivateFrameworks/MultitouchSupport.framework/MultitouchSupport", RTLD_NOW)
+        handle = dlopen(LaunchConstants.Multitouch.frameworkPath, RTLD_NOW)
         guard let handle,
-              let createListSymbol = dlsym(handle, "MTDeviceCreateList"),
-              let registerSymbol = dlsym(handle, "MTRegisterContactFrameCallback"),
-              let startSymbol = dlsym(handle, "MTDeviceStart") else { return }
+              let createListSymbol = dlsym(handle, LaunchConstants.Multitouch.createListSymbol),
+              let registerSymbol = dlsym(handle, LaunchConstants.Multitouch.registerContactFrameCallbackSymbol),
+              let startSymbol = dlsym(handle, LaunchConstants.Multitouch.deviceStartSymbol) else { return }
 
         let createList = unsafeBitCast(createListSymbol, to: MTDeviceCreateList.self)
         let register = unsafeBitCast(registerSymbol, to: MTRegisterContactFrameCallback.self)
@@ -97,7 +97,7 @@ final class FourFingerContactMonitor {
     }
 
     fileprivate func sawContactFrame(count: Int32, timestamp: Double) {
-        guard count == 4 else { return }
+        guard count == LaunchConstants.Multitouch.fourFingerCount else { return }
         lastFourFingerTime = timestamp
     }
 }

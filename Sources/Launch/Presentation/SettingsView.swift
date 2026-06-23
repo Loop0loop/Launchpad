@@ -5,30 +5,30 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Toggle("Launch at Login", isOn: Binding(
+            Toggle(LaunchConstants.Settings.launchAtLogin, isOn: Binding(
                 get: { state.launchAtLogin },
                 set: { state.setLaunchAtLogin($0) }
             ))
 
-            Button("Refresh Apps") {
+            Button(LaunchConstants.Menu.refreshApps) {
                 state.refreshApps()
             }
 
             HStack {
-                Text("Accessibility")
+                Text(LaunchConstants.Settings.accessibility)
                 Spacer()
                 Text(state.accessibilityState.label)
                     .foregroundStyle(state.accessibilityState == .allowed ? .green : .orange)
             }
 
             HStack {
-                Text("Trackpad")
+                Text(LaunchConstants.Settings.trackpad)
                 Spacer()
                 Text(state.trackpadGateState.label)
                     .foregroundStyle(state.trackpadGateState == .exactFourFinger ? .green : .orange)
             }
 
-            Button("Request Accessibility Permission") {
+            Button(LaunchConstants.Settings.requestAccessibility) {
                 state.requestAccessibilityPermission()
             }
 
@@ -38,7 +38,7 @@ struct SettingsView: View {
                     .foregroundStyle(.red)
             }
         }
-        .padding(24)
-        .frame(width: 360)
+        .padding(LaunchConstants.Settings.padding)
+        .frame(width: LaunchConstants.Settings.width)
     }
 }

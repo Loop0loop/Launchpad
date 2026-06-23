@@ -6,48 +6,51 @@ struct LauncherView: View {
     @ObservedObject var state: AppState
     @StateObject private var iconCache = IconCache()
 
-    private let columns = Array(repeating: GridItem(.fixed(112), spacing: 18), count: 7)
+    private let columns = Array(
+        repeating: GridItem(.fixed(LaunchConstants.Launcher.gridItemWidth), spacing: LaunchConstants.Launcher.gridSpacing),
+        count: LaunchConstants.Launcher.columns
+    )
 
     var body: some View {
         ZStack {
             VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
                 .ignoresSafeArea()
-            Color.black.opacity(0.22).ignoresSafeArea()
+            Color.black.opacity(LaunchConstants.Launcher.backgroundOpacity).ignoresSafeArea()
 
-            VStack(spacing: 34) {
-                TextField("Search Applications", text: $state.query)
+            VStack(spacing: LaunchConstants.Launcher.verticalSpacing) {
+                TextField(LaunchConstants.Launcher.searchPlaceholder, text: $state.query)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 18, weight: .medium))
-                    .padding(.horizontal, 18)
-                    .frame(width: 420, height: 44)
+                    .font(.system(size: LaunchConstants.Launcher.searchFontSize, weight: .medium))
+                    .padding(.horizontal, LaunchConstants.Launcher.searchHorizontalPadding)
+                    .frame(width: LaunchConstants.Launcher.searchWidth, height: LaunchConstants.Launcher.searchHeight)
                     .background(.ultraThinMaterial, in: Capsule())
 
-                LazyVGrid(columns: columns, spacing: 22) {
+                LazyVGrid(columns: columns, spacing: LaunchConstants.Launcher.gridRowSpacing) {
                     ForEach(state.pageItems) { item in
                         LauncherItemView(item: item, state: state, iconCache: iconCache)
                     }
                 }
-                .frame(height: 620, alignment: .top)
+                .frame(height: LaunchConstants.Launcher.gridHeight, alignment: .top)
                 .id(state.currentPage)
-                .transition(.opacity.combined(with: .scale(scale: 0.985)))
-                .animation(.easeOut(duration: 0.16), value: state.currentPage)
+                .transition(.opacity.combined(with: .scale(scale: LaunchConstants.Launcher.pageTransitionScale)))
+                .animation(.easeOut(duration: LaunchConstants.Launcher.pageAnimationDuration), value: state.currentPage)
 
-                HStack(spacing: 8) {
+                HStack(spacing: LaunchConstants.Launcher.pageDotSpacing) {
                     ForEach(0..<state.pageCount, id: \.self) { page in
                         Circle()
-                            .fill(page == state.currentPage ? .white : .white.opacity(0.35))
-                            .frame(width: 7, height: 7)
+                            .fill(page == state.currentPage ? .white : .white.opacity(LaunchConstants.Launcher.inactivePageOpacity))
+                            .frame(width: LaunchConstants.Launcher.pageDotSize, height: LaunchConstants.Launcher.pageDotSize)
                     }
                 }
-                .frame(height: 14)
+                .frame(height: LaunchConstants.Launcher.pageDotHeight)
             }
-            .padding(.top, 70)
+            .padding(.top, LaunchConstants.Launcher.topPadding)
             .opacity(state.launcherVisible ? 1 : 0)
-            .scaleEffect(state.launcherVisible ? 1 : 0.96)
-            .animation(.easeOut(duration: 0.18), value: state.launcherVisible)
+            .scaleEffect(state.launcherVisible ? 1 : LaunchConstants.Launcher.contentHiddenScale)
+            .animation(.easeOut(duration: LaunchConstants.Launcher.contentAnimationDuration), value: state.launcherVisible)
 
             if let folder = state.openFolder {
-                Color.black.opacity(0.28)
+                Color.black.opacity(LaunchConstants.Launcher.overlayOpacity)
                     .ignoresSafeArea()
                     .onTapGesture { state.closeFolder() }
 
@@ -55,11 +58,11 @@ struct LauncherView: View {
             }
         }
         .gesture(
-            DragGesture(minimumDistance: 40)
+            DragGesture(minimumDistance: LaunchConstants.Launcher.dragMinimumDistance)
                 .onEnded { value in
-                    if value.translation.width < -60 {
+                    if value.translation.width < -LaunchConstants.Launcher.pageDragThreshold {
                         state.changePage(1)
-                    } else if value.translation.width > 60 {
+                    } else if value.translation.width > LaunchConstants.Launcher.pageDragThreshold {
                         state.changePage(-1)
                     }
                 }
@@ -71,7 +74,7 @@ struct LauncherView: View {
                 state.query = ""
             }
         }
-        .animation(.easeOut(duration: 0.18), value: state.openFolder?.id)
+        .animation(.easeOut(duration: LaunchConstants.Launcher.contentAnimationDuration), value: state.openFolder?.id)
     }
 }
 
@@ -99,18 +102,18 @@ struct AppIcon: View {
         Button {
             state.launch(app)
         } label: {
-            VStack(spacing: 8) {
+            VStack(spacing: LaunchConstants.Icon.spacing) {
                 Image(nsImage: iconCache.icon(for: app))
                     .resizable()
-                    .frame(width: 72, height: 72)
+                    .frame(width: LaunchConstants.Icon.imageSize, height: LaunchConstants.Icon.imageSize)
                 Text(app.name)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: LaunchConstants.Icon.labelFontSize, weight: .medium))
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
-                    .frame(width: 104, height: 34, alignment: .top)
+                    .frame(width: LaunchConstants.Icon.labelWidth, height: LaunchConstants.Icon.labelHeight, alignment: .top)
             }
             .foregroundStyle(.white)
-            .opacity(state.draggedAppID == app.id ? 0.35 : 1)
+            .opacity(state.draggedAppID == app.id ? LaunchConstants.Icon.draggedOpacity : 1)
         }
         .buttonStyle(.plain)
         .onDrag {
@@ -131,24 +134,30 @@ struct FolderIcon: View {
         Button {
             state.openFolder = folder
         } label: {
-            VStack(spacing: 8) {
+            VStack(spacing: LaunchConstants.Icon.spacing) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 18)
+                    RoundedRectangle(cornerRadius: LaunchConstants.Icon.folderCornerRadius)
                         .fill(.ultraThinMaterial)
-                        .frame(width: 72, height: 72)
-                    LazyVGrid(columns: Array(repeating: GridItem(.fixed(24), spacing: 0), count: 2), spacing: 0) {
-                        ForEach(apps.prefix(4)) { app in
+                        .frame(width: LaunchConstants.Icon.imageSize, height: LaunchConstants.Icon.imageSize)
+                    LazyVGrid(
+                        columns: Array(
+                            repeating: GridItem(.fixed(LaunchConstants.Icon.miniGridItemWidth), spacing: 0),
+                            count: LaunchConstants.Icon.folderPreviewColumns
+                        ),
+                        spacing: 0
+                    ) {
+                        ForEach(apps.prefix(LaunchConstants.Icon.folderPreviewLimit)) { app in
                             Image(nsImage: iconCache.icon(for: app))
                                 .resizable()
-                                .frame(width: 22, height: 22)
+                                .frame(width: LaunchConstants.Icon.miniImageSize, height: LaunchConstants.Icon.miniImageSize)
                         }
                     }
                 }
                 Text(folder.name)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: LaunchConstants.Icon.labelFontSize, weight: .medium))
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
-                    .frame(width: 104, height: 34, alignment: .top)
+                    .frame(width: LaunchConstants.Icon.labelWidth, height: LaunchConstants.Icon.labelHeight, alignment: .top)
             }
             .foregroundStyle(.white)
         }
@@ -162,23 +171,26 @@ struct FolderOverlay: View {
     @ObservedObject var state: AppState
     @StateObject private var iconCache = IconCache()
 
-    private let columns = Array(repeating: GridItem(.fixed(112), spacing: 18), count: 4)
+    private let columns = Array(
+        repeating: GridItem(.fixed(LaunchConstants.FolderOverlay.gridItemWidth), spacing: LaunchConstants.FolderOverlay.gridSpacing),
+        count: LaunchConstants.FolderOverlay.columns
+    )
 
     var body: some View {
-        VStack(spacing: 22) {
+        VStack(spacing: LaunchConstants.FolderOverlay.spacing) {
             Text(folder.name)
-                .font(.system(size: 24, weight: .semibold))
+                .font(.system(size: LaunchConstants.FolderOverlay.titleFontSize, weight: .semibold))
                 .foregroundStyle(.white)
 
-            LazyVGrid(columns: columns, spacing: 22) {
+            LazyVGrid(columns: columns, spacing: LaunchConstants.FolderOverlay.spacing) {
                 ForEach(state.apps(in: folder)) { app in
                     AppIcon(app: app, state: state, iconCache: iconCache)
                 }
             }
-            .frame(minHeight: 150, alignment: .top)
+            .frame(minHeight: LaunchConstants.FolderOverlay.minGridHeight, alignment: .top)
         }
-        .padding(30)
-        .frame(width: 560)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
+        .padding(LaunchConstants.FolderOverlay.padding)
+        .frame(width: LaunchConstants.FolderOverlay.width)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: LaunchConstants.FolderOverlay.cornerRadius))
     }
 }
