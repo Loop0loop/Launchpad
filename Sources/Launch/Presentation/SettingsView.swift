@@ -94,6 +94,11 @@ struct SettingsView: View {
                 )
             )
 
+            SettingsToggleRow(
+                title: LaunchConstants.Settings.windowBrowsingMode,
+                isOn: $state.windowBrowsingMode
+            )
+
             SettingsActionRow(title: LaunchConstants.Menu.refreshApps) {
                 state.refreshApps()
             }

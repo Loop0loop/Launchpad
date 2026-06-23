@@ -7,6 +7,7 @@ final class LauncherLifecycle {
     private let window: NSWindow
     private var previousApp: NSRunningApplication?
     private var isAnimating = false
+    private var menuBarHidden = false
 
     init(state: AppState, window: NSWindow) {
         self.state = state
@@ -34,11 +35,11 @@ final class LauncherLifecycle {
         state.query = ""
         state.openFolder = nil
         state.clearSelection()
+        state.launcherVisible = true
 
-        window.setFrame(NSScreen.main?.frame ?? window.frame, display: true)
+        applyWindowBrowsingMode()
         window.alphaValue = 0
         window.contentView?.alphaValue = 0
-        state.launcherVisible = true
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
 
@@ -51,6 +52,7 @@ final class LauncherLifecycle {
     }
 
     func dismiss() {
+        setMenuBarHidden(false)
         state.launcherVisible = false
         window.orderOut(nil)
         resetWindowAlpha()
@@ -71,28 +73,30 @@ final class LauncherLifecycle {
         AppSystemAdapter.showInFinder(app)
     }
 
+    func applyWindowBrowsingMode() {
+        let screenFrame = NSScreen.main?.frame ?? window.frame
+        window.setFrame(state.windowBrowsingMode ? windowedFrame(in: screenFrame) : screenFrame, display: true)
+        guard state.launcherVisible || window.isVisible else {
+            window.level = state.windowBrowsingMode ? .normal : .mainMenu
+            return
+        }
+        setMenuBarHidden(!state.windowBrowsingMode)
+    }
+
     private func animateWindow(to targetAlpha: CGFloat, restorePreviousApp: Bool = false) {
         isAnimating = true
+        window.alphaValue = targetAlpha
+        window.contentView?.alphaValue = targetAlpha
+        isAnimating = false
 
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = LaunchConstants.Lifecycle.windowDuration
-            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            window.animator().alphaValue = targetAlpha
-            window.contentView?.animator().alphaValue = targetAlpha
-        } completionHandler: { [weak self] in
-            Task { @MainActor in
-                guard let self else { return }
-                self.window.alphaValue = targetAlpha
-                self.window.contentView?.alphaValue = targetAlpha
-                self.isAnimating = false
-
-                if targetAlpha <= 0.01 {
-                    self.state.launcherVisible = false
-                    self.window.orderOut(nil)
-                    self.resetWindowAlpha()
-                    if restorePreviousApp {
-                        self.activatePreviousApp()
-                    }
+        if targetAlpha <= 0.01 {
+            setMenuBarHidden(false)
+            state.launcherVisible = false
+            window.orderOut(nil)
+            resetWindowAlpha()
+            if restorePreviousApp {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    self.activatePreviousApp()
                 }
             }
         }
@@ -101,6 +105,17 @@ final class LauncherLifecycle {
     private func resetWindowAlpha() {
         window.alphaValue = 1
         window.contentView?.alphaValue = 1
+    }
+
+    private func windowedFrame(in screenFrame: NSRect) -> NSRect {
+        let width = min(LaunchConstants.WindowBrowsing.width, screenFrame.width)
+        let height = min(LaunchConstants.WindowBrowsing.height, screenFrame.height)
+        return NSRect(
+            x: screenFrame.midX - width / 2,
+            y: screenFrame.midY - height / 2,
+            width: width,
+            height: height
+        )
     }
 
     private func rememberPreviousApp() {
@@ -116,5 +131,13 @@ final class LauncherLifecycle {
         } else {
             previousApp?.activate(options: [.activateIgnoringOtherApps])
         }
+    }
+
+    private func setMenuBarHidden(_ hidden: Bool) {
+        if hidden != menuBarHidden {
+            menuBarHidden = hidden
+            NSApp.presentationOptions = hidden ? [.hideMenuBar, .autoHideDock] : []
+        }
+        window.level = hidden ? .screenSaver : (state.windowBrowsingMode ? .normal : .mainMenu)
     }
 }

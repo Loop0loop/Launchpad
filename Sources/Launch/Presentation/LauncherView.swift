@@ -31,8 +31,9 @@ struct LauncherView: View {
 
             ZStack {
                 LauncherBackgroundView(dimOpacity: state.appearance.backgroundDimOpacity)
-                    .contentShape(Rectangle())
-                    .onTapGesture { state.handleEscape() }
+
+                LauncherDismissArea { state.dismissFromBackground() }
+                    .ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     LauncherDismissArea { state.dismissFromBackground() }
@@ -216,17 +217,26 @@ struct LauncherSearchField: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.75))
+                    .foregroundStyle(.white.opacity(0.7))
 
                 TextField(LaunchConstants.Launcher.searchPlaceholder, text: $query)
                     .textFieldStyle(.plain)
                     .font(.system(size: LaunchConstants.Launcher.searchFontSize, weight: .regular))
                     .foregroundStyle(.white)
                     .focused($focused)
+
+                if !query.isEmpty {
+                    Button { query = "" } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.white.opacity(0.55))
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             .padding(.horizontal, LaunchConstants.Launcher.searchHorizontalPadding)
             .frame(width: LaunchConstants.Launcher.searchWidth, height: LaunchConstants.Launcher.searchHeight)
-            .launchpadSearchChrome()
+            .tahoeSearchChrome()
 
             LauncherDismissArea(action: onBackgroundTap)
         }
@@ -322,21 +332,21 @@ struct AppIcon: View {
             return dockItemProvider(for: app)
         }
         .contextMenu {
-            appContextMenu
+            launcherAppContextMenu(app: app, state: state)
         }
         .onDrop(of: [UTType.text], delegate: AppDropDelegate(targetID: app.id, state: state))
     }
+}
 
-    @ViewBuilder
-    private var appContextMenu: some View {
-        Button(LaunchConstants.Menu.openApp) {
-            state.launch(app)
-        }
-
-        Button(LaunchConstants.Menu.showInFinder) {
-            state.revealInFinder(app)
-        }
-    }
+@MainActor @ViewBuilder
+func launcherAppContextMenu(app: LaunchApp, state: AppState) -> some View {
+    Button(LaunchConstants.Menu.openApp) { state.launch(app) }
+    Button(LaunchConstants.Menu.showInFinder) { state.revealInFinder(app) }
+    Button(LaunchConstants.Menu.addToDock) { state.addToDock(app) }
+    Divider()
+    Button(LaunchConstants.Menu.hide) { state.hide(app) }
+    Divider()
+    Button(LaunchConstants.Menu.moveToTrash, role: .destructive) { state.moveToTrash(app) }
 }
 
 struct FolderIcon: View {
@@ -481,20 +491,9 @@ struct FolderOverlayAppIcon: View {
             return dockItemProvider(for: app)
         }
         .contextMenu {
-            appContextMenu
+            launcherAppContextMenu(app: app, state: state)
         }
         .onDrop(of: [UTType.text], delegate: AppDropDelegate(targetID: app.id, state: state))
-    }
-
-    @ViewBuilder
-    private var appContextMenu: some View {
-        Button(LaunchConstants.Menu.openApp) {
-            state.launch(app)
-        }
-
-        Button(LaunchConstants.Menu.showInFinder) {
-            state.revealInFinder(app)
-        }
     }
 }
 

@@ -24,6 +24,7 @@ final class AppState: ObservableObject {
     @Published var trackpadGateState: TrackpadGateState = .unknown
     @Published var launcherVisible = false
     @Published var appSourcePaths = AppSourceStore.load()
+    @Published var hiddenAppIDs = Set(LayoutPersistenceAdapter.stringArray(forKey: LaunchConstants.Storage.hiddenAppsKey))
     @Published var gridLayout = GridLayoutStore.load() {
         didSet {
             guard oldValue != gridLayout else { return }
@@ -37,6 +38,13 @@ final class AppState: ObservableObject {
             guard oldValue != displayMode else { return }
             LauncherDisplayModeStore.save(displayMode)
             currentPage = 0
+        }
+    }
+    @Published var windowBrowsingMode = UserDefaults.standard.bool(forKey: LaunchConstants.Storage.windowBrowsingModeKey) {
+        didSet {
+            guard oldValue != windowBrowsingMode else { return }
+            UserDefaults.standard.set(windowBrowsingMode, forKey: LaunchConstants.Storage.windowBrowsingModeKey)
+            applyWindowBrowsingMode?()
         }
     }
     @Published var appearance = AppearanceStore.load() {
@@ -54,7 +62,10 @@ final class AppState: ObservableObject {
     var dismissLauncher: (() -> Void)?
     var launchApp: ((LaunchApp) -> Void)?
     var showAppInFinder: ((LaunchApp) -> Void)?
+    var moveAppToTrash: ((LaunchApp) -> Void)?
+    var addAppToDock: ((LaunchApp) -> Void)?
     var chooseAppSource: (() -> Void)?
+    var applyWindowBrowsingMode: (() -> Void)?
 
     init() {
         folders = layoutStore.loadFolders()
@@ -65,8 +76,9 @@ final class AppState: ObservableObject {
     }
 
     var visibleApps: [LaunchApp] {
-        guard !query.isEmpty else { return apps }
-        return AppSearch.rankedApps(apps, matching: query)
+        let shown = apps.filter { !hiddenAppIDs.contains($0.id) }
+        guard !query.isEmpty else { return shown }
+        return AppSearch.rankedApps(shown, matching: query)
     }
 
     var visibleItems: [LauncherItem] {
@@ -75,10 +87,10 @@ final class AppState: ObservableObject {
         }
 
         let folderedIDs = Set(folders.flatMap(\.appIDs))
-        let rootApps = apps.filter { !folderedIDs.contains($0.id) }
+        let rootApps = apps.filter { !folderedIDs.contains($0.id) && !hiddenAppIDs.contains($0.id) }
         let appItems = rootApps.map { LauncherItem.app($0) }
         let folderItems = folders.map { folder in
-            LauncherItem.folder(folder, folder.appIDs.compactMap(appByID))
+            LauncherItem.folder(folder, folder.appIDs.compactMap(appByID).filter { !hiddenAppIDs.contains($0.id) })
         }
         let allItems = appItems + folderItems
         let byID = Dictionary(uniqueKeysWithValues: allItems.map { ($0.id, $0) })
@@ -111,6 +123,7 @@ final class AppState: ObservableObject {
         apps = CatalogStore.scanApps(extraRoots: appSourcePaths)
         let cleanup = layoutStore.cleanup(folders: folders, order: order, validAppIDs: Set(apps.map(\.id)))
         folders = cleanup.folders
+        openFolder = openFolder.flatMap { open in folders.first { $0.id == open.id } }
         order = cleanup.order
         layoutStore.saveFolders(folders)
         saveOrder()
@@ -123,6 +136,30 @@ final class AppState: ObservableObject {
 
     func revealInFinder(_ app: LaunchApp) {
         showAppInFinder?(app)
+    }
+
+    func moveToTrash(_ app: LaunchApp) {
+        moveAppToTrash?(app)
+    }
+
+    func addToDock(_ app: LaunchApp) {
+        addAppToDock?(app)
+    }
+
+    func hide(_ app: LaunchApp) {
+        hiddenAppIDs.insert(app.id)
+        persistHiddenApps()
+        ensureSelection()
+    }
+
+    func unhide(_ id: String) {
+        hiddenAppIDs.remove(id)
+        persistHiddenApps()
+        ensureSelection()
+    }
+
+    private func persistHiddenApps() {
+        LayoutPersistenceAdapter.set(Array(hiddenAppIDs), forKey: LaunchConstants.Storage.hiddenAppsKey)
     }
 
     func requestAppSource() {

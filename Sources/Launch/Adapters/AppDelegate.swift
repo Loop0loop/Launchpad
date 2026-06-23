@@ -1,4 +1,5 @@
 import AppKit
+import LaunchCore
 import SwiftUI
 
 @MainActor
@@ -49,7 +50,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         state.dismissLauncher = { [weak self] in self?.launcherLifecycle?.dismiss() }
         state.launchApp = { [weak self] app in self?.launcherLifecycle?.launch(app) }
         state.showAppInFinder = { [weak self] app in self?.launcherLifecycle?.revealInFinder(app) }
+        state.moveAppToTrash = { [weak self] app in self?.confirmMoveToTrash(app) }
+        state.addAppToDock = { app in AppSystemAdapter.addToDock(app) }
         state.chooseAppSource = { [weak self] in self?.chooseAppSource() }
+        state.applyWindowBrowsingMode = { [weak self] in self?.launcherLifecycle?.applyWindowBrowsingMode() }
     }
 
     func makeStatusItem() {
@@ -101,6 +105,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func sortAppsByName() {
         state.applyNameSort()
+    }
+
+    func confirmMoveToTrash(_ app: LaunchApp) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = LaunchConstants.Alerts.moveToTrashTitle(appName: app.name)
+        alert.informativeText = app.path
+        alert.addButton(withTitle: LaunchConstants.Menu.moveToTrash)
+        alert.addButton(withTitle: LaunchConstants.Alerts.cancel)
+
+        guard let window else {
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+            moveToTrash(app)
+            return
+        }
+
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard response == .alertFirstButtonReturn else { return }
+            self?.moveToTrash(app)
+        }
+    }
+
+    private func moveToTrash(_ app: LaunchApp) {
+        do {
+            try AppSystemAdapter.moveToTrash(app)
+            refreshApps()
+        } catch {
+            let errorAlert = NSAlert(error: error)
+            errorAlert.messageText = LaunchConstants.Alerts.moveToTrashFailed
+            errorAlert.runModal()
+        }
     }
 
     @objc func showSettings() {

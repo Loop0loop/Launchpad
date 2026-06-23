@@ -16,6 +16,9 @@ enum LaunchConstants {
         static let sortByName = "Sort by Name"
         static let openApp = "Open"
         static let showInFinder = "Show in Finder"
+        static let addToDock = "Add App to Dock"
+        static let hide = "Hide"
+        static let moveToTrash = "Move to Trash"
         static let quit = "Quit"
 
         static let toggleKey = "l"
@@ -23,6 +26,15 @@ enum LaunchConstants {
         static let refreshKey = "r"
         static let sortByNameKey = "s"
         static let quitKey = "q"
+    }
+
+    enum Alerts {
+        static let cancel = "Cancel"
+        static let moveToTrashFailed = "Could not move app to Trash."
+
+        static func moveToTrashTitle(appName: String) -> String {
+            "Move \"\(appName)\" to Trash?"
+        }
     }
 
     enum Settings {
@@ -46,6 +58,7 @@ enum LaunchConstants {
         static let gridPreset = "Grid"
         static let importNativeLayout = "Import Native Launchpad Layout"
         static let displayMode = "Display Mode"
+        static let windowBrowsingMode = "Window Browsing Mode"
 
         static let width: CGFloat = 420
         static let height: CGFloat = 560
@@ -69,7 +82,9 @@ enum LaunchConstants {
         static let foldersKey = "folders"
         static let appSourcesKey = "appSources"
         static let gridLayoutKey = "gridLayout"
+        static let hiddenAppsKey = "hiddenApps"
         static let displayModeKey = "displayMode"
+        static let windowBrowsingModeKey = "windowBrowsingMode"
     }
 
     enum Launcher {
@@ -84,7 +99,7 @@ enum LaunchConstants {
         static let topInsetRatio: CGFloat = 1.0 / 14.0
         static let minBottomInset: CGFloat = 72
         static let bottomInsetRatio: CGFloat = 0.1
-        static let menuBarReserve: CGFloat = 24
+        static let menuBarReserve: CGFloat = 12
         static let searchToGridGap: CGFloat = 20
         static let gridToPagerGap: CGFloat = 16
         static let minGridHeight: CGFloat = 240
@@ -96,25 +111,20 @@ enum LaunchConstants {
         static let minIconSize: CGFloat = 80
         static let maxIconSize: CGFloat = 112
 
-        static let searchWidth: CGFloat = 360
-        static let searchHeight: CGFloat = 40
+        static let searchWidth: CGFloat = 300
+        static let searchHeight: CGFloat = 36
         static let searchHorizontalPadding: CGFloat = 14
         static let searchFontSize: CGFloat = 15
-        static let searchFillOpacity = 0.42
-        static let searchBorderOpacity = 0.32
-        static let chromeMaterial: NSVisualEffectView.Material = .hudWindow
 
         static let backgroundMaterial: NSVisualEffectView.Material = .fullScreenUI
         static let backgroundOpacity = 0.06
         static let overlayOpacity = 0.28
 
-        static let pageDotSize: CGFloat = 7
-        static let pageDotSpacing: CGFloat = 10
-        static let pageControlHeight: CGFloat = 36
-        static let pageNavButtonSize: CGFloat = 32
-        static let pageControlSpacing: CGFloat = 20
-        static let inactivePageOpacity = 0.4
-        static let pageIndicatorActiveScale: CGFloat = 1.2
+        static let pageDotSize: CGFloat = 8
+        static let pageDotSpacing: CGFloat = 8
+        static let pageControlHeight: CGFloat = 20
+        static let inactivePageOpacity = 0.35
+        static let pageIndicatorActiveScale: CGFloat = 1.25
 
         static let dragMinimumDistance: CGFloat = 12
         static let pageDragThreshold: CGFloat = 60
@@ -160,6 +170,11 @@ enum LaunchConstants {
 
     enum Lifecycle {
         static let windowDuration: TimeInterval = 0.25
+    }
+
+    enum WindowBrowsing {
+        static let width: CGFloat = 980
+        static let height: CGFloat = 720
     }
 
     enum HotKey {
