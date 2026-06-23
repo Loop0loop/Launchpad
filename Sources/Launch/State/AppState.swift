@@ -38,6 +38,7 @@ final class AppState: ObservableObject {
     var closeLauncher: (() -> Void)?
     var dismissLauncher: (() -> Void)?
     var launchApp: ((LaunchApp) -> Void)?
+    var showAppInFinder: ((LaunchApp) -> Void)?
 
     init() {
         folders = layoutStore.loadFolders()
@@ -94,6 +95,10 @@ final class AppState: ObservableObject {
 
     func launch(_ app: LaunchApp) {
         launchApp?(app)
+    }
+
+    func revealInFinder(_ app: LaunchApp) {
+        showAppInFinder?(app)
     }
 
     func launchSelected() {

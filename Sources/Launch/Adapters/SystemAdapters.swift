@@ -7,6 +7,10 @@ enum AppSystemAdapter {
     static func launch(_ app: LaunchApp) {
         NSWorkspace.shared.open(URL(fileURLWithPath: app.path))
     }
+
+    static func showInFinder(_ app: LaunchApp) {
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: app.path)])
+    }
 }
 
 enum LoginItemAdapter {

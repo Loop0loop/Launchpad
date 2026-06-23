@@ -63,7 +63,7 @@ Run: `Scripts/build-app.sh`, then open `.build/Launch.app`.
 
 - [x] Global hotkey launch
 - [x] F4 key launch
-- [ ] Quick right-click menu
+- [x] Quick right-click menu
 - [ ] Custom app sources
 - [ ] Customizable grid layout
 - [ ] Hot corners

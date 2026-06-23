@@ -323,7 +323,21 @@ struct AppIcon: View {
             state.draggedAppID = app.id
             return NSItemProvider(object: app.id as NSString)
         }
+        .contextMenu {
+            appContextMenu
+        }
         .onDrop(of: [UTType.text], delegate: AppDropDelegate(targetID: app.id, state: state))
+    }
+
+    @ViewBuilder
+    private var appContextMenu: some View {
+        Button(LaunchConstants.Menu.openApp) {
+            state.launch(app)
+        }
+
+        Button(LaunchConstants.Menu.showInFinder) {
+            state.revealInFinder(app)
+        }
     }
 }
 
@@ -468,6 +482,20 @@ struct FolderOverlayAppIcon: View {
             state.draggedAppID = app.id
             return NSItemProvider(object: app.id as NSString)
         }
+        .contextMenu {
+            appContextMenu
+        }
         .onDrop(of: [UTType.text], delegate: AppDropDelegate(targetID: app.id, state: state))
+    }
+
+    @ViewBuilder
+    private var appContextMenu: some View {
+        Button(LaunchConstants.Menu.openApp) {
+            state.launch(app)
+        }
+
+        Button(LaunchConstants.Menu.showInFinder) {
+            state.revealInFinder(app)
+        }
     }
 }

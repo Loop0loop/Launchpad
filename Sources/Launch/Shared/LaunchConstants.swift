@@ -14,6 +14,8 @@ enum LaunchConstants {
         static let settings = "Settings"
         static let refreshApps = "Refresh Apps"
         static let sortByName = "Sort by Name"
+        static let openApp = "Open"
+        static let showInFinder = "Show in Finder"
         static let quit = "Quit"
 
         static let toggleKey = "l"

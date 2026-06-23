@@ -66,6 +66,11 @@ final class LauncherLifecycle {
         animateWindow(to: 0, restorePreviousApp: false)
     }
 
+    func revealInFinder(_ app: LaunchApp) {
+        dismiss()
+        AppSystemAdapter.showInFinder(app)
+    }
+
     private func animateWindow(to targetAlpha: CGFloat, restorePreviousApp: Bool = false) {
         isAnimating = true
 

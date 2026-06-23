@@ -46,6 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         state.closeLauncher = { [weak self] in self?.launcherLifecycle?.hide() }
         state.dismissLauncher = { [weak self] in self?.launcherLifecycle?.dismiss() }
         state.launchApp = { [weak self] app in self?.launcherLifecycle?.launch(app) }
+        state.showAppInFinder = { [weak self] app in self?.launcherLifecycle?.revealInFinder(app) }
     }
 
     func makeStatusItem() {
