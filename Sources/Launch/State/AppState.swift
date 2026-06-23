@@ -19,6 +19,7 @@ final class AppState: ObservableObject {
     @Published var loginItemError: String?
     @Published var accessibilityTrusted = false
     @Published var accessibilityState: PermissionState = .unknown
+    @Published var globalHotKeyState: PermissionState = .unknown
     @Published var trackpadGateState: TrackpadGateState = .unknown
     @Published var launcherVisible = false
     @Published var appearance = AppearanceStore.load() {
@@ -241,6 +242,10 @@ final class AppState: ObservableObject {
 
     func setTrackpadGateActive(_ isActive: Bool) {
         trackpadGateState = isActive ? .exactPinch : .fallbackPinch
+    }
+
+    func setGlobalHotKeyActive(_ isActive: Bool) {
+        globalHotKeyState = isActive ? .allowed : .required
     }
 
     private var pageChangeLockedUntil = Date.distantPast

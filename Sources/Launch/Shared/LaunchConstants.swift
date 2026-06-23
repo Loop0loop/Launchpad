@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import SwiftUI
 
 enum LaunchConstants {
@@ -26,6 +27,7 @@ enum LaunchConstants {
         static let launchAtLogin = "Launch at Login"
         static let accessibility = "Accessibility"
         static let trackpad = "Trackpad"
+        static let globalHotKey = "Global HotKey"
         static let requestAccessibility = "Request Accessibility Permission"
         static let appearanceSection = "Appearance"
         static let generalSection = "General"
@@ -145,6 +147,13 @@ enum LaunchConstants {
 
     enum Lifecycle {
         static let windowDuration: TimeInterval = 0.25
+    }
+
+    enum HotKey {
+        static let signature: OSType = 0x4C6E6368
+        static let toggleID: UInt32 = 1
+        static let toggleKeyCode: UInt32 = UInt32(kVK_Space)
+        static let toggleModifiers: UInt32 = UInt32(controlKey | optionKey)
     }
 
     enum Multitouch {

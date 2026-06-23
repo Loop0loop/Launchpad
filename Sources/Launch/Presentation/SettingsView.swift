@@ -100,6 +100,12 @@ struct SettingsView: View {
                 isPositive: state.trackpadGateState == .exactPinch
             )
 
+            SettingsStatusRow(
+                title: LaunchConstants.Settings.globalHotKey,
+                status: state.globalHotKeyState.label,
+                isPositive: state.globalHotKeyState == .allowed
+            )
+
             SettingsActionRow(title: LaunchConstants.Settings.requestAccessibility) {
                 state.requestAccessibilityPermission()
             }

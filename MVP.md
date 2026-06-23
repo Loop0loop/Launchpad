@@ -58,3 +58,17 @@ Run: `Scripts/build-app.sh`, then open `.build/Launch.app`.
 - [x] Request Accessibility permission for global gesture support
 - [x] Horizontal scroll wheel paging
 - [x] Toggle launcher and restore previous app
+
+## Phase 8 - LaunchOS Parity
+
+- [x] Global hotkey launch
+- [ ] F4 key launch
+- [ ] Quick right-click menu
+- [ ] Custom app sources
+- [ ] Customizable grid layout
+- [ ] Hot corners
+- [ ] Drag apps to Dock
+- [ ] Import native Launchpad layout
+- [ ] Vertical scroll view
+- [ ] Window browsing mode
+- [ ] Completely uninstall apps

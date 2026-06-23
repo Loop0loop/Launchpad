@@ -16,6 +16,8 @@ Official Apple APIs:
   https://developer.apple.com/documentation/appkit/nswindow
 - AppKit `NSEvent`: local/global gesture, scroll, and swipe monitors.
   https://developer.apple.com/documentation/appkit/nsevent
+- Carbon Event Manager `RegisterEventHotKey`: process-level global hot key.
+  https://developer.apple.com/documentation/carbon/1459912-registereventhotkey
 - AppKit `NSWorkspace`: app scanning, app launch, frontmost app tracking.
   https://developer.apple.com/documentation/appkit/nsworkspace
 - AppKit `NSVisualEffectView`: glass/blur material host.
@@ -103,7 +105,7 @@ Native macOS app:
 - SwiftUI views: launcher grid, app icon, folder icon, folder overlay,
   settings window.
 - AppKit adapters: fullscreen window, status item, visual effect bridge,
-  trackpad/global event monitor, Accessibility prompt, login item.
+  global hotkey, trackpad/global event monitor, Accessibility prompt, login item.
 
 ### `LaunchCheck`
 
@@ -130,6 +132,7 @@ NSApplication.shared
   -> create menu bar status item
   -> connect AppState close/dismiss callbacks
   -> request Accessibility permission
+  -> register global hotkey
   -> start trackpad monitor
 ```
 
@@ -139,7 +142,7 @@ the menu bar or trackpad.
 ### Open Launcher
 
 ```text
-menu/gesture
+menu/hotkey/gesture
   -> AppDelegate
   -> LauncherLifecycle.show
   -> remember frontmost app
