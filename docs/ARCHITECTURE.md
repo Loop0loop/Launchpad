@@ -42,38 +42,37 @@ Repo references checked on 2026-06-23:
 We borrow lifecycle ideas, not their internal structure. The local app stays
 small until the code proves it needs more layers.
 
-## SPA Clean Architecture
-
-SPA here means **State, Presentation, Adapters**.
+## Domain-Oriented App Boundary
 
 ```text
-Presentation  SwiftUI views, drag/drop delegates, glass UI
-     |
-     v
-State         AppState: user-visible app state and actions
-     |
-     v
-Core          LaunchCore pure models and rules
-     ^
-     |
-Adapters      AppKit, NSWorkspace, UserDefaults, gestures, login item
+Launch      executable entry only
+LaunchApp   native macOS app domains
+LaunchCore  pure models and rules
 ```
 
 Dependency rule:
 
 - `LaunchCore` imports only `Foundation`.
-- `Presentation` reads state and sends user actions to `AppState`.
-- `AppState` owns current launcher state and calls adapters.
-- Adapters are the only place for AppKit/system side effects.
-- Views do not scan apps, write persistence, or talk to global monitors.
+- `Launch` imports only AppKit and `LaunchApp`.
+- `LaunchApp` owns AppKit, SwiftUI, persistence, permissions, and input.
+- `AppState` stores user-visible state in one file.
+- `AppState` actions live in domain extensions beside the domain they affect.
+- There is no top-level `Adapters` directory; system-facing code lives under
+  its product domain.
 
 Current file boundaries:
 
 ```text
 Sources/Launch/main.swift
-Sources/LaunchApp/State/*.swift
-Sources/LaunchApp/Presentation/*.swift
-Sources/LaunchApp/Adapters/*.swift
+Sources/LaunchApp/App/*.swift
+Sources/LaunchApp/Appearance/*.swift
+Sources/LaunchApp/Catalog/*.swift
+Sources/LaunchApp/Input/*.swift
+Sources/LaunchApp/Launcher/*.swift
+Sources/LaunchApp/Layout/*.swift
+Sources/LaunchApp/Permissions/*.swift
+Sources/LaunchApp/Settings/*.swift
+Sources/LaunchApp/System/*.swift
 Sources/LaunchCore/*.swift
 ```
 
@@ -110,10 +109,15 @@ Native macOS app domain:
 
 - `AppState`: observable state, derived grid items, persistence hooks, app
   launch, folder operations, permission/login state.
-- SwiftUI views: launcher grid, app icon, folder icon, folder overlay,
-  settings window.
-- AppKit adapters: fullscreen window, status item, visual effect bridge,
-  global hotkey, trackpad/global event monitor, Accessibility prompt, login item.
+- `App`: app delegate and launcher lifecycle.
+- `Launcher`: launcher grid, app icon, folder icon, and folder overlay.
+- `Settings`: settings window.
+- `Catalog`: app scanning, source paths, and native Launchpad import.
+- `Layout`: persisted order, folders, grid settings, and display mode.
+- `Input`: global hotkey, hot corner, trackpad, and keyboard state actions.
+- `Permissions`: Accessibility and login item state.
+- `Appearance`: visual settings, icon cache, visual effect bridge, glass styles.
+- `System`: app launch, Finder, trash, Dock operations.
 
 ### `LaunchCheck`
 

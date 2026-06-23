@@ -75,27 +75,32 @@ extension AppState {
         openFolder = nil
     }
 
-    func goToPage(_ page: Int) {
-        guard Date() >= pageChangeLockedUntil else { return }
+    func selectPage(_ page: Int) {
         let nextPage = min(max(page, 0), pageCount - 1)
         guard nextPage != currentPage else { return }
         currentPage = nextPage
         if keyboardSelectionActive {
             selectedItemID = items(forPage: nextPage).first?.id
         }
-        pageChangeLockedUntil = Date().addingTimeInterval(LaunchConstants.Launcher.pageChangeCooldown)
+    }
+
+    func goToPage(_ page: Int) {
+        guard Date() >= pageChangeLockedUntil else { return }
+        let oldPage = currentPage
+        selectPage(page)
+        if currentPage != oldPage {
+            pageChangeLockedUntil = Date().addingTimeInterval(LaunchConstants.Launcher.pageChangeCooldown)
+        }
     }
 
     func changePage(_ delta: Int) {
         guard delta != 0 else { return }
         guard Date() >= pageChangeLockedUntil else { return }
-        let nextPage = min(max(currentPage + delta, 0), pageCount - 1)
-        guard nextPage != currentPage else { return }
-        currentPage = nextPage
-        if keyboardSelectionActive {
-            selectedItemID = items(forPage: nextPage).first?.id
+        let oldPage = currentPage
+        selectPage(currentPage + delta)
+        if currentPage != oldPage {
+            pageChangeLockedUntil = Date().addingTimeInterval(LaunchConstants.Launcher.pageChangeCooldown)
         }
-        pageChangeLockedUntil = Date().addingTimeInterval(LaunchConstants.Launcher.pageChangeCooldown)
     }
 
     fileprivate func selectedItem() -> LauncherItem? {

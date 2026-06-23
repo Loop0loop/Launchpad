@@ -5,18 +5,16 @@ buildable and gets one commit.
 
 ## Architecture Target
 
-Keep SPA:
+Keep domain boundaries:
 
 - **Launch**: executable entry only.
-- **State**: `AppState` owns screen state and user actions.
-- **Presentation**: SwiftUI views render `AppState` and forward events.
-- **Adapters**: AppKit, Accessibility, MultitouchSupport, ServiceManagement,
-  persistence, and packaging.
+- **LaunchApp**: native app domains grouped by product area.
+- **AppState**: user-visible state in one file, actions split into domain
+  extensions.
 - **Core**: `LaunchCore` pure rules checked by `LaunchCheck`.
 
 Do not add protocol layers until there are two real implementations. Do not
-split files only because they are long; split when one change requires touching
-unrelated lifecycle sections.
+split into more SwiftPM targets until dependency cycles prove the need.
 
 ## Lifecycle Target
 
@@ -42,9 +40,11 @@ The app has four stable runtime loops:
 
 Goal: make architecture visible in the filesystem without changing behavior.
 
-- Move `AppState` to `Sources/LaunchApp/State/AppState.swift`.
-- Move SwiftUI views to `Sources/LaunchApp/Presentation/`.
-- Move AppKit/system adapters to `Sources/LaunchApp/Adapters/`.
+- Keep `AppState` storage in `Sources/LaunchApp/App/AppState.swift`.
+- Move state actions into domain extensions such as `Catalog/AppState+Catalog.swift`.
+- Move SwiftUI, AppKit, persistence, permissions, and input code under domain
+  directories.
+- Do not keep a top-level `Adapters` directory.
 - Keep `main.swift` as app bootstrap only.
 - Run `swift run LaunchCheck`, `swift build`, `Scripts/build-app.sh`.
 - Commit: `refactor: split SPA boundaries`.

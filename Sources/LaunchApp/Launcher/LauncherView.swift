@@ -34,7 +34,10 @@ struct LauncherView: View {
             let gridHeight = layout.gridHeight(showsPageControl: showsPageControl)
 
             ZStack {
-                LauncherBackgroundView(dimOpacity: state.appearance.backgroundDimOpacity)
+                LauncherBackgroundView(
+                    dimOpacity: state.appearance.backgroundDimOpacity,
+                    windowed: state.windowBrowsingMode
+                )
 
                 LauncherDismissArea { state.dismissFromBackground() }
                     .ignoresSafeArea()
@@ -75,7 +78,11 @@ struct LauncherView: View {
                         LauncherDismissArea { state.dismissFromBackground() }
                             .frame(height: layout.gridToPagerGap)
 
-                        LauncherPageControl(state: state)
+                        LauncherPageControl(
+                            pageCount: state.pageCount,
+                            currentPage: state.currentPage,
+                            selectPage: state.selectPage
+                        )
                             .frame(height: layout.pageControlHeight)
                     }
 
@@ -96,6 +103,9 @@ struct LauncherView: View {
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
+        .scaleEffect(state.launcherVisible ? 1 : LaunchConstants.Lifecycle.hiddenScale)
+        .opacity(state.launcherVisible ? 1 : 0)
+        .animation(LaunchConstants.Animation.presentation, value: state.launcherVisible)
         .ignoresSafeArea()
         .onExitCommand { state.handleEscape() }
     }
@@ -103,18 +113,23 @@ struct LauncherView: View {
     @ViewBuilder
     private func searchResultsGrid(layout: LaunchpadLayoutMetrics, columns: [GridItem]) -> some View {
         ScrollView {
-            LazyVGrid(columns: columns, spacing: layout.gridRowSpacing) {
-                ForEach(state.visibleItems) { item in
-                    LauncherItemView(item: item, state: state, layout: layout)
+            ZStack(alignment: .top) {
+                LauncherDismissArea { state.dismissFromBackground() }
+
+                LazyVGrid(columns: columns, spacing: layout.gridRowSpacing) {
+                    ForEach(state.visibleItems) { item in
+                        LauncherItemView(item: item, state: state, layout: layout)
+                    }
                 }
+                .padding(.horizontal, layout.horizontalPadding)
             }
-            .padding(.horizontal, layout.horizontalPadding)
+            .frame(minHeight: layout.gridHeight(showsPageControl: false), alignment: .top)
         }
     }
 }
 
 struct PagedGridView: View {
-    @ObservedObject var state: AppState
+    var state: AppState
     let layout: LaunchpadLayoutMetrics
     let columns: [GridItem]
     let pageWidth: CGFloat
@@ -131,9 +146,13 @@ struct PagedGridView: View {
 
             HStack(spacing: 0) {
                 ForEach(0..<state.pageCount, id: \.self) { page in
-                    LazyVGrid(columns: columns, spacing: layout.gridRowSpacing) {
-                        ForEach(state.items(forPage: page)) { item in
-                            LauncherItemView(item: item, state: state, layout: layout)
+                    ZStack(alignment: .top) {
+                        LauncherDismissArea(action: onBackgroundTap)
+
+                        LazyVGrid(columns: columns, spacing: layout.gridRowSpacing) {
+                            ForEach(state.items(forPage: page)) { item in
+                                LauncherItemView(item: item, state: state, layout: layout)
+                            }
                         }
                     }
                     .frame(width: pageWidth, height: gridHeight, alignment: .top)
@@ -241,6 +260,11 @@ struct LauncherSearchField: View {
             .padding(.horizontal, LaunchConstants.Launcher.searchHorizontalPadding)
             .frame(width: LaunchConstants.Launcher.searchWidth, height: LaunchConstants.Launcher.searchHeight)
             .tahoeSearchChrome()
+            .contentShape(Rectangle())
+            .onTapGesture {
+                LaunchLog.line("search focus requested")
+                focused = true
+            }
 
             LauncherDismissArea(action: onBackgroundTap)
         }
@@ -253,22 +277,27 @@ struct LauncherSearchField: View {
 }
 
 struct LauncherPageControl: View {
-    @ObservedObject var state: AppState
+    let pageCount: Int
+    let currentPage: Int
+    let selectPage: (Int) -> Void
 
     var body: some View {
         HStack(spacing: LaunchConstants.Launcher.pageDotSpacing) {
-            ForEach(0..<state.pageCount, id: \.self) { page in
+            ForEach(0..<pageCount, id: \.self) { page in
                 Circle()
-                    .fill(page == state.currentPage ? .white : .white.opacity(LaunchConstants.Launcher.inactivePageOpacity))
+                    .fill(page == currentPage ? .white : .white.opacity(LaunchConstants.Launcher.inactivePageOpacity))
                     .frame(
                         width: LaunchConstants.Launcher.pageDotSize,
                         height: LaunchConstants.Launcher.pageDotSize
                     )
-                    .scaleEffect(page == state.currentPage ? LaunchConstants.Launcher.pageIndicatorActiveScale : 1)
-                    .animation(LaunchConstants.Animation.fade, value: state.currentPage)
+                    .scaleEffect(page == currentPage ? LaunchConstants.Launcher.pageIndicatorActiveScale : 1)
+                    .padding(6)
+                    .contentShape(Rectangle())
+                    .animation(LaunchConstants.Animation.fade, value: currentPage)
                     .onTapGesture {
+                        LaunchLog.line("page dot tapped page=\(page)")
                         withAnimation(LaunchConstants.Animation.spring) {
-                            state.goToPage(page)
+                            selectPage(page)
                         }
                     }
             }
@@ -289,7 +318,7 @@ private func keyboardSelectionBackground(isSelected: Bool) -> some View {
 
 struct LauncherItemView: View {
     let item: LauncherItem
-    @ObservedObject var state: AppState
+    var state: AppState
     let layout: LaunchpadLayoutMetrics
 
     var body: some View {
@@ -304,7 +333,7 @@ struct LauncherItemView: View {
 
 struct AppIcon: View {
     let app: LaunchApp
-    @ObservedObject var state: AppState
+    var state: AppState
     @Environment(\.iconCache) private var iconCache
     let layout: LaunchpadLayoutMetrics
 
@@ -356,7 +385,7 @@ func launcherAppContextMenu(app: LaunchApp, state: AppState) -> some View {
 struct FolderIcon: View {
     let folder: LaunchFolder
     let apps: [LaunchApp]
-    @ObservedObject var state: AppState
+    var state: AppState
     @Environment(\.iconCache) private var iconCache
     let layout: LaunchpadLayoutMetrics
 
@@ -407,7 +436,7 @@ struct FolderIcon: View {
 
 struct FolderOverlay: View {
     let folder: LaunchFolder
-    @ObservedObject var state: AppState
+    var state: AppState
     @State private var isVisible = false
 
     private var columns: [GridItem] {
@@ -465,7 +494,7 @@ struct FolderOverlay: View {
 
 struct FolderOverlayAppIcon: View {
     let app: LaunchApp
-    @ObservedObject var state: AppState
+    var state: AppState
     @Environment(\.iconCache) private var iconCache
 
     var body: some View {

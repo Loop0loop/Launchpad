@@ -15,11 +15,15 @@ final class LauncherLifecycle {
     }
 
     var isVisible: Bool {
-        window.isVisible && window.alphaValue > 0.01
+        window.isVisible && (state.launcherVisible || isAnimating)
     }
 
     func toggle() {
-        guard !isAnimating else { return }
+        LaunchLog.line("lifecycle toggle visible=\(isVisible) animating=\(isAnimating)")
+        guard !isAnimating else {
+            LaunchLog.line("lifecycle toggle ignored: animating")
+            return
+        }
         if isVisible {
             hide()
         } else {
@@ -28,27 +32,44 @@ final class LauncherLifecycle {
     }
 
     func show() {
-        guard !isAnimating else { return }
-        if isVisible { return }
+        LaunchLog.line("lifecycle show requested visible=\(isVisible) animating=\(isAnimating)")
+        guard !isAnimating else {
+            LaunchLog.line("lifecycle show ignored: animating")
+            return
+        }
+        if isVisible {
+            LaunchLog.line("lifecycle show ignored: already visible")
+            return
+        }
 
         rememberPreviousApp()
         state.query = ""
         state.openFolder = nil
         state.clearSelection()
-        state.launcherVisible = true
 
         applyWindowBrowsingMode()
-        window.alphaValue = 0
-        window.contentView?.alphaValue = 0
+        resetWindowAlpha()
+        state.launcherVisible = false
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        LaunchLog.line("window ordered front frame=\(window.frame) screen=\(String(describing: NSScreen.main?.frame))")
 
-        animateWindow(to: 1)
+        isAnimating = true
+        DispatchQueue.main.async {
+            self.state.launcherVisible = true
+            self.finishPresentation(after: LaunchConstants.Lifecycle.windowDuration) {
+                self.isAnimating = false
+            }
+        }
     }
 
     func hide() {
-        guard !isAnimating, window.isVisible else { return }
-        animateWindow(to: 0, restorePreviousApp: true)
+        LaunchLog.line("lifecycle hide requested visible=\(window.isVisible) animating=\(isAnimating)")
+        guard !isAnimating, window.isVisible else {
+            LaunchLog.line("lifecycle hide ignored")
+            return
+        }
+        animatePresentation(visible: false, restorePreviousApp: true)
     }
 
     func dismiss() {
@@ -65,7 +86,7 @@ final class LauncherLifecycle {
             return
         }
         AppSystemAdapter.launch(app)
-        animateWindow(to: 0, restorePreviousApp: false)
+        animatePresentation(visible: false, restorePreviousApp: false)
     }
 
     func revealInFinder(_ app: LaunchApp) {
@@ -76,6 +97,8 @@ final class LauncherLifecycle {
     func applyWindowBrowsingMode() {
         let screenFrame = NSScreen.main?.frame ?? window.frame
         window.setFrame(state.windowBrowsingMode ? windowedFrame(in: screenFrame) : screenFrame, display: true)
+        updateWindowChrome()
+        LaunchLog.line("apply window mode windowed=\(state.windowBrowsingMode) frame=\(window.frame)")
         guard state.launcherVisible || window.isVisible else {
             window.level = state.windowBrowsingMode ? .normal : .mainMenu
             return
@@ -83,28 +106,40 @@ final class LauncherLifecycle {
         setMenuBarHidden(!state.windowBrowsingMode)
     }
 
-    private func animateWindow(to targetAlpha: CGFloat, restorePreviousApp: Bool = false) {
+    private func animatePresentation(visible: Bool, restorePreviousApp: Bool) {
+        LaunchLog.line("animate presentation visible=\(visible) restore=\(restorePreviousApp)")
         isAnimating = true
-        window.alphaValue = targetAlpha
-        window.contentView?.alphaValue = targetAlpha
-        isAnimating = false
-
-        if targetAlpha <= 0.01 {
-            setMenuBarHidden(false)
-            state.launcherVisible = false
-            window.orderOut(nil)
-            resetWindowAlpha()
-            if restorePreviousApp {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+        state.launcherVisible = false
+        finishPresentation(after: LaunchConstants.Lifecycle.windowDuration) {
+            if !visible {
+                self.setMenuBarHidden(false)
+                self.window.orderOut(nil)
+                self.resetWindowAlpha()
+                if restorePreviousApp {
                     self.activatePreviousApp()
                 }
             }
+            self.isAnimating = false
+        }
+    }
+
+    private func finishPresentation(after delay: TimeInterval, completion: @escaping () -> Void) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            completion()
         }
     }
 
     private func resetWindowAlpha() {
         window.alphaValue = 1
         window.contentView?.alphaValue = 1
+    }
+
+    private func updateWindowChrome() {
+        let windowed = state.windowBrowsingMode
+        window.contentView?.wantsLayer = true
+        window.contentView?.layer?.cornerRadius = windowed ? LaunchConstants.WindowBrowsing.cornerRadius : 0
+        window.contentView?.layer?.masksToBounds = windowed
+        window.hasShadow = windowed
     }
 
     private func windowedFrame(in screenFrame: NSRect) -> NSRect {
@@ -136,7 +171,7 @@ final class LauncherLifecycle {
     private func setMenuBarHidden(_ hidden: Bool) {
         if hidden != menuBarHidden {
             menuBarHidden = hidden
-            NSApp.presentationOptions = hidden ? [.hideMenuBar, .autoHideDock] : []
+            NSApp.presentationOptions = hidden ? [.hideMenuBar, .hideDock] : []
         }
         window.level = hidden ? .screenSaver : (state.windowBrowsingMode ? .normal : .mainMenu)
     }

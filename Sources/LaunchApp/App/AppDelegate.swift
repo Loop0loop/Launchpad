@@ -21,6 +21,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
+        LaunchLog.app.info("applicationDidFinishLaunching")
+        LaunchLog.line("app did finish launching")
         NSApp.setActivationPolicy(.accessory)
         makeWindow()
         makeStatusItem()
@@ -32,6 +34,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func makeWindow() {
+        LaunchLog.app.info("makeWindow")
         let frame = NSScreen.main?.frame ?? LaunchConstants.App.fallbackWindowFrame
         let window = NSWindow(
             contentRect: frame,
@@ -47,9 +50,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.isOpaque = false
         window.backgroundColor = .clear
+        window.hasShadow = false
         window.level = .mainMenu
         self.window = window
         launcherLifecycle = LauncherLifecycle(state: state, window: window)
+        LaunchLog.line("window created frame=\(window.frame)")
         state.closeLauncher = { [weak self] in self?.launcherLifecycle?.hide() }
         state.dismissLauncher = { [weak self] in self?.launcherLifecycle?.dismiss() }
         state.launchApp = { [weak self] app in self?.launcherLifecycle?.launch(app) }
@@ -62,60 +67,79 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func makeStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        guard let button = statusItem?.button else { return }
-        button.title = LaunchConstants.App.menuBarTitle
+        guard let button = statusItem?.button else {
+            LaunchLog.line("status item button missing")
+            return
+        }
+        if let icon = Self.menuBarImage() {
+            button.image = icon
+            button.title = ""
+        } else {
+            button.title = LaunchConstants.App.menuBarTitle
+        }
         button.target = self
         button.action = #selector(statusBarClicked(_:))
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        LaunchLog.line("status item ready")
+    }
+
+    /// Menu bar glyph as a template image so macOS tints it (white on a dark menu bar).
+    private static func menuBarImage() -> NSImage? {
+        guard let url = Bundle.main.url(forResource: "MenuBarIcon", withExtension: "png"),
+              let image = NSImage(contentsOf: url) else { return nil }
+        image.size = NSSize(width: 18, height: 18)
+        image.isTemplate = true
+        return image
     }
 
     func makeStatusMenu() -> NSMenu {
         let menu = NSMenu()
-        menu.addItem(withTitle: LaunchConstants.Menu.toggle, action: #selector(toggleLauncher), keyEquivalent: LaunchConstants.Menu.toggleKey)
-        menu.addItem(withTitle: LaunchConstants.Menu.settings, action: #selector(showSettings), keyEquivalent: LaunchConstants.Menu.settingsKey)
-        menu.addItem(withTitle: LaunchConstants.Menu.refreshApps, action: #selector(refreshApps), keyEquivalent: LaunchConstants.Menu.refreshKey)
-        menu.addItem(withTitle: LaunchConstants.Menu.sortByName, action: #selector(sortAppsByName), keyEquivalent: LaunchConstants.Menu.sortByNameKey)
+        addStatusMenuItem(menu, title: LaunchConstants.Menu.toggle, action: #selector(toggleLauncher), key: LaunchConstants.Menu.toggleKey)
+        addStatusMenuItem(menu, title: LaunchConstants.Menu.settings, action: #selector(showSettings), key: LaunchConstants.Menu.settingsKey)
+        addStatusMenuItem(menu, title: LaunchConstants.Menu.refreshApps, action: #selector(refreshApps), key: LaunchConstants.Menu.refreshKey)
+        addStatusMenuItem(menu, title: LaunchConstants.Menu.sortByName, action: #selector(sortAppsByName), key: LaunchConstants.Menu.sortByNameKey)
         menu.addItem(.separator())
-        menu.addItem(withTitle: LaunchConstants.Menu.quit, action: #selector(NSApp.terminate), keyEquivalent: LaunchConstants.Menu.quitKey)
+        let quit = menu.addItem(withTitle: LaunchConstants.Menu.quit, action: #selector(NSApp.terminate), keyEquivalent: LaunchConstants.Menu.quitKey)
+        quit.target = NSApp
         return menu
     }
 
-    @objc nonisolated func statusBarClicked(_ sender: NSStatusBarButton) {
-        MainActor.assumeIsolated {
-            handleStatusBarClicked(sender)
-        }
+    private func addStatusMenuItem(_ menu: NSMenu, title: String, action: Selector, key: String) {
+        let item = menu.addItem(withTitle: title, action: action, keyEquivalent: key)
+        item.target = self
     }
 
-    private func handleStatusBarClicked(_ sender: NSStatusBarButton) {
-        guard let event = NSApp.currentEvent else {
-            toggleLauncher()
-            return
+    @objc nonisolated func statusBarClicked(_ sender: NSStatusBarButton) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else {
+                LaunchLog.line("status bar action dropped self")
+                return
+            }
+            let eventType = NSApp.currentEvent?.type
+            LaunchLog.line("status bar action event=\(String(describing: eventType))")
+            if eventType == .rightMouseUp {
+                statusMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
+            } else {
+                handleToggleLauncher()
+            }
         }
-
-        if event.type == .rightMouseUp {
-            statusMenu.popUp(
-                positioning: nil,
-                at: NSPoint(x: 0, y: sender.bounds.height + 4),
-                in: sender
-            )
-            return
-        }
-
-        toggleLauncher()
     }
 
     @objc nonisolated func toggleLauncher() {
-        MainActor.assumeIsolated {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
             handleToggleLauncher()
         }
     }
 
     private func handleToggleLauncher() {
+        LaunchLog.line("toggle launcher requested")
         launcherLifecycle?.toggle()
     }
 
     @objc nonisolated func refreshApps() {
-        MainActor.assumeIsolated {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
             handleRefreshApps()
         }
     }
@@ -126,8 +150,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc nonisolated func sortAppsByName() {
-        MainActor.assumeIsolated {
-            state.applyNameSort()
+        DispatchQueue.main.async { [weak self] in
+            self?.handleSortAppsByName()
         }
     }
 
@@ -167,7 +191,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc nonisolated func showSettings() {
-        MainActor.assumeIsolated {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
             handleShowSettings()
         }
     }
@@ -216,10 +241,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func startTrackpadMonitor() {
+        LaunchLog.line("start trackpad monitor")
         trackpadMonitor.start { [weak self] isActive in
+            LaunchLog.line("trackpad gate active=\(isActive)")
             self?.state.setTrackpadGateActive(isActive)
         } onIntent: { [weak self] intent in
             guard let self else { return }
+            LaunchLog.line("trackpad intent=\(intent)")
             switch intent {
             case .open:
                 self.launcherLifecycle?.show()
@@ -240,13 +268,17 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func startGlobalHotKey() {
+        LaunchLog.line("start global hotkey")
         let status = globalHotKey.start {
             [weak self] in
+            LaunchLog.line("global hotkey toggle")
             self?.launcherLifecycle?.toggle()
         } f4Action: {
             [weak self] in
+            LaunchLog.line("f4 hotkey toggle")
             self?.launcherLifecycle?.toggle()
         }
+        LaunchLog.line("global hotkey status toggle=\(status.toggle) f4=\(status.f4)")
         state.setGlobalHotKeyActive(status.toggle)
         state.setF4KeyActive(status.f4)
     }
@@ -265,6 +297,19 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func handleLauncherKey(_ event: NSEvent) -> NSEvent? {
+        if window?.firstResponder is NSTextView {
+            switch event.keyCode {
+            case 36, 76:
+                state.launchSelected()
+                return nil
+            case 53:
+                state.handleEscape()
+                return nil
+            default:
+                return event
+            }
+        }
+
         switch event.keyCode {
         case 36, 76:
             state.launchSelected()

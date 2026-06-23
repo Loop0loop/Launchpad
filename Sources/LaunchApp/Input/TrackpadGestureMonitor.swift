@@ -12,21 +12,26 @@ final class TrackpadGestureMonitor {
         onGateStatus: @escaping @MainActor (Bool) -> Void,
         onIntent: @escaping @MainActor (TrackpadIntent) -> Void
     ) {
+        LaunchLog.line("trackpad monitor start")
         pinchMonitor.start { intent in
+            LaunchLog.line("private pinch intent=\(intent)")
             onIntent(intent)
         }
         onGateStatus(pinchMonitor.isReady)
+        LaunchLog.line("private pinch ready=\(pinchMonitor.isReady)")
 
         let mask: NSEvent.EventTypeMask = [.magnify, .swipe, .scrollWheel]
 
         let handler: (NSEvent) -> Void = { event in
             Task { @MainActor in
                 if event.type == .magnify, let intent = TrackpadIntent.pinch(magnification: event.magnification) {
+                    LaunchLog.line("magnify event magnification=\(event.magnification) intent=\(intent) privateReady=\(self.pinchMonitor.isReady)")
                     if !self.pinchMonitor.isReady {
                         // ponytail: fallback keeps pinch usable when private MultitouchSupport is unavailable.
                         onIntent(intent)
                     }
                 } else if event.type == .swipe, let intent = TrackpadIntent.horizontalSwipe(deltaX: event.deltaX) {
+                    LaunchLog.line("swipe event deltaX=\(event.deltaX) intent=\(intent)")
                     onIntent(intent)
                 } else if event.type == .scrollWheel,
                           abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY),
@@ -35,6 +40,7 @@ final class TrackpadGestureMonitor {
                             eventTime: event.timestamp,
                             lastIntentTime: self.lastScrollIntentTime
                           ) {
+                    LaunchLog.line("scroll event deltaX=\(event.scrollingDeltaX) intent=\(intent)")
                     self.lastScrollIntentTime = event.timestamp
                     onIntent(intent)
                 }
@@ -46,10 +52,12 @@ final class TrackpadGestureMonitor {
             return event
         }) {
             monitors.append(local)
+            LaunchLog.line("local trackpad monitor installed")
         }
 
         if let global = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: handler) {
             monitors.append(global)
+            LaunchLog.line("global trackpad monitor installed")
         }
     }
 }
@@ -113,7 +121,10 @@ final class PinchContactMonitor {
         guard let handle,
               let createListSymbol = dlsym(handle, LaunchConstants.Multitouch.createListSymbol),
               let registerSymbol = dlsym(handle, LaunchConstants.Multitouch.registerContactFrameCallbackSymbol),
-              let startSymbol = dlsym(handle, LaunchConstants.Multitouch.deviceStartSymbol) else { return }
+              let startSymbol = dlsym(handle, LaunchConstants.Multitouch.deviceStartSymbol) else {
+            LaunchLog.line("private multitouch unavailable")
+            return
+        }
 
         let createList = unsafeBitCast(createListSymbol, to: MTDeviceCreateList.self)
         let register = unsafeBitCast(registerSymbol, to: MTRegisterContactFrameCallback.self)
@@ -130,11 +141,15 @@ final class PinchContactMonitor {
         }
 
         isReady = !devices.isEmpty
+        LaunchLog.line("private multitouch devices=\(devices.count)")
     }
 
     fileprivate func process(touches: [TouchPoint], timestamp: Double) {
         let requiredCount = LaunchConstants.Multitouch.gestureFingerCount
         guard touches.count >= requiredCount else {
+            if initialRadius != nil {
+                LaunchLog.line("private pinch reset touches=\(touches.count)")
+            }
             initialRadius = nil
             return
         }
@@ -148,6 +163,7 @@ final class PinchContactMonitor {
 
         guard let initialRadius, initialRadius > 0 else {
             self.initialRadius = radius
+            LaunchLog.line("private pinch baseline radius=\(radius)")
             return
         }
 
@@ -160,6 +176,7 @@ final class PinchContactMonitor {
 
         lastIntentTime = timestamp
         self.initialRadius = radius
+        LaunchLog.line("private pinch radius=\(radius) intent=\(intent)")
         onPinch?(intent)
     }
 }

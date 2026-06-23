@@ -1,7 +1,6 @@
 import Foundation
 import LaunchCore
 
-@MainActor
 final class LayoutStore {
     private let layoutKey = LaunchConstants.Storage.layoutOrderKey
     private let foldersKey = LaunchConstants.Storage.foldersKey

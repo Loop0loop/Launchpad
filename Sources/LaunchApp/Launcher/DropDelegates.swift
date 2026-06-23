@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AppDropDelegate: DropDelegate {
     let targetID: String
-    @ObservedObject var state: AppState
+    var state: AppState
 
     func dropEntered(info: DropInfo) {
         guard let dragged = state.draggedAppID else { return }
@@ -20,7 +20,7 @@ struct AppDropDelegate: DropDelegate {
 
 struct FolderDropDelegate: DropDelegate {
     let targetID: String
-    @ObservedObject var state: AppState
+    var state: AppState
 
     func dropEntered(info: DropInfo) {
         guard let dragged = state.draggedAppID else { return }

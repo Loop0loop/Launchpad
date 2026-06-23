@@ -10,12 +10,14 @@ struct VisualEffectView: NSViewRepresentable {
         view.material = material
         view.blendingMode = blendingMode
         view.state = .active
+        view.autoresizingMask = [.width, .height]
         return view
     }
 
     func updateNSView(_ view: NSVisualEffectView, context: Context) {
         view.material = material
         view.blendingMode = blendingMode
+        view.state = .active
     }
 }
 

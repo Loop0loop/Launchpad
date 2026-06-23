@@ -139,6 +139,8 @@ enum LaunchConstants {
         static let spring = SwiftUI.Animation.interpolatingSpring(stiffness: 400, damping: 35)
         static let fade = SwiftUI.Animation.easeInOut(duration: 0.25)
         static let quick = SwiftUI.Animation.easeOut(duration: 0.2)
+        /// LaunchOS / native Launchpad open-close zoom.
+        static let presentation = SwiftUI.Animation.interpolatingSpring(stiffness: 380, damping: 32)
     }
 
     enum Icon {
@@ -169,12 +171,14 @@ enum LaunchConstants {
     }
 
     enum Lifecycle {
-        static let windowDuration: TimeInterval = 0.25
+        static let windowDuration: TimeInterval = 0.28
+        static let hiddenScale: CGFloat = 0.94
     }
 
     enum WindowBrowsing {
         static let width: CGFloat = 980
         static let height: CGFloat = 720
+        static let cornerRadius: CGFloat = 16
     }
 
     enum HotKey {
@@ -201,6 +205,6 @@ enum LaunchConstants {
         static let gestureFingerCount = 4
         static let pinchInRatio = 0.9
         static let pinchOutRatio = 1.1
-        static let triggerCooldown: Double = 0.25
+        static let triggerCooldown: Double = 0.65
     }
 }
