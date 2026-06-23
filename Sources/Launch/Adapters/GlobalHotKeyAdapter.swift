@@ -3,17 +3,15 @@ import Foundation
 
 @MainActor
 final class GlobalHotKeyAdapter {
-    private var hotKeyRef: EventHotKeyRef?
+    private var hotKeyRefs: [EventHotKeyRef] = []
     private var eventHandlerRef: EventHandlerRef?
-    private var action: (@MainActor () -> Void)?
-    private let hotKeyID = EventHotKeyID(
-        signature: LaunchConstants.HotKey.signature,
-        id: LaunchConstants.HotKey.toggleID
-    )
+    private var actions: [UInt32: @MainActor () -> Void] = [:]
 
-    func start(action: @escaping @MainActor () -> Void) -> Bool {
+    func start(
+        toggleAction: @escaping @MainActor () -> Void,
+        f4Action: @escaping @MainActor () -> Void
+    ) -> (toggle: Bool, f4: Bool) {
         stop()
-        self.action = action
 
         var eventType = EventTypeSpec(
             eventClass: OSType(kEventClassKeyboard),
@@ -29,36 +27,59 @@ final class GlobalHotKeyAdapter {
             &eventHandlerRef
         ) == noErr else {
             stop()
-            return false
+            return (false, false)
         }
 
-        var nextHotKeyRef: EventHotKeyRef?
-        guard RegisterEventHotKey(
+        let toggleRegistered = register(
+            id: LaunchConstants.HotKey.toggleID,
             LaunchConstants.HotKey.toggleKeyCode,
-            LaunchConstants.HotKey.toggleModifiers,
-            hotKeyID,
-            GetApplicationEventTarget(),
-            0,
-            &nextHotKeyRef
-        ) == noErr else {
-            stop()
-            return false
-        }
+            modifiers: LaunchConstants.HotKey.toggleModifiers,
+            action: toggleAction
+        )
+        let f4Registered = register(
+            id: LaunchConstants.HotKey.f4ID,
+            LaunchConstants.HotKey.f4KeyCode,
+            modifiers: LaunchConstants.HotKey.f4Modifiers,
+            action: f4Action
+        )
 
-        hotKeyRef = nextHotKeyRef
-        return true
+        return (toggleRegistered, f4Registered)
     }
 
     func stop() {
-        if let hotKeyRef {
+        for hotKeyRef in hotKeyRefs {
             UnregisterEventHotKey(hotKeyRef)
         }
         if let eventHandlerRef {
             RemoveEventHandler(eventHandlerRef)
         }
-        hotKeyRef = nil
+        hotKeyRefs = []
         eventHandlerRef = nil
-        action = nil
+        actions = [:]
+    }
+
+    private func register(
+        id: UInt32,
+        _ keyCode: UInt32,
+        modifiers: UInt32,
+        action: @escaping @MainActor () -> Void
+    ) -> Bool {
+        var hotKeyRef: EventHotKeyRef?
+        let hotKeyID = EventHotKeyID(signature: LaunchConstants.HotKey.signature, id: id)
+        guard RegisterEventHotKey(
+            keyCode,
+            modifiers,
+            hotKeyID,
+            GetApplicationEventTarget(),
+            0,
+            &hotKeyRef
+        ) == noErr, let hotKeyRef else {
+            return false
+        }
+
+        hotKeyRefs.append(hotKeyRef)
+        actions[id] = action
+        return true
     }
 
     private static let handleHotKey: EventHandlerUPP = { _, event, userData in
@@ -76,11 +97,10 @@ final class GlobalHotKeyAdapter {
             &hotKeyID
         )
         guard status == noErr,
-              hotKeyID.signature == adapter.hotKeyID.signature,
-              hotKeyID.id == adapter.hotKeyID.id else { return noErr }
+              hotKeyID.signature == LaunchConstants.HotKey.signature else { return noErr }
 
         Task { @MainActor in
-            adapter.action?()
+            adapter.actions[hotKeyID.id]?()
         }
         return noErr
     }

@@ -62,7 +62,7 @@ Run: `Scripts/build-app.sh`, then open `.build/Launch.app`.
 ## Phase 8 - LaunchOS Parity
 
 - [x] Global hotkey launch
-- [ ] F4 key launch
+- [x] F4 key launch
 - [ ] Quick right-click menu
 - [ ] Custom app sources
 - [ ] Customizable grid layout

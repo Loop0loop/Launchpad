@@ -20,6 +20,7 @@ final class AppState: ObservableObject {
     @Published var accessibilityTrusted = false
     @Published var accessibilityState: PermissionState = .unknown
     @Published var globalHotKeyState: PermissionState = .unknown
+    @Published var f4KeyState: PermissionState = .unknown
     @Published var trackpadGateState: TrackpadGateState = .unknown
     @Published var launcherVisible = false
     @Published var appearance = AppearanceStore.load() {
@@ -246,6 +247,10 @@ final class AppState: ObservableObject {
 
     func setGlobalHotKeyActive(_ isActive: Bool) {
         globalHotKeyState = isActive ? .allowed : .required
+    }
+
+    func setF4KeyActive(_ isActive: Bool) {
+        f4KeyState = isActive ? .allowed : .required
     }
 
     private var pageChangeLockedUntil = Date.distantPast

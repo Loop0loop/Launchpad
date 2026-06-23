@@ -106,6 +106,12 @@ struct SettingsView: View {
                 isPositive: state.globalHotKeyState == .allowed
             )
 
+            SettingsStatusRow(
+                title: LaunchConstants.Settings.f4Key,
+                status: state.f4KeyState.label,
+                isPositive: state.f4KeyState == .allowed
+            )
+
             SettingsActionRow(title: LaunchConstants.Settings.requestAccessibility) {
                 state.requestAccessibilityPermission()
             }

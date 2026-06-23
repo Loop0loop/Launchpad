@@ -155,10 +155,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func startGlobalHotKey() {
-        let isActive = globalHotKey.start { [weak self] in
+        let status = globalHotKey.start {
+            [weak self] in
+            self?.launcherLifecycle?.toggle()
+        } f4Action: {
+            [weak self] in
             self?.launcherLifecycle?.toggle()
         }
-        state.setGlobalHotKeyActive(isActive)
+        state.setGlobalHotKeyActive(status.toggle)
+        state.setF4KeyActive(status.f4)
     }
 
     func startKeyMonitor() {
