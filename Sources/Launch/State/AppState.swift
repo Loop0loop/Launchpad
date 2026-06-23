@@ -16,6 +16,7 @@ final class AppState: ObservableObject {
     @Published var accessibilityTrusted = false
     @Published var accessibilityState: PermissionState = .unknown
     @Published var trackpadGateState: TrackpadGateState = .unknown
+    @Published var launcherVisible = false
     @Published private var order: [String] = []
 
     private let layoutStore = LayoutStore()

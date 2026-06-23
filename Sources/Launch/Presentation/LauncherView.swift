@@ -28,6 +28,9 @@ struct LauncherView: View {
                     }
                 }
                 .frame(height: 620, alignment: .top)
+                .id(state.currentPage)
+                .transition(.opacity.combined(with: .scale(scale: 0.985)))
+                .animation(.easeOut(duration: 0.16), value: state.currentPage)
 
                 HStack(spacing: 8) {
                     ForEach(0..<state.pageCount, id: \.self) { page in
@@ -39,6 +42,9 @@ struct LauncherView: View {
                 .frame(height: 14)
             }
             .padding(.top, 70)
+            .opacity(state.launcherVisible ? 1 : 0)
+            .scaleEffect(state.launcherVisible ? 1 : 0.96)
+            .animation(.easeOut(duration: 0.18), value: state.launcherVisible)
 
             if let folder = state.openFolder {
                 Color.black.opacity(0.28)
@@ -65,6 +71,7 @@ struct LauncherView: View {
                 state.query = ""
             }
         }
+        .animation(.easeOut(duration: 0.18), value: state.openFolder?.id)
     }
 }
 
