@@ -325,7 +325,7 @@ struct AppIcon: View {
         .buttonStyle(.plain)
         .onDrag {
             state.draggedAppID = app.id
-            return NSItemProvider(object: app.id as NSString)
+            return dockItemProvider(for: app)
         }
         .contextMenu {
             appContextMenu
@@ -484,7 +484,7 @@ struct FolderOverlayAppIcon: View {
         .buttonStyle(.plain)
         .onDrag {
             state.draggedAppID = app.id
-            return NSItemProvider(object: app.id as NSString)
+            return dockItemProvider(for: app)
         }
         .contextMenu {
             appContextMenu
@@ -502,4 +502,11 @@ struct FolderOverlayAppIcon: View {
             state.revealInFinder(app)
         }
     }
+}
+
+private func dockItemProvider(for app: LaunchApp) -> NSItemProvider {
+    let provider = NSItemProvider(contentsOf: URL(fileURLWithPath: app.path))
+        ?? NSItemProvider()
+    provider.registerObject(app.id as NSString, visibility: .all)
+    return provider
 }
