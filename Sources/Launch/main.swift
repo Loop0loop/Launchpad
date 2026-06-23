@@ -1,5 +1,6 @@
 import AppKit
 import LaunchCore
+import ServiceManagement
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -25,8 +26,11 @@ final class AppState: ObservableObject {
     @Published var currentPage = 0
     @Published var draggedAppID: String?
     @Published var openFolder: LaunchFolder?
+    @Published var launchAtLogin = false
+    @Published var loginItemError: String?
     @Published private var order: [String] = []
 
+    private var iconCache: [String: NSImage] = [:]
     private let pageSize = 35
     private let layoutKey = "layoutOrder"
     private let foldersKey = "folders"
@@ -34,6 +38,7 @@ final class AppState: ObservableObject {
     init() {
         loadFolders()
         order = savedOrder()
+        refreshLoginItemStatus()
         refreshApps()
     }
 
@@ -78,6 +83,13 @@ final class AppState: ObservableObject {
         NSApp.hide(nil)
     }
 
+    func icon(for app: LaunchApp) -> NSImage {
+        if let icon = iconCache[app.path] { return icon }
+        let icon = NSWorkspace.shared.icon(forFile: app.path)
+        iconCache[app.path] = icon
+        return icon
+    }
+
     func move(_ id: String, before targetID: String) {
         let nextOrder = LayoutOrder.move(id, before: targetID, in: visibleItems.map(\.id))
         saveOrder(nextOrder)
@@ -120,6 +132,34 @@ final class AppState: ObservableObject {
     func saveOrder(_ order: [String]? = nil) {
         self.order = order ?? visibleItems.map(\.id)
         UserDefaults.standard.set(self.order, forKey: layoutKey)
+    }
+
+    func refreshLoginItemStatus() {
+        if #available(macOS 13.0, *) {
+            launchAtLogin = SMAppService.mainApp.status == .enabled
+        }
+    }
+
+    func setLaunchAtLogin(_ enabled: Bool) {
+        loginItemError = nil
+
+        guard #available(macOS 13.0, *) else {
+            loginItemError = "Requires macOS 13 or newer."
+            launchAtLogin = false
+            return
+        }
+
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+        } catch {
+            loginItemError = error.localizedDescription
+        }
+
+        refreshLoginItemStatus()
     }
 
     private func loadFolders() {
@@ -246,7 +286,7 @@ struct AppIcon: View {
             state.launch(app)
         } label: {
             VStack(spacing: 8) {
-                Image(nsImage: NSWorkspace.shared.icon(forFile: app.path))
+                Image(nsImage: state.icon(for: app))
                     .resizable()
                     .frame(width: 72, height: 72)
                 Text(app.name)
@@ -283,7 +323,7 @@ struct FolderIcon: View {
                         .frame(width: 72, height: 72)
                     LazyVGrid(columns: Array(repeating: GridItem(.fixed(24), spacing: 0), count: 2), spacing: 0) {
                         ForEach(apps.prefix(4)) { app in
-                            Image(nsImage: NSWorkspace.shared.icon(forFile: app.path))
+                            Image(nsImage: state.icon(for: app))
                                 .resizable()
                                 .frame(width: 22, height: 22)
                         }
@@ -360,6 +400,31 @@ struct FolderDropDelegate: DropDelegate {
     }
 }
 
+struct SettingsView: View {
+    @ObservedObject var state: AppState
+
+    var body: some View {
+        Form {
+            Toggle("Launch at Login", isOn: Binding(
+                get: { state.launchAtLogin },
+                set: { state.setLaunchAtLogin($0) }
+            ))
+
+            Button("Refresh Apps") {
+                state.refreshApps()
+            }
+
+            if let error = state.loginItemError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        }
+        .padding(24)
+        .frame(width: 360)
+    }
+}
+
 struct VisualEffectView: NSViewRepresentable {
     let material: NSVisualEffectView.Material
     let blendingMode: NSVisualEffectView.BlendingMode
@@ -413,6 +478,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let state = AppState()
     let trackpadMonitor = TrackpadGestureMonitor()
     var window: NSWindow?
+    var settingsWindow: NSWindow?
     var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -444,6 +510,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem?.button?.title = "L"
         let menu = NSMenu()
         menu.addItem(withTitle: "Show Launch", action: #selector(showLauncher), keyEquivalent: "l")
+        menu.addItem(withTitle: "Settings", action: #selector(showSettings), keyEquivalent: ",")
         menu.addItem(withTitle: "Refresh Apps", action: #selector(refreshApps), keyEquivalent: "r")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit", action: #selector(NSApp.terminate), keyEquivalent: "q")
@@ -463,6 +530,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func refreshApps() {
         state.refreshApps()
+    }
+
+    @objc func showSettings() {
+        if settingsWindow == nil {
+            let window = NSWindow(
+                contentRect: .init(x: 0, y: 0, width: 360, height: 180),
+                styleMask: [.titled, .closable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "Launch Settings"
+            window.contentView = NSHostingView(rootView: SettingsView(state: state))
+            settingsWindow = window
+        }
+
+        settingsWindow?.center()
+        settingsWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     func startTrackpadMonitor() {

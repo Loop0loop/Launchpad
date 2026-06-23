@@ -45,7 +45,9 @@ Note: public `NSEvent` does not expose finger count. Private MultitouchSupport i
 
 ## Phase 6 - Polish
 
-- [ ] Icon cache
-- [ ] Settings window
-- [ ] Login item
-- [ ] Performance pass
+- [x] Icon cache
+- [x] Settings window
+- [x] Login item
+- [x] Performance pass
+
+Note: login item uses `SMAppService.mainApp`; final validation needs a bundled app build, not only `swift run`.
