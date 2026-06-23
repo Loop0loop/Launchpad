@@ -91,6 +91,10 @@ struct SettingsView: View {
                 state.refreshApps()
             }
 
+            SettingsActionRow(title: LaunchConstants.Settings.importNativeLayout) {
+                state.importNativeLaunchpadLayout()
+            }
+
             if let error = state.loginItemError {
                 Text(error)
                     .font(.caption)

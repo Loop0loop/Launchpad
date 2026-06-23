@@ -68,7 +68,7 @@ Run: `Scripts/build-app.sh`, then open `.build/Launch.app`.
 - [x] Customizable grid layout
 - [x] Hot corners (top-left MVP)
 - [x] Drag apps to Dock
-- [ ] Import native Launchpad layout
+- [x] Import native Launchpad layout
 - [ ] Vertical scroll view
 - [ ] Window browsing mode
 - [ ] Completely uninstall apps

@@ -255,6 +255,15 @@ final class AppState: ObservableObject {
         saveOrder(sortedRootIDs)
     }
 
+    func importNativeLaunchpadLayout() {
+        guard query.isEmpty else { return }
+        let rootIDs = visibleItems.map(\.id)
+        let rootIDSet = Set(rootIDs)
+        let imported = NativeLaunchpadLayoutImporter.importOrder(apps: apps).filter(rootIDSet.contains)
+        guard !imported.isEmpty else { return }
+        saveOrder(imported + rootIDs.filter { !imported.contains($0) })
+    }
+
     func refreshLoginItemStatus() {
         launchAtLogin = LoginItemAdapter.isEnabled
     }
