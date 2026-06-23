@@ -13,7 +13,11 @@ private struct LauncherDismissArea: View {
 }
 
 struct LauncherView: View {
-    @ObservedObject var state: AppState
+    @StateObject private var state: AppState
+
+    init(state: AppState) {
+        _state = StateObject(wrappedValue: state)
+    }
 
     var body: some View {
         GeometryReader { geometry in

@@ -71,9 +71,9 @@ Current file boundaries:
 
 ```text
 Sources/Launch/main.swift
-Sources/Launch/State/*.swift
-Sources/Launch/Presentation/*.swift
-Sources/Launch/Adapters/*.swift
+Sources/LaunchApp/State/*.swift
+Sources/LaunchApp/Presentation/*.swift
+Sources/LaunchApp/Adapters/*.swift
 Sources/LaunchCore/*.swift
 ```
 
@@ -98,7 +98,15 @@ Rules:
 
 ### `Launch`
 
-Native macOS app:
+Thin executable:
+
+- imports `LaunchApp`
+- creates `NSApplication` and `AppDelegate`
+- runs the AppKit event loop
+
+### `LaunchApp`
+
+Native macOS app domain:
 
 - `AppState`: observable state, derived grid items, persistence hooks, app
   launch, folder operations, permission/login state.

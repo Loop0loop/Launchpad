@@ -7,6 +7,7 @@ buildable and gets one commit.
 
 Keep SPA:
 
+- **Launch**: executable entry only.
 - **State**: `AppState` owns screen state and user actions.
 - **Presentation**: SwiftUI views render `AppState` and forward events.
 - **Adapters**: AppKit, Accessibility, MultitouchSupport, ServiceManagement,
@@ -41,9 +42,9 @@ The app has four stable runtime loops:
 
 Goal: make architecture visible in the filesystem without changing behavior.
 
-- Move `AppState` to `Sources/Launch/State/AppState.swift`.
-- Move SwiftUI views to `Sources/Launch/Presentation/`.
-- Move AppKit/system adapters to `Sources/Launch/Adapters/`.
+- Move `AppState` to `Sources/LaunchApp/State/AppState.swift`.
+- Move SwiftUI views to `Sources/LaunchApp/Presentation/`.
+- Move AppKit/system adapters to `Sources/LaunchApp/Adapters/`.
 - Keep `main.swift` as app bootstrap only.
 - Run `swift run LaunchCheck`, `swift build`, `Scripts/build-app.sh`.
 - Commit: `refactor: split SPA boundaries`.

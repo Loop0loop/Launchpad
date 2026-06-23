@@ -3,7 +3,7 @@ import LaunchCore
 import SwiftUI
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+public final class AppDelegate: NSObject, NSApplicationDelegate {
     let state = AppState()
     let iconCache = IconCache()
     let trackpadMonitor = TrackpadGestureMonitor()
@@ -16,7 +16,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var keyMonitor: Any?
     private lazy var statusMenu: NSMenu = makeStatusMenu()
 
-    func applicationDidFinishLaunching(_ notification: Notification) {
+    public override init() {
+        super.init()
+    }
+
+    public func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         makeWindow()
         makeStatusItem()
@@ -76,7 +80,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return menu
     }
 
-    @objc func statusBarClicked(_ sender: NSStatusBarButton) {
+    @objc nonisolated func statusBarClicked(_ sender: NSStatusBarButton) {
+        MainActor.assumeIsolated {
+            handleStatusBarClicked(sender)
+        }
+    }
+
+    private func handleStatusBarClicked(_ sender: NSStatusBarButton) {
         guard let event = NSApp.currentEvent else {
             toggleLauncher()
             return
@@ -94,16 +104,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         toggleLauncher()
     }
 
-    @objc func toggleLauncher() {
+    @objc nonisolated func toggleLauncher() {
+        MainActor.assumeIsolated {
+            handleToggleLauncher()
+        }
+    }
+
+    private func handleToggleLauncher() {
         launcherLifecycle?.toggle()
     }
 
-    @objc func refreshApps() {
+    @objc nonisolated func refreshApps() {
+        MainActor.assumeIsolated {
+            handleRefreshApps()
+        }
+    }
+
+    private func handleRefreshApps() {
         state.refreshApps()
         iconCache.clear()
     }
 
-    @objc func sortAppsByName() {
+    @objc nonisolated func sortAppsByName() {
+        MainActor.assumeIsolated {
+            state.applyNameSort()
+        }
+    }
+
+    private func handleSortAppsByName() {
         state.applyNameSort()
     }
 
@@ -130,7 +158,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func moveToTrash(_ app: LaunchApp) {
         do {
             try AppSystemAdapter.moveToTrash(app)
-            refreshApps()
+            handleRefreshApps()
         } catch {
             let errorAlert = NSAlert(error: error)
             errorAlert.messageText = LaunchConstants.Alerts.moveToTrashFailed
@@ -138,7 +166,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc func showSettings() {
+    @objc nonisolated func showSettings() {
+        MainActor.assumeIsolated {
+            handleShowSettings()
+        }
+    }
+
+    private func handleShowSettings() {
         if settingsWindow == nil {
             let window = NSWindow(
                 contentRect: .init(
