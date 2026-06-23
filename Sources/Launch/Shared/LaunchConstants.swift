@@ -35,10 +35,13 @@ enum LaunchConstants {
         static let appearanceSection = "Appearance"
         static let generalSection = "General"
         static let permissionsSection = "Permissions"
+        static let appSourcesSection = "App Sources"
         static let backgroundTransparency = "Background Transparency"
         static let folderDim = "Folder Dim"
         static let backgroundTransparencyHelp = "How much of the wallpaper shows through the launcher."
         static let folderDimHelp = "Darkening behind an open folder."
+        static let addAppSource = "Add App Source"
+        static let removeAppSource = "Remove"
 
         static let width: CGFloat = 420
         static let height: CGFloat = 560
@@ -60,6 +63,7 @@ enum LaunchConstants {
     enum Storage {
         static let layoutOrderKey = "layoutOrder"
         static let foldersKey = "folders"
+        static let appSourcesKey = "appSources"
     }
 
     enum Launcher {

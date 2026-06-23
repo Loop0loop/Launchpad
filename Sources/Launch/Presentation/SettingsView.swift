@@ -17,6 +17,7 @@ struct SettingsView: View {
 
                     appearanceSection
                     generalSection
+                    appSourcesSection
                     permissionsSection
                 }
                 .padding(LaunchConstants.Settings.padding)
@@ -82,6 +83,38 @@ struct SettingsView: View {
                 Text(error)
                     .font(.caption)
                     .foregroundStyle(.red)
+            }
+        }
+    }
+
+    private var appSourcesSection: some View {
+        SettingsGlassSection(title: LaunchConstants.Settings.appSourcesSection) {
+            if state.appSourcePaths.isEmpty {
+                Text("Default application folders only")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(state.appSourcePaths, id: \.self) { path in
+                    HStack(spacing: 10) {
+                        Text(path)
+                            .font(.caption)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+
+                        Spacer()
+
+                        Button(LaunchConstants.Settings.removeAppSource) {
+                            state.removeAppSource(path)
+                        }
+                        .buttonStyle(.plain)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.red)
+                    }
+                }
+            }
+
+            SettingsActionRow(title: LaunchConstants.Settings.addAppSource) {
+                state.requestAppSource()
             }
         }
     }

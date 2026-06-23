@@ -23,6 +23,7 @@ final class AppState: ObservableObject {
     @Published var f4KeyState: PermissionState = .unknown
     @Published var trackpadGateState: TrackpadGateState = .unknown
     @Published var launcherVisible = false
+    @Published var appSourcePaths = AppSourceStore.load()
     @Published var appearance = AppearanceStore.load() {
         didSet {
             guard oldValue != appearance else { return }
@@ -39,6 +40,7 @@ final class AppState: ObservableObject {
     var dismissLauncher: (() -> Void)?
     var launchApp: ((LaunchApp) -> Void)?
     var showAppInFinder: ((LaunchApp) -> Void)?
+    var chooseAppSource: (() -> Void)?
 
     init() {
         folders = layoutStore.loadFolders()
@@ -84,7 +86,7 @@ final class AppState: ObservableObject {
     }
 
     func refreshApps() {
-        apps = CatalogStore.scanApps()
+        apps = CatalogStore.scanApps(extraRoots: appSourcePaths)
         let cleanup = layoutStore.cleanup(folders: folders, order: order, validAppIDs: Set(apps.map(\.id)))
         folders = cleanup.folders
         order = cleanup.order
@@ -99,6 +101,24 @@ final class AppState: ObservableObject {
 
     func revealInFinder(_ app: LaunchApp) {
         showAppInFinder?(app)
+    }
+
+    func requestAppSource() {
+        chooseAppSource?()
+    }
+
+    func addAppSource(_ path: String) {
+        let standardized = URL(fileURLWithPath: path).standardizedFileURL.path
+        guard !appSourcePaths.contains(standardized) else { return }
+        appSourcePaths.append(standardized)
+        AppSourceStore.save(appSourcePaths)
+        refreshApps()
+    }
+
+    func removeAppSource(_ path: String) {
+        appSourcePaths.removeAll { $0 == path }
+        AppSourceStore.save(appSourcePaths)
+        refreshApps()
     }
 
     func launchSelected() {

@@ -47,6 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         state.dismissLauncher = { [weak self] in self?.launcherLifecycle?.dismiss() }
         state.launchApp = { [weak self] app in self?.launcherLifecycle?.launch(app) }
         state.showAppInFinder = { [weak self] app in self?.launcherLifecycle?.revealInFinder(app) }
+        state.chooseAppSource = { [weak self] in self?.chooseAppSource() }
     }
 
     func makeStatusItem() {
@@ -129,6 +130,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsWindow?.center()
         settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func chooseAppSource() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = LaunchConstants.Settings.addAppSource
+
+        if panel.runModal() == .OK, let url = panel.url {
+            state.addAppSource(url.path)
+        }
     }
 
     func startTrackpadMonitor() {
