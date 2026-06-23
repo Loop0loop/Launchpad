@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import Darwin
 import LaunchCore
 import ServiceManagement
@@ -29,17 +30,21 @@ final class AppState: ObservableObject {
     @Published var openFolder: LaunchFolder?
     @Published var launchAtLogin = false
     @Published var loginItemError: String?
+    @Published var accessibilityTrusted = false
     @Published private var order: [String] = []
 
     private var iconCache: [String: NSImage] = [:]
     private let pageSize = 35
     private let layoutKey = "layoutOrder"
     private let foldersKey = "folders"
+    var closeLauncher: (() -> Void)?
+    var dismissLauncher: (() -> Void)?
 
     init() {
         loadFolders()
         order = savedOrder()
         refreshLoginItemStatus()
+        refreshAccessibilityStatus()
         refreshApps()
     }
 
@@ -81,7 +86,7 @@ final class AppState: ObservableObject {
 
     func launch(_ app: LaunchApp) {
         NSWorkspace.shared.open(URL(fileURLWithPath: app.path))
-        NSApp.hide(nil)
+        dismissLauncher?()
     }
 
     func icon(for app: LaunchApp) -> NSImage {
@@ -161,6 +166,15 @@ final class AppState: ObservableObject {
         }
 
         refreshLoginItemStatus()
+    }
+
+    func refreshAccessibilityStatus() {
+        accessibilityTrusted = AXIsProcessTrusted()
+    }
+
+    func requestAccessibilityPermission() {
+        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+        accessibilityTrusted = AXIsProcessTrustedWithOptions(options)
     }
 
     private func loadFolders() {
@@ -256,7 +270,7 @@ struct LauncherView: View {
         )
         .onExitCommand {
             if state.query.isEmpty {
-                NSApp.hide(nil)
+                state.closeLauncher?()
             } else {
                 state.query = ""
             }
@@ -415,6 +429,17 @@ struct SettingsView: View {
                 state.refreshApps()
             }
 
+            HStack {
+                Text("Accessibility")
+                Spacer()
+                Text(state.accessibilityTrusted ? "Allowed" : "Required")
+                    .foregroundStyle(state.accessibilityTrusted ? .green : .orange)
+            }
+
+            Button("Request Accessibility Permission") {
+                state.requestAccessibilityPermission()
+            }
+
             if let error = state.loginItemError {
                 Text(error)
                     .font(.caption)
@@ -448,11 +473,12 @@ struct VisualEffectView: NSViewRepresentable {
 final class TrackpadGestureMonitor {
     private var monitors: [Any] = []
     private let fourFingerMonitor = FourFingerContactMonitor()
+    private var lastScrollIntentTime: TimeInterval = 0
 
     func start(onIntent: @escaping @MainActor (TrackpadIntent) -> Void) {
         fourFingerMonitor.start()
 
-        let mask: NSEvent.EventTypeMask = [.magnify, .swipe]
+        let mask: NSEvent.EventTypeMask = [.magnify, .swipe, .scrollWheel]
 
         let handler: (NSEvent) -> Void = { event in
             Task { @MainActor in
@@ -468,6 +494,12 @@ final class TrackpadGestureMonitor {
                         onIntent(intent)
                     }
                 } else if event.type == .swipe, let intent = TrackpadIntent.horizontalSwipe(deltaX: event.deltaX) {
+                    onIntent(intent)
+                } else if event.type == .scrollWheel,
+                          abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY),
+                          let intent = TrackpadIntent.horizontalScroll(deltaX: event.scrollingDeltaX),
+                          event.timestamp - self.lastScrollIntentTime > 0.25 {
+                    self.lastScrollIntentTime = event.timestamp
                     onIntent(intent)
                 }
             }
@@ -544,13 +576,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow?
     var settingsWindow: NSWindow?
     var statusItem: NSStatusItem?
+    var previousApp: NSRunningApplication?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         makeWindow()
         makeStatusItem()
+        state.closeLauncher = { [weak self] in self?.hideLauncher() }
+        state.dismissLauncher = { [weak self] in self?.dismissLauncher() }
+        state.requestAccessibilityPermission()
         startTrackpadMonitor()
-        showLauncher()
     }
 
     func makeWindow() {
@@ -573,7 +608,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem?.button?.title = "L"
         let menu = NSMenu()
-        menu.addItem(withTitle: "Show Launch", action: #selector(showLauncher), keyEquivalent: "l")
+        menu.addItem(withTitle: "Toggle Launch", action: #selector(toggleLauncher), keyEquivalent: "l")
         menu.addItem(withTitle: "Settings", action: #selector(showSettings), keyEquivalent: ",")
         menu.addItem(withTitle: "Refresh Apps", action: #selector(refreshApps), keyEquivalent: "r")
         menu.addItem(.separator())
@@ -581,7 +616,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem?.menu = menu
     }
 
-    @objc func showLauncher() {
+    @objc func toggleLauncher() {
+        if window?.isVisible == true {
+            hideLauncher()
+        } else {
+            showLauncher()
+        }
+    }
+
+    func showLauncher() {
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        if frontmost?.processIdentifier != NSRunningApplication.current.processIdentifier {
+            previousApp = frontmost
+        }
         state.query = ""
         window?.setFrame(NSScreen.main?.frame ?? window?.frame ?? .zero, display: true)
         window?.makeKeyAndOrderFront(nil)
@@ -589,6 +636,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func hideLauncher() {
+        dismissLauncher()
+        if #available(macOS 14.0, *) {
+            previousApp?.activate()
+        } else {
+            previousApp?.activate(options: [.activateIgnoringOtherApps])
+        }
+    }
+
+    func dismissLauncher() {
         window?.orderOut(nil)
     }
 

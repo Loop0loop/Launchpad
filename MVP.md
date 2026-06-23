@@ -52,3 +52,9 @@ Note: exact 4-finger gating uses private MultitouchSupport contact counts, with 
 - [x] Performance pass
 
 Run: `Scripts/build-app.sh`, then open `.build/Launch.app`.
+
+## Phase 7 - Bugfix Pass
+
+- [x] Request Accessibility permission for global gesture support
+- [x] Horizontal scroll wheel paging
+- [x] Toggle launcher and restore previous app

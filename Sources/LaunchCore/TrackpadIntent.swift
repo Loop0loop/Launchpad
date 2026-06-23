@@ -16,6 +16,12 @@ public enum TrackpadIntent: Equatable {
         return nil
     }
 
+    public static func horizontalScroll(deltaX: Double, threshold: Double = 12) -> TrackpadIntent? {
+        if deltaX <= -threshold { return .nextPage }
+        if deltaX >= threshold { return .previousPage }
+        return nil
+    }
+
     public static func isRecentFourFingerFrame(
         eventTime: Double,
         lastFourFingerTime: Double?,
