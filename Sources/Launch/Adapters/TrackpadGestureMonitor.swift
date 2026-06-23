@@ -84,10 +84,12 @@ final class FourFingerContactMonitor {
         let createList = unsafeBitCast(createListSymbol, to: MTDeviceCreateList.self)
         let register = unsafeBitCast(registerSymbol, to: MTRegisterContactFrameCallback.self)
         let startDevice = unsafeBitCast(startSymbol, to: MTDeviceStart.self)
-        let deviceList = createList().takeRetainedValue() as NSArray
+        let deviceList = createList().takeRetainedValue()
 
         Self.current = self
-        for case let device as MTDeviceRef in deviceList {
+        for index in 0..<CFArrayGetCount(deviceList) {
+            guard let rawDevice = CFArrayGetValueAtIndex(deviceList, index) else { continue }
+            let device = OpaquePointer(rawDevice)
             devices.append(device)
             register(device, contactCallback)
             startDevice(device, 0)
