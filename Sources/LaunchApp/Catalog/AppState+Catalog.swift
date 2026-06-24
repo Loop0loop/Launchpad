@@ -9,7 +9,7 @@ extension AppState {
     }
 
     func refreshApps() {
-        apps = CatalogStore.scanApps(extraRoots: appSourcePaths)
+        apps = CatalogStore.scanApps(extraRoots: appSourcePaths, languageCode: appLanguage.localeCode)
         let cleanup = LayoutStore.cleanup(folders: folders, order: order, validAppIDs: Set(apps.map(\.id)))
         folders = cleanup.folders
         openFolder = openFolder.flatMap { open in folders.first { $0.id == open.id } }

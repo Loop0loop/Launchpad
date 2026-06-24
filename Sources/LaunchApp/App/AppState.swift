@@ -79,6 +79,14 @@ final class AppState: ObservableObject {
             if sortMode == .name { applyNameSort() }
         }
     }
+    @Published var appLanguage = AppLanguage.load() {
+        didSet {
+            guard oldValue != appLanguage else { return }
+            appLanguage.save()
+            Localized.language = appLanguage
+            refreshApps()
+        }
+    }
     @Published var order: [String] = []
 
     var pageBeforeSearch = 0
@@ -88,6 +96,7 @@ final class AppState: ObservableObject {
     var actions = LauncherActions()
 
     init() {
+        Localized.language = appLanguage
         folders = LayoutStore.loadFolders()
         order = LayoutStore.loadOrder()
         refreshLoginItemStatus()

@@ -49,7 +49,7 @@ struct SettingsView: View {
 
     private var generalTab: some View {
         Group {
-            SettingsSection(title: "Launch") {
+            SettingsSection(title: Localized.t("실행", "Launch")) {
                 SettingsToggleRow(
                     title: LaunchConstants.Settings.launchAtLogin,
                     isOn: Binding(get: { state.launchAtLogin }, set: { state.setLaunchAtLogin($0) })
@@ -64,6 +64,14 @@ struct SettingsView: View {
                 SettingsRow(title: LaunchConstants.Settings.appIcon) {
                     AppIconPicker(selection: $state.appIcon)
                 }
+                SettingsRow(title: Localized.t("언어", "Language")) {
+                    Picker("", selection: $state.appLanguage) {
+                        ForEach(AppLanguage.allCases) { Text($0.title).tag($0) }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                }
             }
         }
     }
@@ -72,7 +80,7 @@ struct SettingsView: View {
 
     private var interfaceTab: some View {
         Group {
-            SettingsSection(title: "Layout") {
+            SettingsSection(title: Localized.t("레이아웃", "Layout")) {
                 SettingsRow(title: LaunchConstants.Settings.sortBy) {
                     Picker("", selection: $state.sortMode) {
                         ForEach(SortMode.allCases) { Text($0.title).tag($0) }
@@ -82,7 +90,7 @@ struct SettingsView: View {
                     .fixedSize()
                 }
 
-                SettingsRow(title: "Browsing Style") {
+                SettingsRow(title: Localized.t("탐색 방식", "Browsing Style")) {
                     Picker("", selection: $state.displayMode) {
                         ForEach(LauncherDisplayMode.allCases) { mode in
                             Text(mode.browsingLabel).tag(mode)
@@ -93,7 +101,7 @@ struct SettingsView: View {
                     .fixedSize()
                 }
 
-                SettingsRow(title: "Icon Grid") {
+                SettingsRow(title: Localized.t("아이콘 그리드", "Icon Grid")) {
                     HStack(spacing: 8) {
                         Stepper(value: columnsBinding, in: 4...12) {
                             Text("\(state.gridLayout.columns)").monospacedDigit()
@@ -108,7 +116,7 @@ struct SettingsView: View {
                 }
             }
 
-            SettingsSection(title: "Background") {
+            SettingsSection(title: Localized.t("배경", "Background")) {
                 SettingsSliderRow(
                     title: LaunchConstants.Settings.backgroundTransparency,
                     help: LaunchConstants.Settings.backgroundTransparencyHelp,
@@ -130,9 +138,9 @@ struct SettingsView: View {
 
     private var appsTab: some View {
         Group {
-            SettingsSection(title: "App Sources") {
+            SettingsSection(title: LaunchConstants.Settings.appSourcesSection) {
                 if state.appSourcePaths.isEmpty {
-                    Text("Default application folders only")
+                    Text(Localized.t("기본 응용 프로그램 폴더만", "Default application folders only"))
                         .font(.caption).foregroundStyle(.secondary)
                 } else {
                     ForEach(state.appSourcePaths, id: \.self) { path in
@@ -149,7 +157,7 @@ struct SettingsView: View {
                 SettingsActionRow(title: LaunchConstants.Settings.addAppSource) { state.requestAppSource() }
             }
 
-            SettingsSection(title: "Catalog") {
+            SettingsSection(title: Localized.t("카탈로그", "Catalog")) {
                 SettingsActionRow(title: LaunchConstants.Menu.refreshApps) { state.refreshApps() }
                 SettingsActionRow(title: LaunchConstants.Settings.importNativeLayout) { state.importNativeLaunchpadLayout() }
             }
@@ -160,7 +168,7 @@ struct SettingsView: View {
 
     private var advancedTab: some View {
         Group {
-            SettingsSection(title: "Permissions") {
+            SettingsSection(title: LaunchConstants.Settings.permissionsSection) {
                 SettingsStatusRow(title: LaunchConstants.Settings.accessibility, status: state.accessibilityState.label, positive: state.accessibilityState == .allowed)
                 SettingsStatusRow(title: LaunchConstants.Settings.trackpad, status: state.trackpadGateState.label, positive: state.trackpadGateState == .exactPinch)
                 SettingsStatusRow(title: LaunchConstants.Settings.globalHotKey, status: state.globalHotKeyState.label, positive: state.globalHotKeyState == .allowed)
@@ -168,7 +176,7 @@ struct SettingsView: View {
                 SettingsActionRow(title: LaunchConstants.Settings.requestAccessibility) { state.requestAccessibilityPermission() }
             }
 
-            SettingsSection(title: "Window") {
+            SettingsSection(title: Localized.t("창", "Window")) {
                 SettingsToggleRow(title: LaunchConstants.Settings.windowBrowsingMode, isOn: $state.windowBrowsingMode)
             }
         }
@@ -177,14 +185,14 @@ struct SettingsView: View {
     // MARK: About
 
     private var aboutTab: some View {
-        SettingsSection(title: "About") {
+        SettingsSection(title: Localized.t("정보", "About")) {
             HStack(spacing: 14) {
                 Image(nsImage: NSApp.applicationIconImage ?? NSImage())
                     .resizable().frame(width: 64, height: 64)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(LaunchConstants.App.settingsTitle.replacingOccurrences(of: " Settings", with: ""))
                         .font(.system(size: 20, weight: .semibold, design: .rounded))
-                    Text("Version \(Self.appVersion)").font(.subheadline).foregroundStyle(.secondary)
+                    Text("\(Localized.t("버전", "Version")) \(Self.appVersion)").font(.subheadline).foregroundStyle(.secondary)
                     Text(Self.bundleID).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()

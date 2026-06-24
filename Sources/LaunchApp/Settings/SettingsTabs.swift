@@ -14,7 +14,15 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     case general, interface, apps, advanced, about
 
     var id: String { rawValue }
-    var title: String { rawValue.capitalized }
+    var title: String {
+        switch self {
+        case .general: return Localized.t("일반", "General")
+        case .interface: return Localized.t("인터페이스", "Interface")
+        case .apps: return Localized.t("앱", "Apps")
+        case .advanced: return Localized.t("고급", "Advanced")
+        case .about: return Localized.t("정보", "About")
+        }
+    }
 
     var systemImage: String {
         switch self {

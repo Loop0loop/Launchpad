@@ -5,22 +5,22 @@ import SwiftUI
 enum LaunchConstants {
     enum App {
         static let menuBarTitle = "L"
-        static let settingsTitle = "Launch Settings"
+        static var settingsTitle: String { Localized.t("Launch 설정", "Launch Settings") }
         static let fallbackWindowFrame = NSRect(x: 0, y: 0, width: 1440, height: 900)
     }
 
     enum Menu {
-        static let toggle = "Toggle Launch"
-        static let settings = "Settings"
-        static let refreshApps = "Refresh Apps"
-        static let sortByName = "Sort by Name"
-        static let openApp = "Open"
-        static let showInFinder = "Show in Finder"
-        static let addToDock = "Add App to Dock"
-        static let hide = "Hide"
-        static let removeFromFolder = "Remove from Folder"
-        static let moveToTrash = "Move to Trash"
-        static let quit = "Quit"
+        static var toggle: String { Localized.t("런처 토글", "Toggle Launch") }
+        static var settings: String { Localized.t("설정", "Settings") }
+        static var refreshApps: String { Localized.t("앱 새로고침", "Refresh Apps") }
+        static var sortByName: String { Localized.t("이름순 정렬", "Sort by Name") }
+        static var openApp: String { Localized.t("열기", "Open") }
+        static var showInFinder: String { Localized.t("Finder에서 보기", "Show in Finder") }
+        static var addToDock: String { Localized.t("Dock에 추가", "Add App to Dock") }
+        static var hide: String { Localized.t("숨기기", "Hide") }
+        static var removeFromFolder: String { Localized.t("폴더에서 제거", "Remove from Folder") }
+        static var moveToTrash: String { Localized.t("휴지통으로 이동", "Move to Trash") }
+        static var quit: String { Localized.t("종료", "Quit") }
 
         static let toggleKey = "l"
         static let settingsKey = ","
@@ -30,39 +30,39 @@ enum LaunchConstants {
     }
 
     enum Alerts {
-        static let cancel = "Cancel"
-        static let moveToTrashFailed = "Could not move app to Trash."
+        static var cancel: String { Localized.t("취소", "Cancel") }
+        static var moveToTrashFailed: String { Localized.t("앱을 휴지통으로 옮길 수 없습니다.", "Could not move app to Trash.") }
 
         static func moveToTrashTitle(appName: String) -> String {
-            "Move \"\(appName)\" to Trash?"
+            Localized.t("\"\(appName)\"을(를) 휴지통으로 옮길까요?", "Move \"\(appName)\" to Trash?")
         }
     }
 
     enum Settings {
-        static let launchAtLogin = "Launch at Login"
-        static let accessibility = "Accessibility"
-        static let trackpad = "Trackpad"
-        static let globalHotKey = "Global HotKey"
-        static let f4Key = "F4 Key"
-        static let requestAccessibility = "Request Accessibility Permission"
-        static let appearanceSection = "Appearance"
-        static let generalSection = "General"
-        static let permissionsSection = "Permissions"
-        static let appSourcesSection = "App Sources"
-        static let gridLayoutSection = "Grid Layout"
-        static let backgroundTransparency = "Background Transparency"
-        static let folderDim = "Folder Dim"
-        static let backgroundTransparencyHelp = "How much of the wallpaper shows through the launcher."
-        static let folderDimHelp = "Darkening behind an open folder."
-        static let addAppSource = "Add App Source"
-        static let removeAppSource = "Remove"
-        static let gridPreset = "Grid"
-        static let importNativeLayout = "Import Native Launchpad Layout"
-        static let displayMode = "Display Mode"
-        static let windowBrowsingMode = "Window Browsing Mode"
-        static let showMenuBarIcon = "Show Menu Bar Icon"
-        static let appIcon = "App Icon"
-        static let sortBy = "Sort By"
+        static var launchAtLogin: String { Localized.t("로그인 시 실행", "Launch at Login") }
+        static var accessibility: String { Localized.t("손쉬운 사용", "Accessibility") }
+        static var trackpad: String { Localized.t("트랙패드", "Trackpad") }
+        static var globalHotKey: String { Localized.t("전역 단축키", "Global HotKey") }
+        static var f4Key: String { Localized.t("F4 키", "F4 Key") }
+        static var requestAccessibility: String { Localized.t("손쉬운 사용 권한 요청", "Request Accessibility Permission") }
+        static var appearanceSection: String { Localized.t("모양", "Appearance") }
+        static var generalSection: String { Localized.t("일반", "General") }
+        static var permissionsSection: String { Localized.t("권한", "Permissions") }
+        static var appSourcesSection: String { Localized.t("앱 소스", "App Sources") }
+        static var gridLayoutSection: String { Localized.t("그리드 레이아웃", "Grid Layout") }
+        static var backgroundTransparency: String { Localized.t("배경 투명도", "Background Transparency") }
+        static var folderDim: String { Localized.t("폴더 어둡게", "Folder Dim") }
+        static var backgroundTransparencyHelp: String { Localized.t("런처 뒤로 배경화면이 비치는 정도.", "How much of the wallpaper shows through the launcher.") }
+        static var folderDimHelp: String { Localized.t("열린 폴더 뒤를 어둡게.", "Darkening behind an open folder.") }
+        static var addAppSource: String { Localized.t("앱 소스 추가", "Add App Source") }
+        static var removeAppSource: String { Localized.t("제거", "Remove") }
+        static var gridPreset: String { Localized.t("그리드", "Grid") }
+        static var importNativeLayout: String { Localized.t("기본 Launchpad 레이아웃 가져오기", "Import Native Launchpad Layout") }
+        static var displayMode: String { Localized.t("표시 모드", "Display Mode") }
+        static var windowBrowsingMode: String { Localized.t("창 탐색 모드", "Window Browsing Mode") }
+        static var showMenuBarIcon: String { Localized.t("메뉴 막대 아이콘 표시", "Show Menu Bar Icon") }
+        static var appIcon: String { Localized.t("앱 아이콘", "App Icon") }
+        static var sortBy: String { Localized.t("정렬 기준", "Sort By") }
 
         static let width: CGFloat = 500
         static let height: CGFloat = 620
@@ -100,10 +100,11 @@ enum LaunchConstants {
         static let showMenuBarIconKey = "showMenuBarIcon"
         static let appIconKey = "appIcon"
         static let sortModeKey = "sortMode"
+        static let appLanguageKey = "appLanguage"
     }
 
     enum Launcher {
-        static let searchPlaceholder = "Search"
+        static var searchPlaceholder: String { Localized.t("검색", "Search") }
         static let pageSize = 35
         static let columns = 7
         static let rows = 5
