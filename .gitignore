@@ -10,3 +10,4 @@ pnpm-lock.yaml
 video.mp4
 .claude
 .pnpm-store
+.env

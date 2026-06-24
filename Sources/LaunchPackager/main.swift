@@ -3,6 +3,8 @@ import Foundation
 enum PackagerError: Error, CustomStringConvertible {
     case missingFile(String)
     case commandFailed(String, Int32)
+    case missingSigningIdentity
+    case missingNotaryCredential(String)
     case unknownCommand(String)
 
     var description: String {
@@ -11,9 +13,143 @@ enum PackagerError: Error, CustomStringConvertible {
             "Missing required file: \(path)"
         case .commandFailed(let command, let status):
             "Command failed (\(status)): \(command)"
+        case .missingSigningIdentity:
+            "Missing signing identity. Pass --identity \"Developer ID Application: ...\" or set LAUNCH_SIGN_IDENTITY."
+        case .missingNotaryCredential(let key):
+            "Missing notarization credential. Set \(key) in .env or the process environment."
         case .unknownCommand(let command):
             "Unknown command: \(command)"
         }
+    }
+}
+
+enum DotEnv {
+    static func load(from url: URL) -> [String: String] {
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else {
+            return [:]
+        }
+
+        var values: [String: String] = [:]
+        for rawLine in text.split(whereSeparator: \.isNewline) {
+            let line = rawLine.trimmingCharacters(in: .whitespaces)
+            guard !line.isEmpty, !line.hasPrefix("#"), let equals = line.firstIndex(of: "=") else {
+                continue
+            }
+
+            let key = line[..<equals].trimmingCharacters(in: .whitespaces)
+            var value = line[line.index(after: equals)...].trimmingCharacters(in: .whitespaces)
+            if value.count >= 2,
+               let first = value.first,
+               let last = value.last,
+               (first == "\"" && last == "\"") || (first == "'" && last == "'") {
+                value.removeFirst()
+                value.removeLast()
+            }
+            values[key] = value
+        }
+        return values
+    }
+}
+
+struct NotaryCredentials {
+    let appleID: String
+    let password: String
+    let teamID: String
+}
+
+struct PackagerOptions {
+    let command: String
+    let signingIdentity: String?
+    let notaryCredentials: NotaryCredentials?
+    let notaryAppleID: String?
+    let notaryPassword: String?
+    let notaryTeamID: String?
+
+    init(arguments: [String]) {
+        command = arguments.first ?? "dmg"
+        let dotEnv = DotEnv.load(
+            from: URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(".env")
+        )
+
+        var identity: String?
+        var iterator = arguments.dropFirst().makeIterator()
+        while let argument = iterator.next() {
+            if argument == "--identity" {
+                identity = iterator.next()
+            }
+        }
+        signingIdentity = identity
+            ?? Self.configValue("LAUNCH_SIGN_IDENTITY", dotEnv: dotEnv)
+            ?? Self.discoverDeveloperIDApplicationIdentity()
+        notaryAppleID = Self.configValue("APPLE_ID", dotEnv: dotEnv)
+        notaryPassword = Self.configValue("APPLE_APP_SPECIFIC_PASSWORD", dotEnv: dotEnv)
+        notaryTeamID = Self.configValue("APPLE_TEAM_ID", dotEnv: dotEnv)
+        notaryCredentials = Self.notaryCredentials(
+            appleID: notaryAppleID,
+            password: notaryPassword,
+            teamID: notaryTeamID
+        )
+    }
+
+    static func configValue(_ key: String, dotEnv: [String: String]) -> String? {
+        if let value = ProcessInfo.processInfo.environment[key], !value.isEmpty {
+            return value
+        }
+        if let value = dotEnv[key], !value.isEmpty {
+            return value
+        }
+        return nil
+    }
+
+    static func notaryCredentials(appleID: String?, password: String?, teamID: String?) -> NotaryCredentials? {
+        guard let appleID, let password, let teamID else {
+            return nil
+        }
+        return NotaryCredentials(appleID: appleID, password: password, teamID: teamID)
+    }
+
+    static func discoverDeveloperIDApplicationIdentity() -> String? {
+        let home = ProcessInfo.processInfo.environment["HOME"].map(URL.init(fileURLWithPath:))
+        let keychain = home?.appendingPathComponent("Library/Keychains/login.keychain-db").path
+        let searches = [
+            ["find-identity", "-v", "-p", "codesigning"],
+            keychain.map { ["find-identity", "-v", "-p", "codesigning", $0] }
+        ].compactMap { $0 }
+
+        for arguments in searches {
+            guard let output = runSecurity(arguments) else {
+                continue
+            }
+            for line in output.split(whereSeparator: \.isNewline) {
+                guard line.contains("\"Developer ID Application:"),
+                      let firstQuote = line.firstIndex(of: "\""),
+                      let lastQuote = line.lastIndex(of: "\""),
+                      firstQuote != lastQuote else {
+                    continue
+                }
+                return String(line[line.index(after: firstQuote)..<lastQuote])
+            }
+        }
+        return nil
+    }
+
+    static func runSecurity(_ arguments: [String]) -> String? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+        process.arguments = arguments
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            return nil
+        }
+        guard process.terminationStatus == 0 else {
+            return nil
+        }
+        return String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)
     }
 }
 
@@ -28,22 +164,64 @@ struct LaunchPackager {
     var dmgURL: URL { buildDir.appendingPathComponent("\(name).dmg") }
     var backgroundURL: URL { root.appendingPathComponent("public/Launch.png") }
 
-    func run(_ command: String) throws {
-        switch command {
+    func run(_ options: PackagerOptions) throws {
+        switch options.command {
         case "app":
             try buildApp()
             print(relative(appURL))
         case "dmg":
             try buildDMG()
             print(relative(dmgURL))
+        case "sign":
+            guard let identity = options.signingIdentity, !identity.isEmpty else {
+                throw PackagerError.missingSigningIdentity
+            }
+            try buildSignedDMG(identity: identity)
+            print(relative(dmgURL))
+        case "notarize":
+            guard let identity = options.signingIdentity, !identity.isEmpty else {
+                throw PackagerError.missingSigningIdentity
+            }
+            guard let credentials = options.notaryCredentials else {
+                try requireNotaryCredential("APPLE_ID", from: options)
+                try requireNotaryCredential("APPLE_APP_SPECIFIC_PASSWORD", from: options)
+                try requireNotaryCredential("APPLE_TEAM_ID", from: options)
+                throw PackagerError.missingNotaryCredential("APPLE_ID")
+            }
+            try notarize(identity: identity, credentials: credentials)
+            print(relative(dmgURL))
         default:
-            throw PackagerError.unknownCommand(command)
+            throw PackagerError.unknownCommand(options.command)
         }
     }
 
-    func buildDMG() throws {
+    func buildSignedDMG(identity: String) throws {
+        try buildDMG(signingIdentity: identity)
+    }
+
+    func notarize(identity: String, credentials: NotaryCredentials) throws {
+        try buildSignedDMG(identity: identity)
+        try runProcess(
+            "/usr/bin/xcrun",
+            [
+                "notarytool", "submit", dmgURL.path,
+                "--apple-id", credentials.appleID,
+                "--password", credentials.password,
+                "--team-id", credentials.teamID,
+                "--wait"
+            ],
+            redactedCommand: "/usr/bin/xcrun notarytool submit \(relative(dmgURL)) --apple-id <redacted> --password <redacted> --team-id <redacted> --wait"
+        )
+        try runProcess("/usr/bin/xcrun", ["stapler", "staple", dmgURL.path])
+        try runProcess("/usr/bin/xcrun", ["stapler", "validate", dmgURL.path])
+    }
+
+    func buildDMG(signingIdentity: String? = nil) throws {
         try requireFile(backgroundURL)
         try buildApp()
+        if let signingIdentity {
+            try signApp(identity: signingIdentity)
+        }
 
         let fm = FileManager.default
         try removeIfExists(stagingURL)
@@ -75,6 +253,10 @@ struct LaunchPackager {
             ],
             quiet: true
         )
+
+        if let signingIdentity {
+            try signDMG(identity: signingIdentity)
+        }
     }
 
     func buildApp() throws {
@@ -117,6 +299,42 @@ struct LaunchPackager {
         )
     }
 
+    func signApp(identity: String) throws {
+        try requireFile(appURL)
+        var arguments = [
+            "--force",
+            "--deep",
+            "--options", "runtime",
+            "--sign", identity
+        ]
+        if identity != "-" {
+            arguments.append("--timestamp")
+        }
+        arguments.append(appURL.path)
+        try runProcess("/usr/bin/codesign", arguments)
+        try runProcess(
+            "/usr/bin/codesign",
+            ["--verify", "--deep", "--strict", "--verbose=4", appURL.path]
+        )
+    }
+
+    func signDMG(identity: String) throws {
+        try requireFile(dmgURL)
+        var arguments = [
+            "--force",
+            "--sign", identity
+        ]
+        if identity != "-" {
+            arguments.append("--timestamp")
+        }
+        arguments.append(dmgURL.path)
+        try runProcess("/usr/bin/codesign", arguments)
+        try runProcess(
+            "/usr/bin/codesign",
+            ["--verify", "--verbose=4", dmgURL.path]
+        )
+    }
+
     func copy(_ source: String, to destination: URL) throws {
         let sourceURL = root.appendingPathComponent(source)
         try requireFile(sourceURL)
@@ -145,7 +363,8 @@ struct LaunchPackager {
         _ executable: String,
         _ arguments: [String],
         environment extraEnvironment: [String: String] = [:],
-        quiet: Bool = false
+        quiet: Bool = false,
+        redactedCommand: String? = nil
     ) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
@@ -172,7 +391,25 @@ struct LaunchPackager {
             if quiet, !output.isEmpty {
                 print(output, terminator: output.hasSuffix("\n") ? "" : "\n")
             }
-            throw PackagerError.commandFailed(([executable] + arguments).joined(separator: " "), process.terminationStatus)
+            let command = redactedCommand ?? ([executable] + arguments).joined(separator: " ")
+            throw PackagerError.commandFailed(command, process.terminationStatus)
+        }
+    }
+
+    func requireNotaryCredential(_ key: String, from options: PackagerOptions) throws {
+        let hasCredential: Bool
+        switch key {
+        case "APPLE_ID":
+            hasCredential = options.notaryAppleID?.isEmpty == false
+        case "APPLE_APP_SPECIFIC_PASSWORD":
+            hasCredential = options.notaryPassword?.isEmpty == false
+        case "APPLE_TEAM_ID":
+            hasCredential = options.notaryTeamID?.isEmpty == false
+        default:
+            hasCredential = false
+        }
+        if !hasCredential {
+            throw PackagerError.missingNotaryCredential(key)
         }
     }
 
@@ -188,10 +425,10 @@ struct LaunchPackager {
     }
 }
 
-let command = CommandLine.arguments.dropFirst().first ?? "dmg"
+let options = PackagerOptions(arguments: Array(CommandLine.arguments.dropFirst()))
 
 do {
-    try LaunchPackager().run(command)
+    try LaunchPackager().run(options)
 } catch {
     FileHandle.standardError.write(Data("\(error)\n".utf8))
     exit(1)

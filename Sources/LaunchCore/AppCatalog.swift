@@ -62,6 +62,9 @@ public enum AppCatalog {
         }
 
         // System language.
+        for code in Locale.preferredLanguages {
+            if let localized = localizedName(for: url, languageCode: code) { return localized }
+        }
         let info = bundle?.localizedInfoDictionary ?? bundle?.infoDictionary
         return info?["CFBundleDisplayName"] as? String
             ?? info?["CFBundleName"] as? String
@@ -96,11 +99,32 @@ public enum AppCatalog {
 
     /// `.lproj` directory names to try for a language (e.g. "ko" → ["ko", "ko-KR"]).
     private static func lprojCandidates(for code: String) -> [String] {
-        switch code {
-        case "ko": return ["ko", "ko-KR", "Korean"]
-        case "en": return ["en", "en-US", "English", "Base"]
-        default: return [code]
+        var candidates: [String] = []
+        func append(_ candidate: String) {
+            guard !candidate.isEmpty, !candidates.contains(candidate) else { return }
+            candidates.append(candidate)
         }
+
+        append(code)
+        append(code.replacingOccurrences(of: "-", with: "_"))
+
+        let language = code
+            .replacingOccurrences(of: "_", with: "-")
+            .split(separator: "-")
+            .first
+            .map(String.init) ?? code
+        append(language)
+
+        switch language {
+        case "ko":
+            append("Korean")
+        case "en":
+            append("English")
+            append("Base")
+        default:
+            break
+        }
+
+        return candidates
     }
 }
-

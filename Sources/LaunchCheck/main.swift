@@ -4,6 +4,24 @@ import LaunchCore
 let url = URL(fileURLWithPath: "/tmp/Fake App.app")
 assert(AppCatalog.displayName(for: url) == "Fake App")
 
+let localizedApp = FileManager.default.temporaryDirectory
+    .appendingPathComponent("LaunchCheck-\(UUID().uuidString)")
+    .appendingPathComponent("Localized App.app")
+let resources = localizedApp.appendingPathComponent("Contents/Resources")
+try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+NSDictionary(dictionary: ["CFBundleName": "Localized App"]).write(
+    to: localizedApp.appendingPathComponent("Contents/Info.plist"),
+    atomically: true
+)
+NSDictionary(dictionary: ["ko": ["CFBundleName": "현지화 앱"]]).write(
+    to: resources.appendingPathComponent("InfoPlist.loctable"),
+    atomically: true
+)
+assert(AppCatalog.displayName(for: localizedApp, languageCode: "ko-KR") == "현지화 앱")
+if Locale.preferredLanguages.first?.hasPrefix("ko") == true {
+    assert(AppCatalog.displayName(for: localizedApp) == "현지화 앱")
+}
+
 let missing = URL(fileURLWithPath: "/tmp/launch-missing-\(UUID().uuidString)")
 assert(AppCatalog.scan(roots: [missing]).isEmpty)
 
