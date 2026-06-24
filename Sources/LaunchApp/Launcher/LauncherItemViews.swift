@@ -5,13 +5,14 @@ struct LauncherItemView: View {
     let item: LauncherItem
     @ObservedObject var state: AppState
     let layout: LaunchpadLayoutMetrics
+    let pageOffset: CGFloat
 
     var body: some View {
         switch item {
         case .app(let app):
-            AppIcon(app: app, state: state, layout: layout)
+            AppIcon(app: app, state: state, layout: layout, pageOffset: pageOffset)
         case .folder(let folder, let apps):
-            FolderIcon(folder: folder, apps: apps, state: state, layout: layout)
+            FolderIcon(folder: folder, apps: apps, state: state, layout: layout, pageOffset: pageOffset)
         }
     }
 }
@@ -21,6 +22,7 @@ struct AppIcon: View {
     @ObservedObject var state: AppState
     @Environment(\.iconCache) private var iconCache
     let layout: LaunchpadLayoutMetrics
+    let pageOffset: CGFloat
 
     var body: some View {
         VStack(spacing: LaunchConstants.Icon.spacing) {
@@ -40,11 +42,11 @@ struct AppIcon: View {
         .frame(width: max(layout.iconSize, layout.labelWidth))
         .contentShape(Rectangle())
         .frame(width: layout.columnWidth)
-        .overlay(keyboardSelectionBackground(isSelected: state.showsKeyboardSelection(for: app.id)))
+        .overlay(keyboardSelectionBackground(isSelected: state.query.isEmpty && state.showsKeyboardSelection(for: app.id)))
         .onTapGesture {
             state.launch(app)
         }
-        .launcherDrag(id: app.id, state: state, layout: layout)
+        .launcherDrag(id: app.id, state: state, layout: layout, pageOffset: pageOffset)
         .contextMenu {
             launcherAppContextMenu(app: app, state: state)
         }
@@ -57,6 +59,7 @@ struct FolderIcon: View {
     @ObservedObject var state: AppState
     @Environment(\.iconCache) private var iconCache
     let layout: LaunchpadLayoutMetrics
+    let pageOffset: CGFloat
 
     private var miniIconSize: CGFloat {
         layout.iconSize * LaunchConstants.Icon.folderPreviewScale
@@ -95,11 +98,11 @@ struct FolderIcon: View {
         .frame(width: max(layout.iconSize, layout.labelWidth))
         .contentShape(Rectangle())
         .frame(width: layout.columnWidth)
-        .overlay(keyboardSelectionBackground(isSelected: state.showsKeyboardSelection(for: folder.id)))
+        .overlay(keyboardSelectionBackground(isSelected: state.query.isEmpty && state.showsKeyboardSelection(for: folder.id)))
         .onTapGesture {
             state.openFolderFromTap(folder)
         }
-        .launcherDrag(id: folder.id, state: state, layout: layout)
+        .launcherDrag(id: folder.id, state: state, layout: layout, pageOffset: pageOffset)
     }
 }
 
@@ -130,18 +133,32 @@ struct LauncherDragModifier: ViewModifier {
     let id: String
     @ObservedObject var state: AppState
     let layout: LaunchpadLayoutMetrics
+    let pageOffset: CGFloat
+
+    @GestureState private var isDragActive = false
 
     func body(content: Content) -> some View {
         let isDragging = state.draggingItemID == id
         let isMergeTarget = state.dragHoverTargetID == id
+        
+        let translation = isDragging ? CGSize(
+            width: state.dragTranslation.width - pageOffset,
+            height: state.dragTranslation.height
+        ) : .zero
+
         return content
             .scaleEffect(isDragging ? 1.12 : (isMergeTarget ? 1.16 : 1))
-            .opacity(isDragging ? 0.9 : 1)
-            .offset(isDragging ? state.dragTranslation : .zero)
+            .opacity(isDragging ? LaunchConstants.Icon.draggedOpacity : 1)
+            .offset(translation)
             .zIndex(isDragging ? 100 : 0)
             .animation(LaunchConstants.Animation.quick, value: isMergeTarget)
+            .animation(isDragging ? nil : LaunchConstants.Animation.spring, value: isDragging)
+            .animation(isDragging ? nil : LaunchConstants.Animation.spring, value: state.dragTranslation)
             .gesture(
                 DragGesture(minimumDistance: 8, coordinateSpace: .named("launcherGrid"))
+                    .updating($isDragActive) { _, dragActiveState, _ in
+                        dragActiveState = true
+                    }
                     .onChanged { value in
                         if state.draggingItemID == nil { state.beginItemDrag(id) }
                         let resolved = state.dropResolution(at: value.location, layout: layout)
@@ -149,14 +166,22 @@ struct LauncherDragModifier: ViewModifier {
                     }
                     .onEnded { value in
                         let resolved = state.dropResolution(at: value.location, layout: layout)
-                        state.endItemDrag(onIconID: resolved.onIconID, slotID: resolved.slotID)
+                        state.endItemDrag(onIconID: resolved.onIconID, slotID: resolved.slotID, targetIndex: resolved.targetIndex)
                     }
             )
+            .onChange(of: isDragActive) { oldValue, newValue in
+                if oldValue && !newValue {
+                    if state.draggingItemID == id {
+                        LaunchLog.line("Drag gesture cancelled/interrupted for \(id)")
+                        state.cancelDrag()
+                    }
+                }
+            }
     }
 }
 
 extension View {
-    func launcherDrag(id: String, state: AppState, layout: LaunchpadLayoutMetrics) -> some View {
-        modifier(LauncherDragModifier(id: id, state: state, layout: layout))
+    func launcherDrag(id: String, state: AppState, layout: LaunchpadLayoutMetrics, pageOffset: CGFloat) -> some View {
+        modifier(LauncherDragModifier(id: id, state: state, layout: layout, pageOffset: pageOffset))
     }
 }

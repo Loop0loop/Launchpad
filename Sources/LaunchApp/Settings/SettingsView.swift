@@ -10,9 +10,7 @@ struct SettingsView: View {
 
     var body: some View {
         ZStack {
-            VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
-                .ignoresSafeArea()
-            Color.black.opacity(LaunchConstants.Appearance.settingsBackdropOpacity)
+            VisualEffectView(material: .windowBackground, blendingMode: .behindWindow)
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -42,7 +40,6 @@ struct SettingsView: View {
             height: LaunchConstants.Settings.height,
             alignment: .top
         )
-        .foregroundStyle(.white)
     }
 
     // MARK: General
@@ -56,6 +53,48 @@ struct SettingsView: View {
                 )
                 if let error = state.loginItemError {
                     Text(error).font(.caption).foregroundStyle(.red)
+                }
+
+                SettingsRow(title: Localized.t("전역 단축키", "Global HotKey")) {
+                    Button {
+                        // Interactive UI feedback
+                    } label: {
+                        Text(state.hotkeyDisplay)
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(Color.primary.opacity(0.08)))
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                SettingsToggleRow(
+                    title: Localized.t("F4 키로 런처 열기", "Open Launcher with F4 key"),
+                    isOn: $state.systemF4KeyEnabled
+                )
+
+                SettingsRow(title: Localized.t("트랙패드 동작", "Trackpad Action")) {
+                    Picker("", selection: $state.trackpadSetting) {
+                        Text(Localized.t("손가락 4개 또는 5개로 핀치", "Pinch with 4 or 5 fingers")).tag("Pinch with 4 or 5 fingers")
+                        Text(Localized.t("손가락 3개로 쓸어넘기기", "Swipe with 3 fingers")).tag("Swipe with 3 fingers")
+                        Text(Localized.t("비활성화", "Disabled")).tag("Disabled")
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                }
+
+                SettingsRow(title: Localized.t("핫 코너 동작", "Hot Corner Action")) {
+                    Picker("", selection: $state.hotCornerSetting) {
+                        Text(Localized.t("비활성화", "Disabled")).tag("Disabled")
+                        Text(Localized.t("왼쪽 위", "Top Left")).tag("Top Left")
+                        Text(Localized.t("오른쪽 위", "Top Right")).tag("Top Right")
+                        Text(Localized.t("왼쪽 아래", "Bottom Left")).tag("Bottom Left")
+                        Text(Localized.t("오른쪽 아래", "Bottom Right")).tag("Bottom Right")
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize()
                 }
             }
 

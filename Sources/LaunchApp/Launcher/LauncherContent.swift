@@ -63,7 +63,7 @@ struct SearchResultsGrid: View {
 
                 LazyVGrid(columns: columns, spacing: layout.gridRowSpacing) {
                     ForEach(state.visibleItems) { item in
-                        LauncherItemView(item: item, state: state, layout: layout)
+                        LauncherItemView(item: item, state: state, layout: layout, pageOffset: 0)
                     }
                 }
                 .padding(.horizontal, layout.horizontalPadding)
@@ -89,9 +89,10 @@ struct PagedGridView: View {
                         state.dismissFromBackground()
                     }
 
+                    let thisPageOffset = pageOffset + CGFloat(page) * pageWidth
                     LazyVGrid(columns: columns, spacing: layout.gridRowSpacing) {
                         ForEach(state.items(forPage: page)) { item in
-                            LauncherItemView(item: item, state: state, layout: layout)
+                            LauncherItemView(item: item, state: state, layout: layout, pageOffset: thisPageOffset)
                         }
                     }
                     .padding(.horizontal, layout.horizontalPadding)
@@ -127,7 +128,7 @@ struct LauncherSearchField: View {
     @ObservedObject var state: AppState
 
     var body: some View {
-        LauncherSearchBarRepresentable(text: $query) { bar in
+        LauncherSearchBarRepresentable(text: $query, state: state) { bar in
             state.registerSearchBar(bar)
             if state.searchFocus.shouldFocusOnShow {
                 DispatchQueue.main.async {

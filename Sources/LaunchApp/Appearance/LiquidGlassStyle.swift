@@ -39,15 +39,15 @@ extension View {
         )
     }
 
-    /// Settings panel card: frosted glass with subtle edge highlight.
+    /// Settings panel card: native-style card with proper control background and subtle border.
     func settingsGlassCard(cornerRadius: CGFloat = LaunchConstants.Settings.cardCornerRadius) -> some View {
         background {
-            RoundedRectangle(cornerRadius: cornerRadius)
-                .fill(.white.opacity(0.08))
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor))
+                .shadow(color: Color.black.opacity(0.03), radius: 2, y: 1)
                 .overlay {
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .strokeBorder(.white.opacity(0.22), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(Color(nsColor: .separatorColor).opacity(0.6), lineWidth: 0.8)
                 }
         }
     }

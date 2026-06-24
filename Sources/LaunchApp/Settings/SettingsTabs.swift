@@ -27,9 +27,9 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .general: "gearshape"
-        case .interface: "slider.horizontal.3"
-        case .apps: "square.grid.2x2"
-        case .advanced: "wrench.and.screwdriver"
+        case .interface: "circle.hexagongrid"
+        case .apps: "app"
+        case .advanced: "slider.horizontal.3"
         case .about: "info.circle"
         }
     }
@@ -54,8 +54,8 @@ struct SettingsTabBar: View {
                     .foregroundStyle(active ? Color.accentColor : .secondary)
                     .background {
                         if active {
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(.white.opacity(0.12))
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color.primary.opacity(0.08))
                         }
                     }
                 }

@@ -22,7 +22,7 @@ public enum TrackpadIntent: Equatable {
         return nil
     }
 
-    public static func shouldAcceptScrollIntent(eventTime: Double, lastIntentTime: Double, minimumInterval: Double = 0.25) -> Bool {
+    public static func shouldAcceptScrollIntent(eventTime: Double, lastIntentTime: Double, minimumInterval: Double = 0.7) -> Bool {
         eventTime - lastIntentTime > minimumInterval
     }
 

@@ -7,6 +7,7 @@ final class TrackpadGestureMonitor {
     private var monitors: [Any] = []
     private let pinchMonitor = PinchContactMonitor()
     private var lastScrollIntentTime: TimeInterval = 0
+    private var isScrollLocked = false
 
     func start(
         onGateStatus: @escaping @MainActor (Bool) -> Void,
@@ -34,19 +35,57 @@ final class TrackpadGestureMonitor {
                         // ponytail: fallback keeps pinch usable when private MultitouchSupport is unavailable.
                         onIntent(intent)
                     }
-                } else if event.type == .swipe, let intent = TrackpadIntent.horizontalSwipe(deltaX: event.deltaX) {
-                    LaunchLog.line("swipe event deltaX=\(event.deltaX) intent=\(intent)")
-                    onIntent(intent)
-                } else if event.type == .scrollWheel,
-                          abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY),
-                          let intent = TrackpadIntent.horizontalScroll(deltaX: event.scrollingDeltaX),
-                          TrackpadIntent.shouldAcceptScrollIntent(
-                            eventTime: event.timestamp,
-                            lastIntentTime: self.lastScrollIntentTime
-                          ) {
-                    LaunchLog.line("scroll event deltaX=\(event.scrollingDeltaX) intent=\(intent)")
-                    self.lastScrollIntentTime = event.timestamp
-                    onIntent(intent)
+                } else if event.type == .swipe {
+                    if event.phase.contains(.ended) || event.phase.contains(.cancelled) {
+                        self.isScrollLocked = false
+                        return
+                    }
+                    if event.phase.contains(.began) {
+                        self.isScrollLocked = false
+                    }
+                    if self.isScrollLocked { return }
+                    
+                    if let intent = TrackpadIntent.horizontalSwipe(deltaX: event.deltaX) {
+                        LaunchLog.line("swipe event deltaX=\(event.deltaX) intent=\(intent)")
+                        self.isScrollLocked = true
+                        onIntent(intent)
+                    }
+                } else if event.type == .scrollWheel {
+                    let hasPhase = !event.phase.isEmpty || !event.momentumPhase.isEmpty
+                    if hasPhase {
+                        let isEnded = event.phase.contains(.ended) || event.phase.contains(.cancelled) || event.momentumPhase.contains(.ended)
+                        if isEnded {
+                            self.isScrollLocked = false
+                            return
+                        }
+                        if event.phase.contains(.began) {
+                            self.isScrollLocked = false
+                        }
+                    }
+                    
+                    if self.isScrollLocked {
+                        return
+                    }
+                    
+                    if abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY) {
+                        let delta = event.scrollingDeltaX
+                        let threshold: CGFloat = 12
+                        if abs(delta) >= threshold {
+                            let intent: TrackpadIntent = delta < 0 ? .nextPage : .previousPage
+                            let now = event.timestamp
+                            let timeDiff = now - self.lastScrollIntentTime
+                            let minInterval = hasPhase ? 0.1 : 0.7
+                            
+                            if timeDiff > minInterval {
+                                self.lastScrollIntentTime = now
+                                if hasPhase {
+                                    self.isScrollLocked = true
+                                }
+                                LaunchLog.line("scroll event deltaX=\(event.scrollingDeltaX) intent=\(intent)")
+                                onIntent(intent)
+                            }
+                        }
+                    }
                 }
             }
         }

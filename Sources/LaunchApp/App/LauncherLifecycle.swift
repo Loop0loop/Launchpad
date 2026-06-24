@@ -62,6 +62,7 @@ final class LauncherLifecycle {
         setPresentationScale(LaunchConstants.Lifecycle.hiddenScale)
         window.alphaValue = 0
         window.makeKeyAndOrderFront(nil)
+        window.makeFirstResponder(nil)
         NSApp.activate(ignoringOtherApps: true)
         mouseMonitor?.setEnabled(true)
 

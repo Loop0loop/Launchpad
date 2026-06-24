@@ -87,6 +87,9 @@ enum LaunchConstants {
     enum Glass {
         static let panelShadowOpacity: CGFloat = 0.28
         static let panelShadowRadius: CGFloat = 28
+        static let sheenOpacity: CGFloat = 0.04
+        static let searchBarShadowOpacity: CGFloat = 0.15
+        static let searchBarShadowRadius: CGFloat = 12
     }
 
     enum Storage {
@@ -111,12 +114,12 @@ enum LaunchConstants {
 
         static let minHorizontalPadding: CGFloat = 60
         static let horizontalPaddingRatio: CGFloat = 0.08
-        static let minTopInset: CGFloat = 52
+        static let minTopInset: CGFloat = 44
         static let topInsetRatio: CGFloat = 1.0 / 14.0
-        static let minBottomInset: CGFloat = 72
-        static let bottomInsetRatio: CGFloat = 0.1
-        static let menuBarReserve: CGFloat = 12
-        static let searchToGridGap: CGFloat = 20
+        static let minBottomInset: CGFloat = 48
+        static let bottomInsetRatio: CGFloat = 0.06
+        static let menuBarReserve: CGFloat = 4
+        static let searchToGridGap: CGFloat = 55
         static let gridToPagerGap: CGFloat = 16
         static let minGridHeight: CGFloat = 240
 
@@ -148,6 +151,8 @@ enum LaunchConstants {
         static let pageRubberBandRatio: CGFloat = 0.25
         static let pageChangeCooldown: TimeInterval = 0.35
         static let folderEntranceScale: CGFloat = 0.85
+        static let dragEdgeWidth: CGFloat = 60
+        static let dragPageScrollInterval: TimeInterval = 0.35 // Snappier scroll speed (0.35s instead of 0.8s)
     }
 
     enum Animation {

@@ -30,7 +30,9 @@ extension AppState {
             LaunchLog.line("handleEscape ignored launcher not visible")
             return
         }
-        if openFolder != nil {
+        if isDraggingLauncherItem {
+            cancelDrag()
+        } else if openFolder != nil {
             closeFolder()
         } else if !query.isEmpty {
             clearSearch()
@@ -102,7 +104,7 @@ extension AppState {
     }
 
     func showsKeyboardSelection(for id: String) -> Bool {
-        keyboardSelectionActive && selectedItemID == id
+        query.isEmpty && keyboardSelectionActive && selectedItemID == id
     }
 
     func closeFolder() {
@@ -188,15 +190,16 @@ extension AppState {
             pageBeforeSearch = currentPage
             selectionBeforeSearch = selectedItemID
             currentPage = 0
-            keyboardSelectionActive = true
-            selectedItemID = visibleItems.first?.id
+            keyboardSelectionActive = false
+            selectedItemID = nil
         } else if !oldValue.isEmpty, query.isEmpty {
             currentPage = min(pageBeforeSearch, pageCount - 1)
             selectedItemID = selectionBeforeSearch
             ensureSelection()
         } else if !query.isEmpty {
             currentPage = 0
-            selectedItemID = visibleItems.first?.id
+            keyboardSelectionActive = false
+            selectedItemID = nil
         }
     }
 

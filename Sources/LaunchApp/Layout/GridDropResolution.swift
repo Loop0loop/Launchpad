@@ -17,6 +17,7 @@ enum LauncherItem: Identifiable {
 struct GridDropResolution {
     let onIconID: String?
     let slotID: String?
+    let targetIndex: Int?
 }
 
 extension AppState {
@@ -35,7 +36,7 @@ extension AppState {
         dragHoverTargetID = (hoveredID != nil && hoveredID != dragging) ? hoveredID : nil
     }
 
-    func endItemDrag(onIconID: String?, slotID: String?) {
+    func endItemDrag(onIconID: String?, slotID: String?, targetIndex: Int?) {
         defer { cancelDrag() }
         guard let dragged = draggingItemID, query.isEmpty, openFolder == nil else { return }
 
@@ -51,9 +52,21 @@ extension AppState {
             }
         }
 
-        if let slot = slotID, slot != dragged {
+        if let index = targetIndex {
+            move(dragged, toIndex: index)
+        } else if let slot = slotID, slot != dragged {
             move(dragged, before: slot)
         }
+    }
+
+    func move(_ id: String, toIndex targetIndex: Int) {
+        guard query.isEmpty else { return }
+        let orderIDs = visibleItems.map(\.id)
+        guard orderIDs.contains(id) else { return }
+        var next = orderIDs.filter { $0 != id }
+        let insertIndex = min(max(targetIndex, 0), next.count)
+        next.insert(id, at: insertIndex)
+        saveOrder(next)
     }
 
     func cancelDrag() {
@@ -65,23 +78,29 @@ extension AppState {
     /// Maps a pointer location (in the `"launcherGrid"` coordinate space) to the item under it.
     func dropResolution(at location: CGPoint, layout: LaunchpadLayoutMetrics) -> GridDropResolution {
         let items = items(forPage: currentPage)
-        guard location.y >= 0 else { return GridDropResolution(onIconID: nil, slotID: nil) }
+        guard location.y >= 0 else { return GridDropResolution(onIconID: nil, slotID: nil, targetIndex: nil) }
         let pitchX = layout.columnWidth + layout.gridColumnSpacing
         let x = location.x - layout.horizontalPadding
-        guard x >= 0 else { return GridDropResolution(onIconID: nil, slotID: nil) }
+        guard x >= 0 else { return GridDropResolution(onIconID: nil, slotID: nil, targetIndex: nil) }
         let col = Int(x / pitchX)
         let row = Int(location.y / layout.rowHeight)
         guard col >= 0, col < layout.columns, row >= 0, row < layout.rows else {
-            return GridDropResolution(onIconID: nil, slotID: nil)
+            return GridDropResolution(onIconID: nil, slotID: nil, targetIndex: nil)
         }
         let index = row * layout.columns + col
-        guard index < items.count else { return GridDropResolution(onIconID: nil, slotID: nil) }
-        let id = items[index].id
+        let targetIndex = currentPage * gridLayout.pageSize + index
 
-        let cellCenterX = layout.horizontalPadding + CGFloat(col) * pitchX + layout.columnWidth / 2
-        let cellCenterY = CGFloat(row) * layout.rowHeight + layout.rowHeight / 2
-        let onIcon = abs(location.x - cellCenterX) < layout.iconSize / 2
-            && abs(location.y - cellCenterY) < layout.iconSize / 2
-        return GridDropResolution(onIconID: onIcon ? id : nil, slotID: id)
+        if index < items.count {
+            let id = items[index].id
+            let cellCenterX = layout.horizontalPadding + CGFloat(col) * pitchX + layout.columnWidth / 2
+            let cellCenterY = CGFloat(row) * layout.rowHeight + layout.rowHeight / 2
+            let thresholdX = layout.iconSize * 0.75
+            let thresholdY = layout.iconSize * 0.75
+            let onIcon = abs(location.x - cellCenterX) < thresholdX
+                && abs(location.y - cellCenterY) < thresholdY
+            return GridDropResolution(onIconID: onIcon ? id : nil, slotID: id, targetIndex: targetIndex)
+        } else {
+            return GridDropResolution(onIconID: nil, slotID: nil, targetIndex: targetIndex)
+        }
     }
 }

@@ -23,15 +23,13 @@ struct FolderOverlay: View {
 
     @ViewBuilder
     private var folderContent: some View {
-        // Frosted dark material (NSVisualEffectView .hudWindow/.withinWindow) + crisp edge,
-        // matching the macos-launchy folder card. `.clear` glass read far too transparent.
         let shape = RoundedRectangle(cornerRadius: LaunchConstants.FolderOverlay.cornerRadius, style: .continuous)
         folderPanel
             .background(
-                VisualEffectView(material: .hudWindow, blendingMode: .withinWindow)
+                VisualEffectView(material: .sidebar, blendingMode: .behindWindow)
                     .clipShape(shape)
             )
-            .overlay(shape.strokeBorder(.white.opacity(0.25), lineWidth: 0.75))
+            .overlay(shape.fill(.white.opacity(LaunchConstants.Glass.sheenOpacity)))
             .clipShape(shape)
             .tahoeFolderPanelChrome()
     }

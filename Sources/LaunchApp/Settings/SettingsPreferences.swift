@@ -4,10 +4,26 @@ import AppKit
 enum AppIconOption: String, CaseIterable, Identifiable {
     case color
     case mono
+    case blue
+    case rocket
 
     var id: String { rawValue }
-    var title: String { self == .color ? "Color" : "Mono" }
-    private var resourceName: String { self == .color ? "AppIconColor" : "AppIconMono" }
+    var title: String {
+        switch self {
+        case .color: return "Color"
+        case .mono: return "Mono"
+        case .blue: return "Blue"
+        case .rocket: return "Rocket"
+        }
+    }
+    private var resourceName: String {
+        switch self {
+        case .color: return "AppIconColor"
+        case .mono: return "AppIconMono"
+        case .blue: return "AppIconBlue"
+        case .rocket: return "AppIconRocket"
+        }
+    }
 
     func image() -> NSImage? {
         guard let url = Bundle.main.url(forResource: resourceName, withExtension: "png") else { return nil }

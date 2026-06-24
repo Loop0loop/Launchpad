@@ -6,12 +6,18 @@ final class LauncherSearchBarView: NSView {
     let textField = LauncherSearchNSTextField()
     private let iconView = NSImageView()
     private let clearButton = NSButton()
+    private let optionButton = NSButton()
     private let contentView = NSView()
     private var chromeView: NSView?
     private var glassChromeView: NSView?
     private var visualChromeView: NSVisualEffectView?
     private var onTextChange: ((String) -> Void)?
     private var onClear: (() -> Void)?
+
+    var onSortByName: (() -> Void)?
+    var onRefreshApps: (() -> Void)?
+    var onShowSettings: (() -> Void)?
+    var onQuit: (() -> Void)?
 
     override var isFlipped: Bool { true }
 
@@ -55,20 +61,11 @@ final class LauncherSearchBarView: NSView {
         textField.placeholderString = LaunchConstants.Launcher.searchPlaceholder
         textField.font = NSFont.systemFont(ofSize: LaunchConstants.Launcher.searchFontSize, weight: .regular)
         textField.textColor = .white
-        textField.placeholderAttributedString = NSAttributedString(
-            string: LaunchConstants.Launcher.searchPlaceholder,
-            attributes: [.foregroundColor: NSColor.white.withAlphaComponent(0.55)]
-        )
         textField.target = self
         textField.action = #selector(textDidChange)
         contentView.addSubview(textField)
 
         clearButton.isBordered = false
-        if #available(macOS 26.0, *) {
-            clearButton.bezelStyle = .glass
-        } else {
-            clearButton.bezelStyle = .inline
-        }
         clearButton.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: "Clear")
         clearButton.imagePosition = .imageOnly
         clearButton.contentTintColor = NSColor.white.withAlphaComponent(0.55)
@@ -76,65 +73,72 @@ final class LauncherSearchBarView: NSView {
         clearButton.action = #selector(clearTapped)
         clearButton.isHidden = true
         contentView.addSubview(clearButton)
+
+        optionButton.isBordered = false
+        optionButton.image = NSImage(systemSymbolName: "ellipsis.circle", accessibilityDescription: "Options")
+        optionButton.imagePosition = .imageOnly
+        optionButton.contentTintColor = NSColor.white.withAlphaComponent(0.75)
+        optionButton.target = self
+        optionButton.action = #selector(optionTapped)
+        contentView.addSubview(optionButton)
     }
 
     private func configureChrome() {
-        if #available(macOS 26.0, *) {
-            let glass = NSGlassEffectView()
-            glass.style = .regular
-            glass.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
-            glass.tintColor = NSColor.white.withAlphaComponent(0.10)
-            glass.wantsLayer = true
-            glass.layer?.shadowColor = NSColor.black.cgColor
-            glass.layer?.shadowOpacity = 0.22
-            glass.layer?.shadowRadius = 16
-            glass.layer?.shadowOffset = NSSize(width: 0, height: -4)
-            glass.contentView = contentView
-            addSubview(glass)
-            chromeView = glass
-            glassChromeView = glass
-        } else {
-            let visual = NSVisualEffectView()
-            visual.material = .hudWindow
-            visual.blendingMode = .withinWindow
-            visual.state = .inactive
-            visual.wantsLayer = true
-            visual.layer?.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
-            visual.layer?.masksToBounds = true
-            addSubview(visual)
-            addSubview(contentView)
-            chromeView = visual
-            visualChromeView = visual
-        }
-
         wantsLayer = true
         layer?.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
         layer?.masksToBounds = false
+
+        let bgView = NSView()
+        bgView.wantsLayer = true
+        bgView.layer?.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
+        bgView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.06).cgColor
+        bgView.layer?.borderWidth = 0
+        bgView.layer?.borderColor = NSColor.clear.cgColor
+        bgView.autoresizingMask = [.width, .height]
+        bgView.frame = bounds
+
+        // 그림자 설정 (테두리 없는 부드러운 그림자)
+        bgView.layer?.shadowColor = NSColor.black.cgColor
+        bgView.layer?.shadowOpacity = 0.08
+        bgView.layer?.shadowRadius = 8
+        bgView.layer?.shadowOffset = NSSize(width: 0, height: -2)
+
+        addSubview(bgView)
+        addSubview(contentView)
+        chromeView = bgView
     }
 
     override func layout() {
         super.layout()
         chromeView?.frame = bounds
         contentView.frame = bounds
-        addChromeHighlights()
 
         let padding = LaunchConstants.Launcher.searchHorizontalPadding
         let iconSide: CGFloat = 16
         iconView.frame = NSRect(x: padding, y: (bounds.height - iconSide) / 2, width: iconSide, height: iconSide)
 
+        let optionSide: CGFloat = 18
+        optionButton.frame = NSRect(
+            x: bounds.width - padding - optionSide,
+            y: (bounds.height - optionSide) / 2,
+            width: optionSide,
+            height: optionSide
+        )
+
         let clearSide: CGFloat = 18
         clearButton.frame = NSRect(
-            x: bounds.width - padding - clearSide,
+            x: optionButton.frame.minX - 6 - clearSide,
             y: (bounds.height - clearSide) / 2,
             width: clearSide,
             height: clearSide
         )
 
         let textX = iconView.frame.maxX + 8
-        let textWidth = max(0, clearButton.frame.minX - 8 - textX)
-        let font = textField.font ?? NSFont.systemFont(ofSize: LaunchConstants.Launcher.searchFontSize)
-        let textHeight = ceil(font.ascender - font.descender) + 6
-        textField.frame = NSRect(x: textX, y: (bounds.height - textHeight) / 2 + 4, width: textWidth, height: textHeight)
+        let textEndX = clearButton.isHidden ? optionButton.frame.minX - 8 : clearButton.frame.minX - 6
+        let textWidth = max(0, textEndX - textX)
+        let textHeight: CGFloat = 22
+        let textY = (bounds.height - textHeight) / 2
+        textField.frame = NSRect(x: textX, y: textY, width: textWidth, height: textHeight)
     }
 
     private func addChromeHighlights() {
@@ -151,36 +155,89 @@ final class LauncherSearchBarView: NSView {
             transform: nil
         )
         shape.fillColor = NSColor.clear.cgColor
-        shape.strokeColor = NSColor.white.withAlphaComponent(0.24).cgColor
-        shape.lineWidth = 0.8
+        shape.strokeColor = NSColor.clear.cgColor
+        shape.lineWidth = 0.0
         layer.addSublayer(shape)
     }
 
     func setActive(_ active: Bool) {
-        visualChromeView?.state = active ? .active : .inactive
-        if #available(macOS 26.0, *) {
-            (glassChromeView as? NSGlassEffectView)?.tintColor = NSColor.white.withAlphaComponent(active ? 0.16 : 0.10)
-        }
+        chromeView?.layer?.backgroundColor = NSColor.white.withAlphaComponent(active ? 0.12 : 0.06).cgColor
     }
 
     func updateText(_ text: String) {
         if textField.stringValue != text {
             textField.stringValue = text
         }
+        let wasHidden = clearButton.isHidden
         clearButton.isHidden = text.isEmpty
+        if wasHidden != clearButton.isHidden {
+            needsLayout = true
+        }
     }
 
     @objc private func textDidChange() {
+        let wasHidden = clearButton.isHidden
         clearButton.isHidden = textField.stringValue.isEmpty
+        if wasHidden != clearButton.isHidden {
+            needsLayout = true
+        }
         onTextChange?(textField.stringValue)
     }
 
     @objc private func clearTapped() {
         textField.stringValue = ""
         clearButton.isHidden = true
+        needsLayout = true
         onClear?()
         onTextChange?("")
         window?.makeFirstResponder(textField)
+    }
+
+    @objc private func optionTapped(_ sender: NSButton) {
+        let menu = NSMenu()
+
+        let sortTitle = Localized.t("이름순 정렬", "Sort by Name")
+        let sortItem = NSMenuItem(title: sortTitle, action: #selector(menuSortByName), keyEquivalent: "")
+        sortItem.target = self
+        menu.addItem(sortItem)
+
+        let refreshTitle = Localized.t("앱 새로고침", "Refresh Apps")
+        let refreshItem = NSMenuItem(title: refreshTitle, action: #selector(menuRefreshApps), keyEquivalent: "")
+        refreshItem.target = self
+        menu.addItem(refreshItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let settingsTitle = Localized.t("설정...", "Settings...")
+        let settingsItem = NSMenuItem(title: settingsTitle, action: #selector(menuShowSettings), keyEquivalent: "")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let quitTitle = Localized.t("종료", "Quit")
+        let quitItem = NSMenuItem(title: quitTitle, action: #selector(menuQuit), keyEquivalent: "")
+        quitItem.target = self
+        menu.addItem(quitItem)
+
+        let origin = NSPoint(x: 0, y: sender.bounds.height + 4)
+        menu.popUp(positioning: nil, at: origin, in: sender)
+    }
+
+    @objc private func menuSortByName() {
+        onSortByName?()
+    }
+
+    @objc private func menuRefreshApps() {
+        onRefreshApps?()
+    }
+
+    @objc private func menuShowSettings() {
+        onShowSettings?()
+    }
+
+    @objc private func menuQuit() {
+        onQuit?()
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -193,6 +250,7 @@ final class LauncherSearchBarView: NSView {
 
 struct LauncherSearchBarRepresentable: NSViewRepresentable {
     @Binding var text: String
+    @ObservedObject var state: AppState
     var onBarReady: (LauncherSearchBarView) -> Void
 
     func makeNSView(context: Context) -> LauncherSearchBarView {
@@ -209,12 +267,29 @@ struct LauncherSearchBarRepresentable: NSViewRepresentable {
             onTextChange: { context.coordinator.text = $0 },
             onClear: { context.coordinator.text = "" }
         )
+
+        bar.onSortByName = { [weak state] in
+            state?.sortMode = .name
+        }
+        bar.onRefreshApps = { [weak state] in
+            state?.refreshApps()
+        }
+        bar.onShowSettings = {
+            if let delegate = NSApp.delegate as? AppDelegate {
+                delegate.showSettings()
+            }
+        }
+        bar.onQuit = {
+            NSApp.terminate(nil)
+        }
+
         bar.updateText(text)
         onBarReady(bar)
         return bar
     }
 
     func updateNSView(_ bar: LauncherSearchBarView, context: Context) {
+        bar.textField.placeholderString = LaunchConstants.Launcher.searchPlaceholder
         bar.updateText(text)
         onBarReady(bar)
     }
@@ -262,5 +337,13 @@ final class LauncherSearchNSTextField: NSTextField {
         let ok = super.resignFirstResponder()
         if ok { (superview as? LauncherSearchBarView)?.setActive(false) }
         return ok
+    }
+
+    override func drawFocusRingMask() {
+        // Suppress default active focus ring border
+    }
+
+    override var focusRingMaskBounds: NSRect {
+        .zero
     }
 }

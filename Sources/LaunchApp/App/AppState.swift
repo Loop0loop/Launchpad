@@ -19,6 +19,18 @@ final class AppState: ObservableObject {
     @Published var dragTranslation: CGSize = .zero
     @Published var openFolder: LaunchFolder?
     @Published var launchAtLogin = false
+    @Published var hotkeyDisplay = UserDefaults.standard.string(forKey: "settings.hotkeyDisplay") ?? "⌘2" {
+        didSet { UserDefaults.standard.set(hotkeyDisplay, forKey: "settings.hotkeyDisplay") }
+    }
+    @Published var systemF4KeyEnabled = (UserDefaults.standard.object(forKey: "settings.systemF4KeyEnabled") as? Bool) ?? true {
+        didSet { UserDefaults.standard.set(systemF4KeyEnabled, forKey: "settings.systemF4KeyEnabled") }
+    }
+    @Published var trackpadSetting = UserDefaults.standard.string(forKey: "settings.trackpadSetting") ?? "Pinch with 4 or 5 fingers" {
+        didSet { UserDefaults.standard.set(trackpadSetting, forKey: "settings.trackpadSetting") }
+    }
+    @Published var hotCornerSetting = UserDefaults.standard.string(forKey: "settings.hotCornerSetting") ?? "Top Left" {
+        didSet { UserDefaults.standard.set(hotCornerSetting, forKey: "settings.hotCornerSetting") }
+    }
     @Published var loginItemError: String?
     @Published var accessibilityTrusted = false
     @Published var accessibilityState: PermissionState = .unknown

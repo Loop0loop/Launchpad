@@ -11,24 +11,24 @@ extension AppDelegate {
 
     private func handleShowSettings() {
         if settingsWindow == nil {
-            let window = NSWindow(
+            let window = NSPanel(
                 contentRect: .init(
                     x: 0,
                     y: 0,
                     width: LaunchConstants.Settings.width,
                     height: LaunchConstants.Settings.height
                 ),
-                styleMask: [.titled, .closable, .fullSizeContentView],
+                styleMask: [.titled, .closable, .fullSizeContentView, .utilityWindow, .nonactivatingPanel],
                 backing: .buffered,
                 defer: false
             )
             window.title = LaunchConstants.App.settingsTitle
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
-            window.isOpaque = false
-            window.backgroundColor = .clear
             window.isMovableByWindowBackground = true
             window.hasShadow = true
+            window.isFloatingPanel = true
+            window.level = .statusBar
             let hosting = NSHostingView(rootView: SettingsView(state: state))
             hosting.safeAreaRegions = []
             window.contentView = hosting
@@ -36,6 +36,13 @@ extension AppDelegate {
         }
 
         settingsWindow?.center()
+
+        if let launcherWindow = self.window, let settings = settingsWindow {
+            if settings.parent == nil {
+                launcherWindow.addChildWindow(settings, ordered: .above)
+            }
+        }
+
         settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
