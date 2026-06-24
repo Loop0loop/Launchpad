@@ -68,9 +68,23 @@ public enum AppCatalog {
             ?? url.deletingPathExtension().lastPathComponent
     }
 
-    /// Reads `CFBundleDisplayName`/`CFBundleName` from a specific `.lproj/InfoPlist.strings`.
+    /// Resolves the app's localized name. Modern macOS apps keep these in
+    /// `Contents/Resources/InfoPlist.loctable` (a dict keyed by language code); older apps
+    /// use `<lang>.lproj/InfoPlist.strings`. We try the loctable first, then the .strings.
     private static func localizedName(for url: URL, languageCode: String) -> String? {
-        for lproj in lprojCandidates(for: languageCode) {
+        let candidates = lprojCandidates(for: languageCode)
+
+        let loctableURL = url.appendingPathComponent("Contents/Resources/InfoPlist.loctable")
+        if let table = NSDictionary(contentsOf: loctableURL) {
+            for lang in candidates {
+                guard let entry = table[lang] as? [String: Any] else { continue }
+                if let name = entry["CFBundleDisplayName"] as? String ?? entry["CFBundleName"] as? String, !name.isEmpty {
+                    return name
+                }
+            }
+        }
+
+        for lproj in candidates {
             let stringsURL = url.appendingPathComponent("Contents/Resources/\(lproj).lproj/InfoPlist.strings")
             guard let dict = NSDictionary(contentsOf: stringsURL) else { continue }
             if let name = dict["CFBundleDisplayName"] as? String ?? dict["CFBundleName"] as? String, !name.isEmpty {
