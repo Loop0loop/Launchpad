@@ -18,6 +18,9 @@ final class AppState: ObservableObject {
     @Published var dragHoverTargetID: String?
     @Published var dragTranslation: CGSize = .zero
     @Published var openFolder: LaunchFolder?
+    /// True while an app is being dragged past the pull-out threshold inside an open folder:
+    /// the folder surface dissolves so only the dragged app stays in hand.
+    @Published var folderDragPullingOut = false
     @Published var launchAtLogin = false
     @Published var hotkeyDisplay = UserDefaults.standard.string(forKey: "settings.hotkeyDisplay") ?? "⌘2" {
         didSet { UserDefaults.standard.set(hotkeyDisplay, forKey: "settings.hotkeyDisplay") }
@@ -119,7 +122,7 @@ final class AppState: ObservableObject {
             guard oldValue != appLanguage else { return }
             appLanguage.save()
             Localized.language = appLanguage
-            refreshApps()
+            refreshAppsAsync()
         }
     }
     @Published var order: [String] = []
@@ -129,15 +132,20 @@ final class AppState: ObservableObject {
     var pageChangeLockedUntil = Date.distantPast
     var folderReopenLockedUntil = Date.distantPast
     var backgroundDismissLockedUntil = Date.distantPast
+    var catalogRefreshTask: Task<Void, Never>?
     var actions = LauncherActions()
 
     init() {
         Localized.language = appLanguage
         folders = LayoutStore.loadFolders()
         order = LayoutStore.loadOrder()
+        apps = CatalogStore.loadCachedApps()
         refreshLoginItemStatus()
         refreshAccessibilityStatus()
-        refreshApps()
+    }
+
+    deinit {
+        catalogRefreshTask?.cancel()
     }
 
 }

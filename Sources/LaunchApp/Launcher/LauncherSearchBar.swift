@@ -10,6 +10,7 @@ final class LauncherSearchBarView: NSView {
     private let contentView = NSView()
     private let whiteTintView = NSView()
     private let sheenView = NSView()
+    private let sheenGradient = CAGradientLayer()
     private var chromeView: NSView?
     private var glassChromeView: NSView?
     private var visualChromeView: NSVisualEffectView?
@@ -106,10 +107,10 @@ final class LauncherSearchBarView: NSView {
         container.layer?.borderColor = NSColor.white.withAlphaComponent(LaunchConstants.Glass.searchBarStrokeOpacity).cgColor
 
         if #available(macOS 26.0, *) {
-            // Liquid Glass 단일 표면: 하얀 틴트는 tintColor(통합 틴트)로만.
-            // flat 화이트 오버레이를 얹으면 milky/회색 카드가 됨 (launchGlass 규칙).
+            // Liquid Glass `.regular` 단일 표면. `.clear`는 배경 프로스트가 비쳐 회색이
+            // 되므로 캡슐엔 표준(불투명·밝은) `.regular`. 틴트는 tintColor로만 구운다.
             let glass = NSGlassEffectView()
-            glass.style = .clear
+            glass.style = .regular
             glass.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
             // Fixed blue tint so the capsule reads as the image's blue glass regardless of
             // the grey launcher frost behind it.
@@ -143,9 +144,15 @@ final class LauncherSearchBarView: NSView {
 
         sheenView.wantsLayer = true
         sheenView.layer?.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
-        sheenView.layer?.backgroundColor = NSColor.white.withAlphaComponent(LaunchConstants.Glass.searchBarSheenOpacity).cgColor
-        sheenView.layer?.borderWidth = 0
-        sheenView.layer?.borderColor = NSColor.clear.cgColor
+        sheenView.layer?.masksToBounds = true
+        // Top→bottom white sheen = Liquid Glass highlight (luminous over dark wallpaper).
+        sheenGradient.colors = [
+            NSColor.white.withAlphaComponent(LaunchConstants.Glass.glassSheenTop).cgColor,
+            NSColor.white.withAlphaComponent(LaunchConstants.Glass.glassSheenBottom).cgColor
+        ]
+        sheenGradient.startPoint = CGPoint(x: 0.5, y: 0)
+        sheenGradient.endPoint = CGPoint(x: 0.5, y: 1)
+        sheenView.layer?.addSublayer(sheenGradient)
         sheenView.autoresizingMask = [.width, .height]
         sheenView.frame = container.bounds
         sheenView.isHidden = false
@@ -165,6 +172,7 @@ final class LauncherSearchBarView: NSView {
         visualChromeView?.frame = bounds
         whiteTintView.frame = bounds
         sheenView.frame = bounds
+        sheenGradient.frame = sheenView.bounds
         contentView.frame = bounds
 
         let padding = LaunchConstants.Launcher.searchHorizontalPadding
@@ -195,28 +203,12 @@ final class LauncherSearchBarView: NSView {
         textField.frame = NSRect(x: textX, y: textY, width: textWidth, height: textHeight)
     }
 
-    private func addChromeHighlights() {
-        guard let layer else { return }
-        layer.sublayers?.removeAll { $0.name == "searchChromeHighlight" }
-
-        let shape = CAShapeLayer()
-        shape.name = "searchChromeHighlight"
-        shape.frame = bounds
-        shape.path = CGPath(
-            roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5),
-            cornerWidth: LaunchConstants.Launcher.searchHeight / 2,
-            cornerHeight: LaunchConstants.Launcher.searchHeight / 2,
-            transform: nil
-        )
-        shape.fillColor = NSColor.clear.cgColor
-        shape.strokeColor = NSColor.clear.cgColor
-        shape.lineWidth = 0.0
-        layer.addSublayer(shape)
-    }
-
     func setActive(_ active: Bool) {
-        let alpha = active ? 0.055 : LaunchConstants.Glass.searchBarSheenOpacity
-        sheenView.layer?.backgroundColor = NSColor.white.withAlphaComponent(alpha).cgColor
+        // Brighten the rim on focus instead of adding a flat fill (which would milk the glass).
+        let opacity = active
+            ? min(1, LaunchConstants.Glass.searchBarStrokeOpacity + 0.2)
+            : LaunchConstants.Glass.searchBarStrokeOpacity
+        chromeView?.layer?.borderColor = NSColor.white.withAlphaComponent(opacity).cgColor
     }
 
     func updateText(_ text: String) {
@@ -327,7 +319,7 @@ struct LauncherSearchBarRepresentable: NSViewRepresentable {
             state?.sortMode = .name
         }
         bar.onRefreshApps = { [weak state] in
-            state?.refreshApps()
+            state?.refreshAppsAsync()
         }
         bar.onShowSettings = {
             if let delegate = NSApp.delegate as? AppDelegate {

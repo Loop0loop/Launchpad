@@ -7,6 +7,9 @@ struct LauncherContent: View {
     let gridHeight: CGFloat
     let showsPageControl: Bool
     let pageWidth: CGFloat
+    let visibleItems: [LauncherItem]
+    let pageCount: Int
+    let pageSize: Int
 
     var body: some View {
         VStack(spacing: 0) {
@@ -24,10 +27,13 @@ struct LauncherContent: View {
                         layout: layout,
                         columns: columns,
                         pageWidth: pageWidth,
-                        gridHeight: gridHeight
+                        gridHeight: gridHeight,
+                        visibleItems: visibleItems,
+                        pageCount: pageCount,
+                        pageSize: pageSize
                     )
                 } else {
-                    SearchResultsGrid(state: state, layout: layout, columns: columns)
+                    SearchResultsGrid(state: state, layout: layout, columns: columns, visibleItems: visibleItems)
                 }
             }
             .frame(height: gridHeight)
@@ -38,6 +44,7 @@ struct LauncherContent: View {
 
                 LauncherPageControl(
                     state: state,
+                    pageCount: pageCount,
                     selectPage: state.selectPage
                 )
                 .frame(height: layout.pageControlHeight)
@@ -52,6 +59,7 @@ struct SearchResultsGrid: View {
     @ObservedObject var state: AppState
     let layout: LaunchpadLayoutMetrics
     let columns: [GridItem]
+    let visibleItems: [LauncherItem]
 
     var body: some View {
         ScrollView {
@@ -62,7 +70,7 @@ struct SearchResultsGrid: View {
                 }
 
                 LazyVGrid(columns: columns, spacing: layout.gridRowSpacing) {
-                    ForEach(state.visibleItems) { item in
+                    ForEach(visibleItems) { item in
                         LauncherItemView(item: item, state: state, layout: layout, pageOffset: 0)
                     }
                 }
@@ -79,23 +87,28 @@ struct PagedGridView: View {
     let columns: [GridItem]
     let pageWidth: CGFloat
     let gridHeight: CGFloat
+    let visibleItems: [LauncherItem]
+    let pageCount: Int
+    let pageSize: Int
 
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(0..<state.pageCount, id: \.self) { page in
+            ForEach(0..<pageCount, id: \.self) { page in
                 ZStack(alignment: .top) {
                     LauncherDismissLayer {
                         LaunchLog.line("page empty tap dismiss page=\(page)")
                         state.dismissFromBackground()
                     }
 
-                    let thisPageOffset = pageOffset + CGFloat(page) * pageWidth
-                    LazyVGrid(columns: columns, spacing: layout.gridRowSpacing) {
-                        ForEach(state.items(forPage: page)) { item in
-                            LauncherItemView(item: item, state: state, layout: layout, pageOffset: thisPageOffset)
+                    if state.isDraggingLauncherItem || abs(page - state.currentPage) <= 1 {
+                        let thisPageOffset = pageOffset + CGFloat(page) * pageWidth
+                        LazyVGrid(columns: columns, spacing: layout.gridRowSpacing) {
+                            ForEach(items(forPage: page, in: visibleItems, pageSize: pageSize)) { item in
+                                LauncherItemView(item: item, state: state, layout: layout, pageOffset: thisPageOffset)
+                            }
                         }
+                        .padding(.horizontal, layout.horizontalPadding)
                     }
-                    .padding(.horizontal, layout.horizontalPadding)
                 }
                 .frame(width: pageWidth, height: gridHeight, alignment: .top)
             }
@@ -109,6 +122,10 @@ struct PagedGridView: View {
 
     private var pageOffset: CGFloat {
         -CGFloat(state.currentPage) * pageWidth + state.pageDragOffset
+    }
+
+    private func items(forPage page: Int, in items: [LauncherItem], pageSize: Int) -> [LauncherItem] {
+        Array(items.dropFirst(page * pageSize).prefix(pageSize))
     }
 }
 
@@ -142,11 +159,12 @@ struct LauncherSearchField: View {
 
 struct LauncherPageControl: View {
     @ObservedObject var state: AppState
+    let pageCount: Int
     let selectPage: (Int) -> Void
 
     var body: some View {
         HStack(spacing: LaunchConstants.Launcher.pageDotSpacing) {
-            ForEach(0..<state.pageCount, id: \.self) { page in
+            ForEach(0..<pageCount, id: \.self) { page in
                 Circle()
                     .fill(page == state.currentPage ? .white : .white.opacity(LaunchConstants.Launcher.inactivePageOpacity))
                     .frame(

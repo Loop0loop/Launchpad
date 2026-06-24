@@ -27,6 +27,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         LaunchLog.line("app did finish launching")
         NSApp.setActivationPolicy(.accessory)
         makeWindow()
+        state.refreshAppsAsync()
         applyAppIcon()
         applyMenuBarVisibility()
         state.requestAccessibilityPermission()

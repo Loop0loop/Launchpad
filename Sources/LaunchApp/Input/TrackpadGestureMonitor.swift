@@ -29,7 +29,7 @@ final class TrackpadGestureMonitor {
         onGateStatus(pinchMonitor.isReady)
         LaunchLog.line("private pinch ready=\(pinchMonitor.isReady)")
 
-        let localMask: NSEvent.EventTypeMask = [.magnify, .swipe, .scrollWheel]
+        let localMask: NSEvent.EventTypeMask = pinchMonitor.isReady ? [.swipe, .scrollWheel] : [.magnify, .swipe, .scrollWheel]
         let globalMask: NSEvent.EventTypeMask = [.magnify]
 
         let handler: (NSEvent) -> Void = { event in
@@ -78,11 +78,8 @@ final class TrackpadGestureMonitor {
                         return
                     }
                     
-                    if abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY) {
-                        let delta = event.scrollingDeltaX
-                        let threshold: CGFloat = 12
-                        if abs(delta) >= threshold {
-                            let intent: TrackpadIntent = delta < 0 ? .nextPage : .previousPage
+                    if abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY),
+                       let intent = TrackpadIntent.horizontalScroll(deltaX: event.scrollingDeltaX) {
                             let now = event.timestamp
                             let timeDiff = now - self.lastScrollIntentTime
                             let minInterval = hasPhase ? 0.1 : 0.7
@@ -95,7 +92,6 @@ final class TrackpadGestureMonitor {
                                 }
                                 onIntent(intent)
                             }
-                        }
                     }
                 }
             }

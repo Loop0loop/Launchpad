@@ -33,10 +33,11 @@ extension AppState {
         }
 
         let folderedIDs = Set(folders.flatMap(\.appIDs))
+        let appsByID = Dictionary(uniqueKeysWithValues: apps.map { ($0.id, $0) })
         let rootApps = apps.filter { !folderedIDs.contains($0.id) && !hiddenAppIDs.contains($0.id) }
         let appItems = rootApps.map { LauncherItem.app($0) }
         let folderItems = folders.map { folder in
-            LauncherItem.folder(folder, folder.appIDs.compactMap(appByID).filter { !hiddenAppIDs.contains($0.id) })
+            LauncherItem.folder(folder, folder.appIDs.compactMap { appsByID[$0] }.filter { !hiddenAppIDs.contains($0.id) })
         }
         let allItems = appItems + folderItems
         let byID = Dictionary(uniqueKeysWithValues: allItems.map { ($0.id, $0) })

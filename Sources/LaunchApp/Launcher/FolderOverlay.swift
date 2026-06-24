@@ -24,14 +24,21 @@ struct FolderOverlay: View {
 
     @ViewBuilder
     private var folderContent: some View {
-        let shape = RoundedRectangle(cornerRadius: LaunchConstants.FolderOverlay.cornerRadius, style: .continuous)
+        // Surface (glass/stroke) and title fade out while pulling an app out, so the folder
+        // visibly dissolves and only the dragged icon remains. No clipShape: the dragged icon
+        // must stay visible as it crosses the panel edge.
         folderPanel
-            .launchGlass(in: shape, interactive: false, clear: true, fallbackMaterial: LaunchConstants.Glass.folderMaterial)
-            .background(shape.fill(.white.opacity(LaunchConstants.Glass.folderBackgroundOpacity)))
-            .overlay(shape.fill(.white.opacity(LaunchConstants.Glass.folderSheenOpacity)))
-            .overlay(shape.strokeBorder(.white.opacity(LaunchConstants.Glass.folderStrokeOpacity), lineWidth: 1.0))
-            // No clipShape: a dragged icon must stay visible as it's pulled past the panel edge.
+            .background(panelSurface.opacity(state.folderDragPullingOut ? 0 : 1))
+            .animation(LaunchConstants.Animation.fade, value: state.folderDragPullingOut)
             .tahoeFolderPanelChrome()
+    }
+
+    private var panelSurface: some View {
+        let shape = RoundedRectangle(cornerRadius: LaunchConstants.FolderOverlay.cornerRadius, style: .continuous)
+        return shape
+            .fill(.white.opacity(LaunchConstants.Glass.folderBackgroundOpacity))
+            .launchGlass(in: shape, interactive: false, clear: true, fallbackMaterial: LaunchConstants.Glass.folderMaterial)
+            .overlay(shape.strokeBorder(.white.opacity(LaunchConstants.Glass.folderStrokeOpacity), lineWidth: 1.0))
     }
 
     /// Panel hugs its content (columns × item width) instead of a fixed share of the
@@ -49,6 +56,7 @@ struct FolderOverlay: View {
             FolderTitleField(name: $folderName, width: panelWidth - LaunchConstants.FolderOverlay.horizontalPadding * 2) {
                 state.renameFolder(folder.id, to: folderName)
             }
+            .opacity(state.folderDragPullingOut ? 0 : 1)
 
             LazyVGrid(columns: columns, spacing: LaunchConstants.FolderOverlay.spacing) {
                 ForEach(state.apps(in: folder)) { app in
@@ -154,6 +162,7 @@ struct FolderOverlayAppIcon: View {
     @ObservedObject var state: AppState
     @Environment(\.iconCache) private var iconCache
     @State private var dragOffset: CGSize = .zero
+    @GestureState private var isDragActive = false
 
     /// Drag distance past which releasing pulls the app out of the folder.
     private static let pullOutThreshold: CGFloat = 100
@@ -175,6 +184,8 @@ struct FolderOverlayAppIcon: View {
         }
         .frame(width: LaunchConstants.FolderOverlay.gridItemWidth)
         .contentShape(Rectangle())
+        // Other icons fade while one is pulled out; the dragged one stays in hand.
+        .opacity(state.folderDragPullingOut && dragOffset == .zero ? 0 : 1)
         .offset(dragOffset)
         .scaleEffect(dragOffset == .zero ? 1 : 1.12)
         .zIndex(dragOffset == .zero ? 0 : 100)
@@ -188,9 +199,17 @@ struct FolderOverlayAppIcon: View {
         // Drag an app far enough to pull it out of the folder back into the grid.
         .simultaneousGesture(
             DragGesture(minimumDistance: 8)
-                .onChanged { dragOffset = $0.translation }
+                .updating($isDragActive) { _, dragActiveState, _ in
+                    dragActiveState = true
+                }
+                .onChanged { value in
+                    dragOffset = value.translation
+                    // Past the threshold the folder dissolves so the app is "in hand".
+                    state.folderDragPullingOut = hypot(value.translation.width, value.translation.height) > Self.pullOutThreshold
+                }
                 .onEnded { value in
                     let pulledOut = hypot(value.translation.width, value.translation.height) > Self.pullOutThreshold
+                    state.folderDragPullingOut = false
                     if pulledOut {
                         LaunchLog.line("folder pull-out app=\(app.id) folder=\(folderID)")
                         state.removeApp(app.id, fromFolder: folderID)
@@ -201,6 +220,15 @@ struct FolderOverlayAppIcon: View {
                     withAnimation(LaunchConstants.Animation.iconLift) { dragOffset = .zero }
                 }
         )
+        .onChange(of: isDragActive) { oldValue, newValue in
+            if oldValue && !newValue {
+                state.folderDragPullingOut = false
+                withAnimation(LaunchConstants.Animation.iconLift) { dragOffset = .zero }
+            }
+        }
+        .onDisappear {
+            state.folderDragPullingOut = false
+        }
         .contextMenu {
             launcherAppContextMenu(app: app, state: state)
             Divider()

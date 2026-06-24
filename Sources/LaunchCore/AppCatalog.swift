@@ -1,6 +1,6 @@
 import Foundation
 
-public struct LaunchApp: Identifiable, Hashable {
+public struct LaunchApp: Codable, Identifiable, Hashable, Sendable {
     public let id: String
     public let name: String
     public let path: String

@@ -200,7 +200,7 @@ struct SettingsView: View {
             }
 
             SettingsSection(title: Localized.t("카탈로그", "Catalog")) {
-                SettingsActionRow(title: LaunchConstants.Menu.refreshApps) { state.refreshApps() }
+                SettingsActionRow(title: LaunchConstants.Menu.refreshApps) { state.refreshAppsAsync() }
                 SettingsActionRow(title: LaunchConstants.Settings.importNativeLayout) { state.importNativeLaunchpadLayout() }
             }
         }

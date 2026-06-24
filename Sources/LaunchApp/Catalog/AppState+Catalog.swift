@@ -9,8 +9,22 @@ extension AppState {
         return AppSearch.rankedApps(shown, matching: query)
     }
 
-    func refreshApps() {
-        apps = CatalogStore.scanApps(extraRoots: appSourcePaths, languageCode: appLanguage.localeCode)
+    func refreshAppsAsync() {
+        catalogRefreshTask?.cancel()
+        let extraRoots = appSourcePaths
+        let languageCode = appLanguage.localeCode
+        catalogRefreshTask = Task {
+            let scanned = await Task.detached(priority: .userInitiated) {
+                CatalogStore.scanApps(extraRoots: extraRoots, languageCode: languageCode)
+            }.value
+            guard !Task.isCancelled else { return }
+            applyScannedApps(scanned)
+        }
+    }
+
+    private func applyScannedApps(_ scannedApps: [LaunchApp]) {
+        CatalogStore.saveCachedApps(scannedApps)
+        apps = scannedApps
         let cleanup = LayoutStore.cleanup(folders: folders, order: order, validAppIDs: Set(apps.map(\.id)))
         folders = cleanup.folders
         openFolder = openFolder.flatMap { open in folders.first { $0.id == open.id } }
@@ -22,7 +36,6 @@ extension AppState {
             saveOrder()
         }
         ensureSelection()
-        (NSApp.delegate as? AppDelegate)?.iconCache.preload(apps: apps)
     }
 
     func appByID(_ id: String) -> LaunchApp? {
@@ -38,13 +51,13 @@ extension AppState {
         guard !appSourcePaths.contains(standardized) else { return }
         appSourcePaths.append(standardized)
         AppSourceStore.save(appSourcePaths)
-        refreshApps()
+        refreshAppsAsync()
     }
 
     func removeAppSource(_ path: String) {
         appSourcePaths.removeAll { $0 == path }
         AppSourceStore.save(appSourcePaths)
-        refreshApps()
+        refreshAppsAsync()
     }
 
     func importNativeLaunchpadLayout() {

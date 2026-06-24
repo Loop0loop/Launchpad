@@ -72,7 +72,9 @@ struct FolderIcon: View {
     var body: some View {
         VStack(spacing: LaunchConstants.Icon.spacing) {
             ZStack {
-                RoundedRectangle(cornerRadius: LaunchConstants.Icon.folderCornerRadius)
+                // Clear base: a bare RoundedRectangle fills with the foreground (dark) color
+                // and hides the glass behind it — that's what made the tile a dark card.
+                Color.clear
                     .frame(width: layout.iconSize, height: layout.iconSize)
                     .launchpadFolderChrome(cornerRadius: LaunchConstants.Icon.folderCornerRadius)
 

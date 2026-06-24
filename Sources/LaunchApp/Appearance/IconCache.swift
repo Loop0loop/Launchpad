@@ -27,27 +27,6 @@ final class IconCache {
         return image
     }
 
-    func preload(apps: [LaunchApp], size: CGFloat = LaunchConstants.Launcher.maxIconSize) {
-        let paths = apps.map { $0.path }
-        Task.detached(priority: .background) { [weak self] in
-            guard let self else { return }
-            for path in paths {
-                let cached = await MainActor.run {
-                    self.icons[path] != nil
-                }
-                if cached { continue }
-                
-                let image = NSWorkspace.shared.icon(forFile: path)
-                let pixelSize = size * 2
-                image.size = NSSize(width: pixelSize, height: pixelSize)
-                
-                await MainActor.run {
-                    self.icons[path] = image
-                }
-            }
-        }
-    }
-
     func clear() {
         icons.removeAll()
     }

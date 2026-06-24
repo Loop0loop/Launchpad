@@ -124,7 +124,7 @@ extension AppDelegate {
     }
 
     func handleRefreshApps() {
-        state.refreshApps()
+        state.refreshAppsAsync()
         iconCache.clear()
     }
 

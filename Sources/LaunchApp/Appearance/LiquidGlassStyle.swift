@@ -8,6 +8,7 @@ extension View {
         clear: Bool = false,
         fallbackMaterial: Material = .ultraThinMaterial
     ) -> some View {
+        #if compiler(>=6.2)
         if #available(macOS 26, *) {
             // .clear = high-transparency variant (Liquid Glass). Use it for large
             // surfaces (folder panel/tile) so wallpaper reads through. Do NOT layer
@@ -18,14 +19,26 @@ extension View {
         } else {
             self.background(fallbackMaterial, in: shape)
         }
+        #else
+        self.background(fallbackMaterial, in: shape)
+        #endif
     }
 
-    /// 닫힌 폴더 타일: 반투명 유리(Liquid Glass) 효과 지정.
+    /// 닫힌 폴더 타일: Liquid Glass `.regular` 단일 표면. 틴트는 글래스에 구우고
+    /// 시스템이 스페큘러/엣지/굴절을 렌더링한다 — 위에 tint/sheen/stroke를 덧칠하면
+    /// milky/회색 타일이 된다. `.clear`는 어두운 카드로 보이므로 타일엔 `.regular`.
+    @ViewBuilder
     func launchpadFolderChrome(cornerRadius: CGFloat) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        return launchGlass(in: shape, interactive: false, clear: true, fallbackMaterial: LaunchConstants.Glass.folderTileMaterial)
-            .overlay(shape.fill(.white.opacity(LaunchConstants.Glass.folderTileSheenOpacity)))
-            .overlay(shape.strokeBorder(.white.opacity(LaunchConstants.Glass.folderTileStrokeOpacity), lineWidth: 0.8))
+        let tint = Color(nsColor: LaunchConstants.Glass.searchBarTintColor)
+            .opacity(LaunchConstants.Glass.folderTileTintOpacity)
+        if #available(macOS 26, *) {
+            self.glassEffect(.regular.tint(tint), in: shape)
+        } else {
+            self.background(LaunchConstants.Glass.folderTileMaterial, in: shape)
+                .overlay(shape.fill(tint))
+                .overlay(shape.strokeBorder(.white.opacity(LaunchConstants.Glass.folderTileStrokeOpacity), lineWidth: 0.8))
+        }
     }
 
     /// 열린 폴더 패널 크롬: 소프트 섀도만. 글래스·엣지·스페큘러는 상위 launchGlass가

@@ -117,6 +117,7 @@ extension AppState {
             folderReopenLockedUntil = Date().addingTimeInterval(0.25)
         }
         openFolder = nil
+        folderDragPullingOut = false
     }
 
     func openFolderFromTap(_ folder: LaunchFolder) {

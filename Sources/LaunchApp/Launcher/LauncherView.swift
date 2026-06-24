@@ -14,11 +14,14 @@ struct LauncherView: View {
                 columns: state.gridLayout.columns,
                 rows: state.gridLayout.rows
             )
-            let showsPageControl = state.query.isEmpty && state.displayMode == .paged && state.pageCount > 1
             let columns = Array(
                 repeating: GridItem(.fixed(layout.columnWidth), spacing: layout.gridColumnSpacing),
                 count: layout.columns
             )
+            let visibleItems = state.visibleItems
+            let pageSize = state.gridLayout.pageSize
+            let pageCount = max(1, Int(ceil(Double(visibleItems.count) / Double(pageSize))))
+            let showsPageControl = state.query.isEmpty && state.displayMode == .paged && pageCount > 1
             let gridHeight = layout.gridHeight(showsPageControl: showsPageControl)
 
             ZStack {
@@ -38,7 +41,10 @@ struct LauncherView: View {
                     columns: columns,
                     gridHeight: gridHeight,
                     showsPageControl: showsPageControl,
-                    pageWidth: geometry.size.width
+                    pageWidth: geometry.size.width,
+                    visibleItems: visibleItems,
+                    pageCount: pageCount,
+                    pageSize: pageSize
                 )
                 .frame(width: geometry.size.width, height: geometry.size.height)
                 .opacity(state.openFolder == nil ? 1 : 0)
@@ -49,6 +55,8 @@ struct LauncherView: View {
                     FolderDimLayer(opacity: LaunchConstants.Glass.openFolderDimOpacity) {
                         state.closeFolder()
                     }
+                    .opacity(state.folderDragPullingOut ? 0 : 1)
+                    .animation(LaunchConstants.Animation.fade, value: state.folderDragPullingOut)
 
                     FolderOverlay(folder: folder, state: state, availableWidth: geometry.size.width)
                         .transition(

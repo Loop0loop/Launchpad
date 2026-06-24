@@ -30,6 +30,9 @@ let apps = [
     LaunchApp(id: "b", name: "B", path: "/B.app"),
     LaunchApp(id: "c", name: "C", path: "/C.app")
 ]
+let encodedApps = try JSONEncoder().encode(apps)
+let decodedApps = try JSONDecoder().decode([LaunchApp].self, from: encodedApps)
+assert(decodedApps == apps)
 let searchApps = [
     LaunchApp(id: "com.example.notes", name: "Notes", path: "/Applications/Notes.app"),
     LaunchApp(id: "com.example.cafe", name: "Café", path: "/Applications/Cafe.app"),
