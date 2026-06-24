@@ -261,28 +261,27 @@ struct AppIcon: View {
     let layout: LaunchpadLayoutMetrics
 
     var body: some View {
-        Button {
-            state.launch(app)
-        } label: {
-            VStack(spacing: LaunchConstants.Icon.spacing) {
-                Image(nsImage: iconCache.icon(for: app, size: layout.iconSize))
-                    .resizable()
-                    .interpolation(.high)
-                    .frame(width: layout.iconSize, height: layout.iconSize)
-                    .shadow(color: .black.opacity(0.28), radius: 1.5, y: 1)
+        VStack(spacing: LaunchConstants.Icon.spacing) {
+            Image(nsImage: iconCache.icon(for: app, size: layout.iconSize))
+                .resizable()
+                .interpolation(.high)
+                .frame(width: layout.iconSize, height: layout.iconSize)
+                .shadow(color: .black.opacity(0.28), radius: 1.5, y: 1)
 
-                Text(app.name)
-                    .font(.system(size: LaunchConstants.Icon.labelFontSize, weight: .medium))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .frame(width: layout.labelWidth, height: LaunchConstants.Icon.labelHeight, alignment: .top)
-                    .launchLabelStyle()
-            }
-            .frame(width: layout.columnWidth)
-            .opacity(state.draggedAppID == app.id ? LaunchConstants.Icon.draggedOpacity : 1)
-            .overlay(keyboardSelectionBackground(isSelected: state.showsKeyboardSelection(for: app.id)))
+            Text(app.name)
+                .font(.system(size: LaunchConstants.Icon.labelFontSize, weight: .medium))
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .frame(width: layout.labelWidth, height: LaunchConstants.Icon.labelHeight, alignment: .top)
+                .launchLabelStyle()
         }
-        .buttonStyle(.plain)
+        .frame(width: layout.columnWidth)
+        .contentShape(Rectangle())
+        .opacity(state.draggedAppID == app.id ? LaunchConstants.Icon.draggedOpacity : 1)
+        .overlay(keyboardSelectionBackground(isSelected: state.showsKeyboardSelection(for: app.id)))
+        .onTapGesture {
+            state.launch(app)
+        }
         .onDrag {
             state.draggedAppID = app.id
             return dockItemProvider(for: app)
@@ -290,7 +289,7 @@ struct AppIcon: View {
         .contextMenu {
             launcherAppContextMenu(app: app, state: state)
         }
-        .onDrop(of: [UTType.text], delegate: AppDropDelegate(targetID: app.id, state: state))
+        .onDrop(of: [.plainText, .text], delegate: AppDropDelegate(targetID: app.id, state: state))
     }
 }
 
@@ -317,43 +316,48 @@ struct FolderIcon: View {
     }
 
     var body: some View {
-        Button {
-            state.openFolder = folder
-        } label: {
-            VStack(spacing: LaunchConstants.Icon.spacing) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: LaunchConstants.Icon.folderCornerRadius)
-                        .frame(width: layout.iconSize, height: layout.iconSize)
-                        .launchpadFolderChrome(cornerRadius: LaunchConstants.Icon.folderCornerRadius)
+        VStack(spacing: LaunchConstants.Icon.spacing) {
+            ZStack {
+                RoundedRectangle(cornerRadius: LaunchConstants.Icon.folderCornerRadius)
+                    .frame(width: layout.iconSize, height: layout.iconSize)
+                    .launchpadFolderChrome(cornerRadius: LaunchConstants.Icon.folderCornerRadius)
 
-                    LazyVGrid(
-                        columns: Array(
-                            repeating: GridItem(.fixed(miniIconSize), spacing: 0),
-                            count: LaunchConstants.Icon.folderPreviewColumns
-                        ),
-                        spacing: 0
-                    ) {
-                        ForEach(apps.prefix(LaunchConstants.Icon.folderPreviewLimit)) { app in
-                            Image(nsImage: iconCache.icon(for: app, size: layout.iconSize))
-                                .resizable()
-                                .interpolation(.high)
-                                .frame(width: miniIconSize, height: miniIconSize)
-                        }
+                LazyVGrid(
+                    columns: Array(
+                        repeating: GridItem(.fixed(miniIconSize), spacing: 0),
+                        count: LaunchConstants.Icon.folderPreviewColumns
+                    ),
+                    spacing: 0
+                ) {
+                    ForEach(apps.prefix(LaunchConstants.Icon.folderPreviewLimit)) { app in
+                        Image(nsImage: iconCache.icon(for: app, size: layout.iconSize))
+                            .resizable()
+                            .interpolation(.high)
+                            .frame(width: miniIconSize, height: miniIconSize)
                     }
                 }
-
-                Text(folder.name)
-                    .font(.system(size: LaunchConstants.Icon.labelFontSize, weight: .medium))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .frame(width: layout.labelWidth, height: LaunchConstants.Icon.labelHeight, alignment: .top)
-                    .launchLabelStyle()
             }
-            .frame(width: layout.columnWidth)
-            .overlay(keyboardSelectionBackground(isSelected: state.showsKeyboardSelection(for: folder.id)))
+
+            Text(folder.name)
+                .font(.system(size: LaunchConstants.Icon.labelFontSize, weight: .medium))
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .frame(width: layout.labelWidth, height: LaunchConstants.Icon.labelHeight, alignment: .top)
+                .launchLabelStyle()
         }
-        .buttonStyle(.plain)
-        .onDrop(of: [UTType.text], delegate: FolderDropDelegate(targetID: folder.id, state: state))
+        .frame(width: layout.columnWidth)
+        .contentShape(Rectangle())
+        .overlay(keyboardSelectionBackground(isSelected: state.showsKeyboardSelection(for: folder.id)))
+        .onTapGesture {
+            // Pinch/click lingering on the icon while a folder is open silently re-opens it, defeating closeFolder.
+            guard state.openFolder == nil else {
+                LaunchLog.line("folder icon tap ignored, folder already open id=\(folder.id)")
+                return
+            }
+            LaunchLog.line("folder icon tap open id=\(folder.id)")
+            state.openFolder = folder
+        }
+        .onDrop(of: [.plainText, .text], delegate: FolderDropDelegate(targetID: folder.id, state: state))
     }
 }
 
@@ -395,14 +399,12 @@ struct FolderOverlay: View {
     @ViewBuilder
     private var folderContent: some View {
         if #available(macOS 26, *) {
-            GlassEffectContainer(spacing: LaunchConstants.FolderOverlay.spacing) {
-                folderPanel
-                    .launchGlass(
-                        in: RoundedRectangle(cornerRadius: LaunchConstants.FolderOverlay.cornerRadius, style: .continuous),
-                        interactive: false
-                    )
-                    .tahoeFolderPanelChrome(usesMaterial: false)
-            }
+            folderPanel
+                .launchGlass(
+                    in: RoundedRectangle(cornerRadius: LaunchConstants.FolderOverlay.cornerRadius, style: .continuous),
+                    interactive: false
+                )
+                .tahoeFolderPanelChrome(usesMaterial: false)
         } else {
             folderPanel
                 .tahoeFolderPanelChrome()
@@ -458,27 +460,26 @@ struct FolderOverlayAppIcon: View {
     @Environment(\.iconCache) private var iconCache
 
     var body: some View {
-        Button {
-            state.launch(app)
-        } label: {
-            VStack(spacing: LaunchConstants.Icon.spacing) {
-                Image(nsImage: iconCache.icon(for: app, size: LaunchConstants.FolderOverlay.maxIconSize))
-                    .resizable()
-                    .interpolation(.high)
-                    .frame(width: LaunchConstants.FolderOverlay.maxIconSize, height: LaunchConstants.FolderOverlay.maxIconSize)
-                    .shadow(color: .black.opacity(0.28), radius: 1.5, y: 1)
+        VStack(spacing: LaunchConstants.Icon.spacing) {
+            Image(nsImage: iconCache.icon(for: app, size: LaunchConstants.FolderOverlay.maxIconSize))
+                .resizable()
+                .interpolation(.high)
+                .frame(width: LaunchConstants.FolderOverlay.maxIconSize, height: LaunchConstants.FolderOverlay.maxIconSize)
+                .shadow(color: .black.opacity(0.28), radius: 1.5, y: 1)
 
-                Text(app.name)
-                    .font(.system(size: LaunchConstants.Icon.labelFontSize, weight: .medium))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .frame(width: LaunchConstants.FolderOverlay.labelWidth, height: LaunchConstants.Icon.labelHeight, alignment: .top)
-                    .launchLabelStyle()
-            }
-            .frame(width: LaunchConstants.FolderOverlay.gridItemWidth)
-            .opacity(state.draggedAppID == app.id ? LaunchConstants.Icon.draggedOpacity : 1)
+            Text(app.name)
+                .font(.system(size: LaunchConstants.Icon.labelFontSize, weight: .medium))
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .frame(width: LaunchConstants.FolderOverlay.labelWidth, height: LaunchConstants.Icon.labelHeight, alignment: .top)
+                .launchLabelStyle()
         }
-        .buttonStyle(.plain)
+        .frame(width: LaunchConstants.FolderOverlay.gridItemWidth)
+        .contentShape(Rectangle())
+        .opacity(state.draggedAppID == app.id ? LaunchConstants.Icon.draggedOpacity : 1)
+        .onTapGesture {
+            state.launch(app)
+        }
         .onDrag {
             state.draggedAppID = app.id
             return dockItemProvider(for: app)
@@ -490,10 +491,14 @@ struct FolderOverlayAppIcon: View {
                 state.removeApp(app.id, fromFolder: folderID)
             }
         }
-        .onDrop(of: [UTType.text], delegate: AppDropDelegate(targetID: app.id, state: state))
+        .onDrop(of: [.plainText, .text], delegate: AppDropDelegate(targetID: app.id, state: state))
     }
 }
 
 private func dockItemProvider(for app: LaunchApp) -> NSItemProvider {
-    NSItemProvider(object: app.id as NSString)
+    let provider = NSItemProvider()
+    // .ownProcess: .all lets other apps (Dictionary) hijack the drag and starve our onDrop.
+    provider.registerObject(app.id as NSString, visibility: .ownProcess)
+    provider.suggestedName = app.id
+    return provider
 }

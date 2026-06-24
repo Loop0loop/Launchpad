@@ -291,7 +291,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             case .open:
                 self.launcherLifecycle?.show()
             case .close:
-                if self.launcherLifecycle?.isVisible == true {
+                // Pinch-close must mirror ESC: dismiss folder first, then launcher.
+                if self.state.openFolder != nil {
+                    self.state.closeFolder()
+                } else if self.launcherLifecycle?.isVisible == true {
                     self.launcherLifecycle?.hide()
                 }
             case .previousPage:

@@ -100,7 +100,10 @@ extension AppState {
         guard !trimmed.isEmpty, let index = folders.firstIndex(where: { $0.id == folderID }) else { return }
         folders[index].name = trimmed
         layoutStore.saveFolders(folders)
-        openFolder = folders[index]
+        // Guard prevents FolderTitleField.onDisappear commit from re-opening the folder we just closed.
+        if openFolder?.id == folderID {
+            openFolder = folders[index]
+        }
     }
 
     func apps(in folder: LaunchFolder) -> [LaunchApp] {
@@ -124,8 +127,18 @@ extension AppState {
         saveOrder(sortedRootIDs)
     }
 
+    func canDropApp(on targetID: String) -> Bool {
+        guard query.isEmpty, openFolder == nil else { return false }
+        guard let draggedID = draggedAppID, draggedID != targetID, appByID(draggedID) != nil else { return false }
+        return appByID(targetID) != nil || folders.contains { $0.id == targetID }
+    }
+
+    func cancelDrag() {
+        draggedAppID = nil
+    }
+
     func dropApp(_ draggedID: String, on targetID: String) {
-        guard query.isEmpty else { return }
+        guard canDropApp(on: targetID), draggedID == draggedAppID else { return }
         if draggedID == targetID { return }
 
         if appByID(targetID) != nil, appByID(draggedID) != nil {

@@ -4,3 +4,8 @@ DerivedData/
 node_modules
 package.json
 pnpm-lock.yaml
+.omo
+.codegraph
+.cursor
+video.mp4
+.claude

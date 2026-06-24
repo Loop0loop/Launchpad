@@ -79,6 +79,9 @@ final class LauncherMouseMonitor {
     }
 
     private func handleMouseDragged(_ event: NSEvent, state: AppState) -> NSEvent? {
+        // Item presses are .onDrag — accumulating pageDragOffset here re-renders the grid mid-drag and cancels folder drops.
+        if mouseDownStartedOnItem { return event }
+
         guard state.openFolder == nil, state.query.isEmpty, state.displayMode == .paged else { return event }
         guard Date() >= pageLockedUntil else { return event }
 
