@@ -8,8 +8,6 @@ final class LauncherSearchBarView: NSView {
     private let clearButton = NSButton()
     private let optionButton = NSButton()
     private let contentView = NSView()
-    private var chromeView: NSView?
-    private var glassChromeView: NSView?
     private var onTextChange: ((String) -> Void)?
     private var onClear: (() -> Void)?
 
@@ -84,45 +82,24 @@ final class LauncherSearchBarView: NSView {
 
     private func configureChrome() {
         wantsLayer = true
+        // 외곽선만: 안은 텅 빈(투명). 글래스 채움 없이 둥근 캡슐 외곽선 링만 그린다.
+        // 텍스트필드/아이콘은 투명한 내부 위에 기능 오버레이로 올라간다.
         layer?.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
         layer?.masksToBounds = false
+        layer?.borderWidth = 1.5
+        layer?.borderColor = NSColor.white.withAlphaComponent(LaunchConstants.Glass.searchBarStrokeOpacity).cgColor
+        layer?.shadowColor = NSColor.black.cgColor
+        layer?.shadowOpacity = Float(LaunchConstants.Glass.searchBarShadowOpacity)
+        layer?.shadowRadius = LaunchConstants.Glass.searchBarShadowRadius
+        layer?.shadowOffset = NSSize(width: 0, height: -1)
 
-        let container = NSView()
-        container.wantsLayer = true
-        container.layer?.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
-        container.layer?.masksToBounds = false
-        container.layer?.backgroundColor = NSColor.clear.cgColor
-        container.autoresizingMask = [.width, .height]
-        container.frame = bounds
-
-        container.layer?.shadowColor = NSColor.black.cgColor
-        container.layer?.shadowOpacity = Float(LaunchConstants.Glass.searchBarShadowOpacity)
-        container.layer?.shadowRadius = LaunchConstants.Glass.searchBarShadowRadius
-        container.layer?.shadowOffset = NSSize(width: 0, height: -1)
-        container.layer?.borderWidth = 1
-        container.layer?.borderColor = NSColor.white.withAlphaComponent(LaunchConstants.Glass.searchBarStrokeOpacity).cgColor
-
-        // Liquid Glass `.regular`: 캡슐이 자체 표면을 가져 회색 프로스트를 그대로
-        // 드러내지 않음 (`.clear`는 배경—회색 프로스트—을 비춰 회색 캡슐이 됨).
-        // tint/sheen 플랫 오버레이는 금지 (milky 회색의 원인). 외곽선 1개만.
-        let glass = NSGlassEffectView()
-        glass.style = .regular
-        glass.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
-        glass.autoresizingMask = [.width, .height]
-        glass.frame = container.bounds
-        container.addSubview(glass)
-        glassChromeView = glass
-
-        addSubview(container)
+        contentView.autoresizingMask = [.width, .height]
+        contentView.frame = bounds
         addSubview(contentView)
-
-        chromeView = container
     }
 
     override func layout() {
         super.layout()
-        chromeView?.frame = bounds
-        glassChromeView?.frame = bounds
         contentView.frame = bounds
 
         let padding = LaunchConstants.Launcher.searchHorizontalPadding
@@ -154,11 +131,11 @@ final class LauncherSearchBarView: NSView {
     }
 
     func setActive(_ active: Bool) {
-        // Brighten the rim on focus instead of adding a flat fill (which would milk the glass).
+        // 포커스 시 외곽선을 더 밝게.
         let opacity = active
-            ? min(1, LaunchConstants.Glass.searchBarStrokeOpacity + 0.2)
+            ? min(1, LaunchConstants.Glass.searchBarStrokeOpacity + 0.25)
             : LaunchConstants.Glass.searchBarStrokeOpacity
-        chromeView?.layer?.borderColor = NSColor.white.withAlphaComponent(opacity).cgColor
+        layer?.borderColor = NSColor.white.withAlphaComponent(opacity).cgColor
     }
 
     func updateText(_ text: String) {

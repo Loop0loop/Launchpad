@@ -14,14 +14,12 @@ extension View {
         self.glassEffect(glass, in: shape)
     }
 
-    /// 닫힌 폴더 타일: Liquid Glass `.regular` — 자체 표면을 가져 회색 프로스트를
-    /// 드러내지 않음 (`.clear`는 배경을 비춰 회색 타일이 됨). tint/sheen 플랫 크롬은
-    /// 금지(milky 회색 원인). 외곽선만 얇게.
+    /// 닫힌 폴더 타일: Liquid Glass `.regular` 단일 표면. 엣지/스페큘러/굴절은 시스템이
+    /// 렌더링 — flat stroke/tint/sheen 을 얹으면 유리 위 테이프처럼 보임(스티커).
     @ViewBuilder
     func launchpadFolderChrome(cornerRadius: CGFloat) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        let rim = shape.strokeBorder(.white.opacity(LaunchConstants.Glass.folderTileStrokeOpacity), lineWidth: 1)
-        self.glassEffect(.regular, in: shape).overlay(rim)
+        self.glassEffect(.regular, in: shape)
     }
 
     /// 열린 폴더 패널 크롬: 소프트 섀도만. 글래스·엣지·스페큘러는 상위 launchGlass가
