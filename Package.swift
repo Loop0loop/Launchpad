@@ -1,10 +1,10 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 
 import PackageDescription
 
 let package = Package(
     name: "Launch",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v26)],
     products: [
         .executable(name: "Launch", targets: ["Launch"]),
         .executable(name: "LaunchPackager", targets: ["LaunchPackager"]),

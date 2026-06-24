@@ -240,11 +240,7 @@ final class LauncherLifecycle {
     }
 
     private func activatePreviousApp() {
-        if #available(macOS 14.0, *) {
-            previousApp?.activate()
-        } else {
-            previousApp?.activate(options: [.activateIgnoringOtherApps])
-        }
+        previousApp?.activate()
     }
 
     private func applySystemVisibility() {

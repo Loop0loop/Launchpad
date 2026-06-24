@@ -91,28 +91,14 @@ enum LaunchConstants {
         static let panelShadowRadius: CGFloat = 28
         static let searchBarShadowOpacity: CGFloat = 0.035
         static let searchBarShadowRadius: CGFloat = 8
-        // 파란 유리 캡슐 (이미지 매칭). 런처 배경 프로스트가 회색이라 흰 틴트는 회색으로
-        // 보인다 → 글래스에 고정 파란(페리윙클) 틴트를 입혀 벽지와 무관하게 파랗게.
-        static let searchBarTintColor = NSColor(srgbRed: 0.34, green: 0.38, blue: 0.92, alpha: 1.0)
-        static let searchBarTintOpacity: CGFloat = 0.10
-
-        // Liquid Glass `.regular` 표면 위의 옅은 상단 하이라이트. 시스템 글래스가 이미
-        // 스페큘러/엣지를 렌더링하므로 여기선 플랫 화이트 워시(과다 값)가 되면 안 된다 —
-        // 다시 milky/회색 캡슐로 돌아간다. 상단만 살짝 밝게.
-        static let glassSheenTop: CGFloat = 0.12
-        static let glassSheenBottom: CGFloat = 0.03
-        static let searchBarWhiteFillOpacity: CGFloat = 0.12   // 폴백(<macOS 26) 경로용
-        static let searchBarStrokeOpacity: CGFloat = 0.70
+        static let searchBarStrokeOpacity: CGFloat = 0.28
 
         // 1. 열린 폴더 패널 (Opened Folder Panel)
-        static let folderMaterial: Material = .ultraThinMaterial           // 매우 얇고 투명한 재질
         static let folderBackgroundOpacity: CGFloat = 0.004                // 틴트 강도 (0.0 ~ 1.0)
         static let folderStrokeOpacity: CGFloat = 0.34
 
         // 2. 닫힌 폴더 타일 (Closed Folder Tile / Icon)
-        static let folderTileMaterial: Material = .ultraThinMaterial       // 매우 얇고 투명한 재질
-        static let folderTileTintOpacity: CGFloat = 0.10                   // 검색바와 같은 파란 틴트 세기
-        static let folderTileStrokeOpacity: CGFloat = 0.60                 // 폴더 타일 밝은 림(rim)
+        static let folderTileStrokeOpacity: CGFloat = 0.30                 // 폴더 타일 얇은 외곽선
 
         static let openFolderDimOpacity: CGFloat = 0.035
     }

@@ -8,12 +8,8 @@ final class LauncherSearchBarView: NSView {
     private let clearButton = NSButton()
     private let optionButton = NSButton()
     private let contentView = NSView()
-    private let whiteTintView = NSView()
-    private let sheenView = NSView()
-    private let sheenGradient = CAGradientLayer()
     private var chromeView: NSView?
     private var glassChromeView: NSView?
-    private var visualChromeView: NSVisualEffectView?
     private var onTextChange: ((String) -> Void)?
     private var onClear: (() -> Void)?
 
@@ -103,61 +99,18 @@ final class LauncherSearchBarView: NSView {
         container.layer?.shadowOpacity = Float(LaunchConstants.Glass.searchBarShadowOpacity)
         container.layer?.shadowRadius = LaunchConstants.Glass.searchBarShadowRadius
         container.layer?.shadowOffset = NSSize(width: 0, height: -1)
-        container.layer?.borderWidth = 0.65
+        container.layer?.borderWidth = 1
         container.layer?.borderColor = NSColor.white.withAlphaComponent(LaunchConstants.Glass.searchBarStrokeOpacity).cgColor
 
-        if #available(macOS 26.0, *) {
-            // Liquid Glass `.regular` 단일 표면. `.clear`는 배경 프로스트가 비쳐 회색이
-            // 되므로 캡슐엔 표준(불투명·밝은) `.regular`. 틴트는 tintColor로만 구운다.
-            let glass = NSGlassEffectView()
-            glass.style = .regular
-            glass.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
-            // Fixed blue tint so the capsule reads as the image's blue glass regardless of
-            // the grey launcher frost behind it.
-            glass.tintColor = LaunchConstants.Glass.searchBarTintColor
-                .withAlphaComponent(LaunchConstants.Glass.searchBarTintOpacity)
-            glass.autoresizingMask = [.width, .height]
-            glass.frame = container.bounds
-            container.addSubview(glass)
-            glassChromeView = glass
-        } else {
-            // 폴백: headerView(중성/밝은) + 화이트 틴트 한 층만.
-            let visualVEV = NSVisualEffectView()
-            visualVEV.material = .headerView
-            visualVEV.blendingMode = .behindWindow
-            visualVEV.state = .active
-            visualVEV.wantsLayer = true
-            visualVEV.layer?.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
-            visualVEV.layer?.masksToBounds = true
-            visualVEV.autoresizingMask = [.width, .height]
-            visualVEV.frame = container.bounds
-            container.addSubview(visualVEV)
-            visualChromeView = visualVEV
-
-            whiteTintView.wantsLayer = true
-            whiteTintView.layer?.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
-            whiteTintView.layer?.backgroundColor = LaunchConstants.Glass.searchBarTintColor.withAlphaComponent(LaunchConstants.Glass.searchBarTintOpacity).cgColor
-            whiteTintView.autoresizingMask = [.width, .height]
-            whiteTintView.frame = container.bounds
-            container.addSubview(whiteTintView)
-        }
-
-        sheenView.wantsLayer = true
-        sheenView.layer?.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
-        sheenView.layer?.masksToBounds = true
-        // Top→bottom white sheen = Liquid Glass highlight (luminous over dark wallpaper).
-        sheenGradient.colors = [
-            NSColor.white.withAlphaComponent(LaunchConstants.Glass.glassSheenTop).cgColor,
-            NSColor.white.withAlphaComponent(LaunchConstants.Glass.glassSheenBottom).cgColor
-        ]
-        sheenGradient.startPoint = CGPoint(x: 0.5, y: 0)
-        sheenGradient.endPoint = CGPoint(x: 0.5, y: 1)
-        sheenView.layer?.addSublayer(sheenGradient)
-        sheenView.autoresizingMask = [.width, .height]
-        sheenView.frame = container.bounds
-        sheenView.isHidden = false
-
-        container.addSubview(sheenView)
+        // Liquid Glass `.clear`: keep the capsule transparent, with only the layer
+        // border as the rim. Flat tint/sheen makes it milky again.
+        let glass = NSGlassEffectView()
+        glass.style = .clear
+        glass.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
+        glass.autoresizingMask = [.width, .height]
+        glass.frame = container.bounds
+        container.addSubview(glass)
+        glassChromeView = glass
 
         addSubview(container)
         addSubview(contentView)
@@ -169,10 +122,6 @@ final class LauncherSearchBarView: NSView {
         super.layout()
         chromeView?.frame = bounds
         glassChromeView?.frame = bounds
-        visualChromeView?.frame = bounds
-        whiteTintView.frame = bounds
-        sheenView.frame = bounds
-        sheenGradient.frame = sheenView.bounds
         contentView.frame = bounds
 
         let padding = LaunchConstants.Launcher.searchHorizontalPadding

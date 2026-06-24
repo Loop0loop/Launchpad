@@ -13,10 +13,10 @@ extension EnvironmentValues {
     }
 }
 
-@MainActor
-final class IconCache {
+final class IconCache: @unchecked Sendable {
     private var icons: [String: NSImage] = [:]
 
+    @MainActor
     func icon(for app: LaunchApp, size: CGFloat = LaunchConstants.Launcher.maxIconSize) -> NSImage {
         if let cached = icons[app.path] { return cached }
 
@@ -27,7 +27,7 @@ final class IconCache {
         return image
     }
 
-    func clear() {
+    @MainActor func clear() {
         icons.removeAll()
     }
 }

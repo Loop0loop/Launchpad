@@ -37,7 +37,7 @@ struct FolderOverlay: View {
         let shape = RoundedRectangle(cornerRadius: LaunchConstants.FolderOverlay.cornerRadius, style: .continuous)
         return shape
             .fill(.white.opacity(LaunchConstants.Glass.folderBackgroundOpacity))
-            .launchGlass(in: shape, interactive: false, clear: true, fallbackMaterial: LaunchConstants.Glass.folderMaterial)
+            .launchGlass(in: shape, interactive: false, clear: true)
             .overlay(shape.strokeBorder(.white.opacity(LaunchConstants.Glass.folderStrokeOpacity), lineWidth: 1.0))
     }
 
