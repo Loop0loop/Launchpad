@@ -102,10 +102,11 @@ final class LauncherSearchBarView: NSView {
         container.layer?.borderWidth = 1
         container.layer?.borderColor = NSColor.white.withAlphaComponent(LaunchConstants.Glass.searchBarStrokeOpacity).cgColor
 
-        // Liquid Glass `.clear`: keep the capsule transparent, with only the layer
-        // border as the rim. Flat tint/sheen makes it milky again.
+        // Liquid Glass `.regular`: 캡슐이 자체 표면을 가져 회색 프로스트를 그대로
+        // 드러내지 않음 (`.clear`는 배경—회색 프로스트—을 비춰 회색 캡슐이 됨).
+        // tint/sheen 플랫 오버레이는 금지 (milky 회색의 원인). 외곽선 1개만.
         let glass = NSGlassEffectView()
-        glass.style = .clear
+        glass.style = .regular
         glass.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
         glass.autoresizingMask = [.width, .height]
         glass.frame = container.bounds

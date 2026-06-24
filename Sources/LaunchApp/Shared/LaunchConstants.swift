@@ -91,14 +91,14 @@ enum LaunchConstants {
         static let panelShadowRadius: CGFloat = 28
         static let searchBarShadowOpacity: CGFloat = 0.035
         static let searchBarShadowRadius: CGFloat = 8
-        static let searchBarStrokeOpacity: CGFloat = 0.28
+        static let searchBarStrokeOpacity: CGFloat = 0.55
 
         // 1. 열린 폴더 패널 (Opened Folder Panel)
         static let folderBackgroundOpacity: CGFloat = 0.004                // 틴트 강도 (0.0 ~ 1.0)
         static let folderStrokeOpacity: CGFloat = 0.34
 
         // 2. 닫힌 폴더 타일 (Closed Folder Tile / Icon)
-        static let folderTileStrokeOpacity: CGFloat = 0.30                 // 폴더 타일 얇은 외곽선
+        static let folderTileStrokeOpacity: CGFloat = 0.50                 // 폴더 타일 얇은 외곽선
 
         static let openFolderDimOpacity: CGFloat = 0.035
     }
