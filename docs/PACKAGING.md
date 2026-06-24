@@ -78,3 +78,37 @@ Notes:
 - Login item testing must use `.build/Launch.app`, not `swift run Launch`.
 - Accessibility permission is per built app identity/path.
 - Notarization requires a Developer ID Application certificate. Ad-hoc signing is only for local command-path testing.
+
+## GitHub release DMG
+
+`.github/workflows/release-dmg.yml` builds, signs, notarizes, staples, and uploads a DMG when a semantic version tag is pushed:
+
+```sh
+git tag v0.1.2
+git push origin v0.1.2
+```
+
+The workflow sets `CFBundleShortVersionString` from the tag (`v0.1.2` -> `0.1.2`) and uses the GitHub run number for `CFBundleVersion`.
+
+Required repository secrets:
+
+```sh
+MACOS_CERTIFICATE_P12_BASE64   # base64-encoded Developer ID Application .p12
+MACOS_CERTIFICATE_PASSWORD     # password for that .p12
+LAUNCH_SIGN_IDENTITY           # Developer ID Application: Name (TEAMID)
+APPLE_ID                       # Apple Developer account email
+APPLE_APP_SPECIFIC_PASSWORD    # app-specific password for notarytool
+APPLE_TEAM_ID                  # Apple Developer team id
+```
+
+Optional:
+
+```sh
+MACOS_KEYCHAIN_PASSWORD        # generated automatically when omitted
+```
+
+Create the certificate secret locally with:
+
+```sh
+base64 -i DeveloperIDApplication.p12 | pbcopy
+```

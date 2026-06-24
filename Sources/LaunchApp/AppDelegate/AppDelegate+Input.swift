@@ -39,19 +39,21 @@ extension AppDelegate {
                     launcherLifecycle?.hide()
                 }
             case .previousPage:
-                LaunchLog.line("trackpad intent=\(intent)")
-                changePageFromTrackpad(-1, ignoredLog: "trackpad previousPage ignored during drag")
+                changePageFromTrackpad(-1, intent: intent, ignoredLog: "trackpad previousPage ignored during drag")
             case .nextPage:
-                LaunchLog.line("trackpad intent=\(intent)")
-                changePageFromTrackpad(1, ignoredLog: "trackpad nextPage ignored during drag")
+                changePageFromTrackpad(1, intent: intent, ignoredLog: "trackpad nextPage ignored during drag")
             }
         }
     }
 
-    private func changePageFromTrackpad(_ delta: Int, ignoredLog: String) {
+    private func changePageFromTrackpad(_ delta: Int, intent: TrackpadIntent, ignoredLog: String) {
         if launcherLifecycle?.isVisible == true, !state.isDraggingLauncherItem {
-            withAnimation(LaunchConstants.Animation.spring) {
+            let oldPage = state.currentPage
+            withAnimation(LaunchConstants.Animation.pageSnap) {
                 state.changePage(delta)
+            }
+            if state.currentPage != oldPage {
+                LaunchLog.line("trackpad intent=\(intent)")
             }
         } else if state.isDraggingLauncherItem {
             LaunchLog.line(ignoredLog)

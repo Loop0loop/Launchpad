@@ -135,6 +135,13 @@ extension AppState {
         folder.appIDs.compactMap(appByID)
     }
 
+    /// Page to the item so a just-extracted app isn't stranded on another page.
+    func revealItem(_ id: String) {
+        guard let index = visibleItems.firstIndex(where: { $0.id == id }) else { return }
+        let page = index / gridLayout.pageSize
+        if page != currentPage { currentPage = page }
+    }
+
     func itemName(_ id: String) -> String {
         appByID(id)?.name ?? id
     }

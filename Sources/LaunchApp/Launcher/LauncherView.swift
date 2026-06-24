@@ -41,13 +41,16 @@ struct LauncherView: View {
                     pageWidth: geometry.size.width
                 )
                 .frame(width: geometry.size.width, height: geometry.size.height)
+                .opacity(state.openFolder == nil ? 1 : 0)
+                .allowsHitTesting(state.openFolder == nil)
+                .animation(LaunchConstants.Animation.fade, value: state.openFolder?.id)
 
                 if let folder = state.openFolder {
-                    FolderDimLayer(opacity: state.appearance.folderDimOpacity) {
+                    FolderDimLayer(opacity: LaunchConstants.Glass.openFolderDimOpacity) {
                         state.closeFolder()
                     }
 
-                    FolderOverlay(folder: folder, state: state)
+                    FolderOverlay(folder: folder, state: state, availableWidth: geometry.size.width)
                         .transition(
                             .scale(scale: LaunchConstants.Launcher.folderEntranceScale)
                                 .combined(with: .opacity)
@@ -56,7 +59,7 @@ struct LauncherView: View {
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
-            .animation(LaunchConstants.Animation.presentation, value: state.openFolder?.id)
+            .animation(LaunchConstants.Animation.folder, value: state.openFolder?.id)
         }
         .ignoresSafeArea()
         .onExitCommand { state.handleEscape() }

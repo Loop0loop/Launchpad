@@ -53,6 +53,7 @@ final class LauncherLifecycle {
 
         state.launcherVisible = true
         state.pageDragOffset = 0
+        state.backgroundDismissLockedUntil = Date().addingTimeInterval(0.35)
         // Focus (and the active search chrome) only when the user clicks the field.
         state.searchFocus.shouldFocusOnShow = false
         applyWindowBrowsingMode()
@@ -89,7 +90,7 @@ final class LauncherLifecycle {
             guard let self, self.transitionToken == token else { return }
             self.phase = .hidden
             self.state.launcherVisible = false
-            self.setSystemHidden(hideMenuBar: false, hideDock: false)
+            self.restoreSystemVisibility()
             self.window.orderOut(nil)
             self.resetPresentation()
             self.activatePreviousApp()
@@ -104,7 +105,7 @@ final class LauncherLifecycle {
         phase = .hidden
         mouseMonitor?.setEnabled(false)
         state.cancelDrag()
-        setSystemHidden(hideMenuBar: false, hideDock: false)
+        restoreSystemVisibility()
         state.launcherVisible = false
         window.orderOut(nil)
         resetPresentation()
@@ -122,7 +123,7 @@ final class LauncherLifecycle {
                 guard let self, self.transitionToken == token else { return }
                 self.phase = .hidden
                 self.state.launcherVisible = false
-                self.setSystemHidden(hideMenuBar: false, hideDock: false)
+                self.restoreSystemVisibility()
                 self.window.orderOut(nil)
                 self.resetPresentation()
             }
@@ -159,8 +160,8 @@ final class LauncherLifecycle {
         let endAlpha = toVisible ? CGFloat(1) : CGFloat(0)
 
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = LaunchConstants.Lifecycle.windowDuration
-            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            context.duration = toVisible ? LaunchConstants.Lifecycle.windowShowDuration : LaunchConstants.Lifecycle.windowHideDuration
+            context.timingFunction = CAMediaTimingFunction(name: toVisible ? .easeOut : .easeIn)
             context.allowsImplicitAnimation = true
             window.animator().alphaValue = endAlpha
             setPresentationScale(endScale)
@@ -248,19 +249,26 @@ final class LauncherLifecycle {
 
     private func applySystemVisibility() {
         guard !state.windowBrowsingMode else {
-            setSystemHidden(hideMenuBar: false, hideDock: false)
+            restoreSystemVisibility()
             return
         }
         setSystemHidden(hideMenuBar: !state.showMenuBarInLauncher, hideDock: !state.showDockInLauncher)
     }
 
     private func setSystemHidden(hideMenuBar: Bool, hideDock: Bool) {
-        var options: NSApplication.PresentationOptions = []
+        var options: NSApplication.PresentationOptions = [.disableProcessSwitching, .disableHideApplication]
         if hideMenuBar { options.insert(.hideMenuBar) }
         if hideDock { options.insert(.hideDock) }
         if NSApp.presentationOptions != options {
             NSApp.presentationOptions = options
         }
         window.level = hideMenuBar ? .screenSaver : (state.windowBrowsingMode ? .normal : .mainMenu)
+    }
+
+    private func restoreSystemVisibility() {
+        if !NSApp.presentationOptions.isEmpty {
+            NSApp.presentationOptions = []
+        }
+        window.level = state.windowBrowsingMode ? .normal : .mainMenu
     }
 }

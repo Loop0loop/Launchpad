@@ -26,7 +26,7 @@ enum AppIconOption: String, CaseIterable, Identifiable {
     }
 
     func image() -> NSImage? {
-        if let url = Bundle.main.url(forResource: resourceName, withExtension: "png"),
+        if let url = Self.resourceURL(named: resourceName, extension: "png"),
            let image = NSImage(contentsOf: url) {
             return image
         }
@@ -47,6 +47,16 @@ enum AppIconOption: String, CaseIterable, Identifiable {
 
     func save() {
         UserDefaults.standard.set(rawValue, forKey: LaunchConstants.Storage.appIconKey)
+    }
+
+    static func resourceURL(named name: String, extension fileExtension: String) -> URL? {
+        if let url = Bundle.main.url(forResource: name, withExtension: fileExtension) {
+            return url
+        }
+
+        let cwdURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let devURL = cwdURL.appendingPathComponent("Resources").appendingPathComponent("\(name).\(fileExtension)")
+        return FileManager.default.fileExists(atPath: devURL.path) ? devURL : nil
     }
 
     private func generatedIcon(background: NSColor, symbol: String) -> NSImage {

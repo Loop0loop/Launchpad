@@ -8,6 +8,7 @@ final class LauncherSearchBarView: NSView {
     private let clearButton = NSButton()
     private let optionButton = NSButton()
     private let contentView = NSView()
+    private let whiteTintView = NSView()
     private let sheenView = NSView()
     private var chromeView: NSView?
     private var glassChromeView: NSView?
@@ -44,7 +45,7 @@ final class LauncherSearchBarView: NSView {
 
         if let icon = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil) {
             iconView.image = icon
-            iconView.contentTintColor = NSColor.white.withAlphaComponent(0.7)
+            iconView.contentTintColor = NSColor.white.withAlphaComponent(0.86)
             iconView.imageScaling = .scaleProportionallyDown
         }
         contentView.addSubview(iconView)
@@ -69,7 +70,7 @@ final class LauncherSearchBarView: NSView {
         clearButton.isBordered = false
         clearButton.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: "Clear")
         clearButton.imagePosition = .imageOnly
-        clearButton.contentTintColor = NSColor.white.withAlphaComponent(0.55)
+        clearButton.contentTintColor = NSColor.white.withAlphaComponent(0.72)
         clearButton.target = self
         clearButton.action = #selector(clearTapped)
         clearButton.isHidden = true
@@ -78,7 +79,7 @@ final class LauncherSearchBarView: NSView {
         optionButton.isBordered = false
         optionButton.image = NSImage(systemSymbolName: "ellipsis.circle", accessibilityDescription: "Options")
         optionButton.imagePosition = .imageOnly
-        optionButton.contentTintColor = NSColor.white.withAlphaComponent(0.75)
+        optionButton.contentTintColor = NSColor.white.withAlphaComponent(0.86)
         optionButton.target = self
         optionButton.action = #selector(optionTapped)
         contentView.addSubview(optionButton)
@@ -97,45 +98,73 @@ final class LauncherSearchBarView: NSView {
         container.autoresizingMask = [.width, .height]
         container.frame = bounds
 
-        // 그림자 설정 (테두리 없는 부드러운 그림자)
         container.layer?.shadowColor = NSColor.black.cgColor
-        container.layer?.shadowOpacity = 0.08
-        container.layer?.shadowRadius = 8
-        container.layer?.shadowOffset = NSSize(width: 0, height: -2)
+        container.layer?.shadowOpacity = Float(LaunchConstants.Glass.searchBarShadowOpacity)
+        container.layer?.shadowRadius = LaunchConstants.Glass.searchBarShadowRadius
+        container.layer?.shadowOffset = NSSize(width: 0, height: -1)
+        container.layer?.borderWidth = 0.65
+        container.layer?.borderColor = NSColor.white.withAlphaComponent(LaunchConstants.Glass.searchBarStrokeOpacity).cgColor
 
-        let visualVEV = NSVisualEffectView()
-        visualVEV.material = .headerView
-        visualVEV.blendingMode = .behindWindow
-        visualVEV.state = .active
-        visualVEV.wantsLayer = true
-        visualVEV.layer?.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
-        visualVEV.layer?.masksToBounds = true
-        visualVEV.layer?.borderWidth = 0.6
-        visualVEV.layer?.borderColor = NSColor.white.withAlphaComponent(0.15).cgColor
-        visualVEV.autoresizingMask = [.width, .height]
-        visualVEV.frame = container.bounds
+        if #available(macOS 26.0, *) {
+            // Liquid Glass 단일 표면: 하얀 틴트는 tintColor(통합 틴트)로만.
+            // flat 화이트 오버레이를 얹으면 milky/회색 카드가 됨 (launchGlass 규칙).
+            let glass = NSGlassEffectView()
+            glass.style = .clear
+            glass.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
+            // Only tint when asked; a clear-white tint still frosts the glass toward grey.
+            if LaunchConstants.Glass.searchBarWhiteFillOpacity > 0 {
+                glass.tintColor = NSColor.white.withAlphaComponent(LaunchConstants.Glass.searchBarWhiteFillOpacity)
+            }
+            glass.autoresizingMask = [.width, .height]
+            glass.frame = container.bounds
+            container.addSubview(glass)
+            glassChromeView = glass
+        } else {
+            // 폴백: headerView(중성/밝은) + 화이트 틴트 한 층만.
+            let visualVEV = NSVisualEffectView()
+            visualVEV.material = .headerView
+            visualVEV.blendingMode = .behindWindow
+            visualVEV.state = .active
+            visualVEV.wantsLayer = true
+            visualVEV.layer?.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
+            visualVEV.layer?.masksToBounds = true
+            visualVEV.autoresizingMask = [.width, .height]
+            visualVEV.frame = container.bounds
+            container.addSubview(visualVEV)
+            visualChromeView = visualVEV
+
+            whiteTintView.wantsLayer = true
+            whiteTintView.layer?.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
+            whiteTintView.layer?.backgroundColor = NSColor.white.withAlphaComponent(LaunchConstants.Glass.searchBarWhiteFillOpacity).cgColor
+            whiteTintView.autoresizingMask = [.width, .height]
+            whiteTintView.frame = container.bounds
+            container.addSubview(whiteTintView)
+        }
 
         sheenView.wantsLayer = true
         sheenView.layer?.cornerRadius = LaunchConstants.Launcher.searchHeight / 2
-        sheenView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.01).cgColor
+        sheenView.layer?.backgroundColor = NSColor.white.withAlphaComponent(LaunchConstants.Glass.searchBarSheenOpacity).cgColor
         sheenView.layer?.borderWidth = 0
         sheenView.layer?.borderColor = NSColor.clear.cgColor
         sheenView.autoresizingMask = [.width, .height]
-        sheenView.frame = visualVEV.bounds
+        sheenView.frame = container.bounds
+        sheenView.isHidden = false
 
-        visualVEV.addSubview(sheenView)
-        container.addSubview(visualVEV)
+        container.addSubview(sheenView)
 
         addSubview(container)
         addSubview(contentView)
 
         chromeView = container
-        visualChromeView = visualVEV
     }
 
     override func layout() {
         super.layout()
         chromeView?.frame = bounds
+        glassChromeView?.frame = bounds
+        visualChromeView?.frame = bounds
+        whiteTintView.frame = bounds
+        sheenView.frame = bounds
         contentView.frame = bounds
 
         let padding = LaunchConstants.Launcher.searchHorizontalPadding
@@ -186,7 +215,8 @@ final class LauncherSearchBarView: NSView {
     }
 
     func setActive(_ active: Bool) {
-        sheenView.layer?.backgroundColor = NSColor.white.withAlphaComponent(active ? 0.06 : 0.01).cgColor
+        let alpha = active ? 0.055 : LaunchConstants.Glass.searchBarSheenOpacity
+        sheenView.layer?.backgroundColor = NSColor.white.withAlphaComponent(alpha).cgColor
     }
 
     func updateText(_ text: String) {

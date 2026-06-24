@@ -4,6 +4,7 @@ import SwiftUI
 struct FolderOverlay: View {
     let folder: LaunchFolder
     @ObservedObject var state: AppState
+    let availableWidth: CGFloat
     @State private var folderName = ""
 
     private var columns: [GridItem] {
@@ -25,18 +26,27 @@ struct FolderOverlay: View {
     private var folderContent: some View {
         let shape = RoundedRectangle(cornerRadius: LaunchConstants.FolderOverlay.cornerRadius, style: .continuous)
         folderPanel
-            .background(
-                VisualEffectView(material: .sidebar, blendingMode: .behindWindow)
-                    .clipShape(shape)
-            )
-            .overlay(shape.fill(.white.opacity(LaunchConstants.Glass.sheenOpacity)))
+            .launchGlass(in: shape, interactive: false, clear: true, fallbackMaterial: LaunchConstants.Glass.folderMaterial)
+            .background(shape.fill(.white.opacity(LaunchConstants.Glass.folderBackgroundOpacity)))
+            .overlay(shape.fill(.white.opacity(LaunchConstants.Glass.folderSheenOpacity)))
+            .overlay(shape.strokeBorder(.white.opacity(LaunchConstants.Glass.folderStrokeOpacity), lineWidth: 1.0))
             .clipShape(shape)
             .tahoeFolderPanelChrome()
     }
 
+    /// Panel hugs its content (columns × item width) instead of a fixed share of the
+    /// screen. The parent ZStack centers it, so the grid reads edge-to-edge with no dead
+    /// space — no widthRatio/min/max magic to tune.
+    private var panelWidth: CGFloat {
+        let cols = CGFloat(LaunchConstants.FolderOverlay.columns)
+        let content = cols * LaunchConstants.FolderOverlay.gridItemWidth
+            + max(0, cols - 1) * LaunchConstants.FolderOverlay.gridSpacing
+        return content + LaunchConstants.FolderOverlay.horizontalPadding * 2
+    }
+
     private var folderPanel: some View {
         VStack(spacing: LaunchConstants.FolderOverlay.spacing) {
-            FolderTitleField(name: $folderName) {
+            FolderTitleField(name: $folderName, width: panelWidth - LaunchConstants.FolderOverlay.horizontalPadding * 2) {
                 state.renameFolder(folder.id, to: folderName)
             }
 
@@ -45,10 +55,11 @@ struct FolderOverlay: View {
                     FolderOverlayAppIcon(app: app, folderID: folder.id, state: state)
                 }
             }
-            .frame(minHeight: LaunchConstants.FolderOverlay.minGridHeight, alignment: .top)
+            .frame(maxWidth: .infinity, minHeight: LaunchConstants.FolderOverlay.minGridHeight, alignment: .topLeading)
         }
-        .padding(LaunchConstants.FolderOverlay.padding)
-        .frame(width: LaunchConstants.FolderOverlay.width)
+        .padding(.horizontal, LaunchConstants.FolderOverlay.horizontalPadding)
+        .padding(.vertical, LaunchConstants.FolderOverlay.verticalPadding)
+        .frame(width: panelWidth)
         // contentShape absorbs taps on the panel (so inner clicks don't close the folder)
         // without an empty onTapGesture that would steal the title field's focus tap.
         .contentShape(
@@ -59,6 +70,7 @@ struct FolderOverlay: View {
 
 struct FolderTitleField: View {
     @Binding var name: String
+    let width: CGFloat
     let commit: () -> Void
 
     var body: some View {
@@ -66,7 +78,7 @@ struct FolderTitleField: View {
         // editor (no keyboard). This field makes the panel key on click, like the search bar.
         FolderTitleNSField(name: $name, commit: commit)
             .frame(height: LaunchConstants.FolderOverlay.titleFontSize + 14)
-            .frame(maxWidth: LaunchConstants.FolderOverlay.width - 120)
+            .frame(width: width)
     }
 }
 
@@ -79,6 +91,9 @@ private struct FolderTitleNSField: NSViewRepresentable {
         field.isBordered = false
         field.isBezeled = false
         field.drawsBackground = false
+        field.isEditable = true
+        field.isSelectable = true
+        field.isEnabled = true
         field.focusRingType = .none
         field.alignment = .center
         field.font = .systemFont(ofSize: LaunchConstants.FolderOverlay.titleFontSize, weight: .semibold)
@@ -86,6 +101,8 @@ private struct FolderTitleNSField: NSViewRepresentable {
         field.cell?.usesSingleLineMode = true
         field.lineBreakMode = .byTruncatingTail
         field.delegate = context.coordinator
+        field.target = context.coordinator
+        field.action = #selector(Coordinator.commitFromAction(_:))
         field.stringValue = name
         return field
     }
@@ -111,6 +128,11 @@ private struct FolderTitleNSField: NSViewRepresentable {
         func controlTextDidEndEditing(_ notification: Notification) {
             parent.commit()
         }
+
+        @MainActor @objc func commitFromAction(_ sender: NSTextField) {
+            parent.name = sender.stringValue
+            parent.commit()
+        }
     }
 }
 
@@ -118,8 +140,10 @@ final class FolderTitleNSTextField: NSTextField {
     override var acceptsFirstResponder: Bool { true }
 
     override func mouseDown(with event: NSEvent) {
+        NSApp.activate(ignoringOtherApps: true)
         window?.makeKey()
         window?.makeFirstResponder(self)
+        selectText(nil)
         super.mouseDown(with: event)
     }
 }
@@ -157,8 +181,12 @@ struct FolderOverlayAppIcon: View {
         .onTapGesture {
             state.launch(app)
         }
+        .onLongPressGesture(minimumDuration: 0.8) {
+            LaunchLog.line("FolderOverlayAppIcon long press app=\(app.id) -> prompting delete")
+            state.moveToTrash(app)
+        }
         // Drag an app far enough to pull it out of the folder back into the grid.
-        .gesture(
+        .simultaneousGesture(
             DragGesture(minimumDistance: 8)
                 .onChanged { dragOffset = $0.translation }
                 .onEnded { value in
@@ -166,8 +194,11 @@ struct FolderOverlayAppIcon: View {
                     if pulledOut {
                         LaunchLog.line("folder pull-out app=\(app.id) folder=\(folderID)")
                         state.removeApp(app.id, fromFolder: folderID)
+                        // Close + page to the app so it's visibly dropped back on the grid.
+                        state.closeFolder()
+                        state.revealItem(app.id)
                     }
-                    withAnimation(LaunchConstants.Animation.quick) { dragOffset = .zero }
+                    withAnimation(LaunchConstants.Animation.iconLift) { dragOffset = .zero }
                 }
         )
         .contextMenu {

@@ -1,0 +1,124 @@
+name: Release DMG
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, for example v0.1.2"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-dmg-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build-sign-notarize:
+    name: Build, sign, notarize DMG
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    env:
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      LAUNCH_SIGN_IDENTITY: ${{ secrets.LAUNCH_SIGN_IDENTITY }}
+      LAUNCH_BUILD_CONFIGURATION: release
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Resolve release version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            tag="${{ inputs.tag }}"
+          else
+            tag="${GITHUB_REF_NAME}"
+          fi
+
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Tag must look like v0.1.2, got: $tag" >&2
+            exit 1
+          fi
+
+          version="${tag#v}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Update bundle version from tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ steps.version.outputs.version }}" Resources/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${GITHUB_RUN_NUMBER}" Resources/Info.plist
+
+      - name: Import Developer ID certificate
+        shell: bash
+        env:
+          CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${CERTIFICATE_P12_BASE64}" || -z "${CERTIFICATE_PASSWORD}" ]]; then
+            echo "Missing MACOS_CERTIFICATE_P12_BASE64 or MACOS_CERTIFICATE_PASSWORD secret." >&2
+            exit 1
+          fi
+
+          keychain_password="${KEYCHAIN_PASSWORD:-$(uuidgen)}"
+          certificate_path="$RUNNER_TEMP/developer-id.p12"
+          keychain_path="$RUNNER_TEMP/launch-signing.keychain-db"
+
+          echo "$CERTIFICATE_P12_BASE64" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
+          security list-keychains -d user -s "$keychain_path" "$(security login-keychain | tr -d '"')"
+          security default-keychain -s "$keychain_path"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain_path"
+          security find-identity -v -p codesigning "$keychain_path"
+
+      - name: Build, sign, notarize, and staple DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift run LaunchPackager notarize
+          mv .build/Launch.dmg ".build/Launch-${{ steps.version.outputs.version }}.dmg"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Launch-${{ steps.version.outputs.version }}-dmg
+          path: .build/Launch-${{ steps.version.outputs.version }}.dmg
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          tag="${{ steps.version.outputs.tag }}"
+          dmg=".build/Launch-${{ steps.version.outputs.version }}.dmg"
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$dmg" --clobber
+          else
+            gh release create "$tag" "$dmg" \
+              --title "Launch $tag" \
+              --notes "Signed and notarized Launch DMG."
+          fi

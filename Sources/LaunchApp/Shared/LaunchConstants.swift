@@ -90,8 +90,26 @@ enum LaunchConstants {
         static let panelShadowOpacity: CGFloat = 0.28
         static let panelShadowRadius: CGFloat = 28
         static let sheenOpacity: CGFloat = 0.04
-        static let searchBarShadowOpacity: CGFloat = 0.15
-        static let searchBarShadowRadius: CGFloat = 12
+        static let searchBarShadowOpacity: CGFloat = 0.035
+        static let searchBarShadowRadius: CGFloat = 8
+        // 투명 유리: .clear 글래스 위에 흰색 틴트/광택을 덧칠하면 milky/회색 카드가 됨.
+        // 이미지처럼 배경이 그대로 비치게 하려면 fill/sheen 0, 외곽 링(stroke)만 남긴다.
+        static let searchBarWhiteFillOpacity: CGFloat = 0.0
+        static let searchBarStrokeOpacity: CGFloat = 0.58
+        static let searchBarSheenOpacity: CGFloat = 0.0
+
+        // 1. 열린 폴더 패널 (Opened Folder Panel)
+        static let folderMaterial: Material = .ultraThinMaterial           // 매우 얇고 투명한 재질
+        static let folderBackgroundOpacity: CGFloat = 0.004                // 틴트 강도 (0.0 ~ 1.0)
+        static let folderSheenOpacity: CGFloat = 0.0                       // 표면 화이트 광택 세기 (clear 글래스에 덧칠 금지)
+        static let folderStrokeOpacity: CGFloat = 0.34
+
+        // 2. 닫힌 폴더 타일 (Closed Folder Tile / Icon)
+        static let folderTileMaterial: Material = .ultraThinMaterial       // 매우 얇고 투명한 재질
+        static let folderTileSheenOpacity: CGFloat = 0.0                   // 폴더 타일 표면 광택 (clear 글래스에 덧칠하면 회색 카드)
+        static let folderTileStrokeOpacity: CGFloat = 0.24                 // 폴더 타일 외곽선 투명도
+
+        static let openFolderDimOpacity: CGFloat = 0.035
     }
 
     enum Storage {
@@ -160,12 +178,14 @@ enum LaunchConstants {
     }
 
     enum Animation {
-        /// Primary spring used by kristof12345/Launchpad and similar clones.
-        static let spring = SwiftUI.Animation.interpolatingSpring(stiffness: 400, damping: 35)
-        static let fade = SwiftUI.Animation.easeInOut(duration: 0.25)
-        static let quick = SwiftUI.Animation.easeOut(duration: 0.2)
-        /// LaunchOS / native Launchpad open-close zoom.
-        static let presentation = SwiftUI.Animation.interpolatingSpring(stiffness: 380, damping: 32)
+        static let pageSnap = SwiftUI.Animation.interactiveSpring(response: 0.28, dampingFraction: 0.96, blendDuration: 0.03)
+        static let folder = SwiftUI.Animation.spring(response: 0.28, dampingFraction: 0.88, blendDuration: 0.04)
+        static let iconLift = SwiftUI.Animation.interactiveSpring(response: 0.22, dampingFraction: 0.78, blendDuration: 0.03)
+        static let fade = SwiftUI.Animation.easeInOut(duration: 0.18)
+        static let quick = SwiftUI.Animation.easeOut(duration: 0.14)
+        static let presentation = SwiftUI.Animation.easeOut(duration: 0.22)
+
+        static let spring = pageSnap
     }
 
     enum Icon {
@@ -183,21 +203,23 @@ enum LaunchConstants {
 
     enum FolderOverlay {
         static let columns = 4
-        static let gridItemWidth: CGFloat = 112
-        static let gridSpacing: CGFloat = 20
-        static let spacing: CGFloat = 26
-        static let titleFontSize: CGFloat = 25
-        static let minGridHeight: CGFloat = 170
-        static let padding: CGFloat = 36
-        static let width: CGFloat = 600
-        static let cornerRadius: CGFloat = 34
-        static let maxIconSize: CGFloat = 86
-        static let labelWidth: CGFloat = 104
+        static let gridItemWidth: CGFloat = 132
+        static let gridSpacing: CGFloat = 52
+        static let spacing: CGFloat = 24
+        static let titleFontSize: CGFloat = 26
+        static let minGridHeight: CGFloat = 172
+        static let horizontalPadding: CGFloat = 36
+        static let verticalPadding: CGFloat = 34
+        // Panel is content-driven (FolderOverlay.panelWidth); no screen-share sizing needed.
+        static let cornerRadius: CGFloat = 44
+        static let maxIconSize: CGFloat = 98
+        static let labelWidth: CGFloat = 126
     }
 
     enum Lifecycle {
-        static let windowDuration: TimeInterval = 0.28
-        static let hiddenScale: CGFloat = 0.94
+        static let windowShowDuration: TimeInterval = 0.24
+        static let windowHideDuration: TimeInterval = 0.18
+        static let hiddenScale: CGFloat = 0.92
     }
 
     enum WindowBrowsing {

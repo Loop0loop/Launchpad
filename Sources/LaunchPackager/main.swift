@@ -159,7 +159,14 @@ struct LaunchPackager {
 
     var buildDir: URL { root.appendingPathComponent(".build") }
     var appURL: URL { buildDir.appendingPathComponent("\(name).app") }
-    var binaryURL: URL { root.appendingPathComponent(".build/apple/Products/Debug/Launch") }
+    var buildConfiguration: String {
+        let rawValue = ProcessInfo.processInfo.environment["LAUNCH_BUILD_CONFIGURATION"] ?? "debug"
+        return rawValue.lowercased() == "release" ? "release" : "debug"
+    }
+    var xcodeBuildConfiguration: String {
+        buildConfiguration == "release" ? "Release" : "Debug"
+    }
+    var binaryURL: URL { root.appendingPathComponent(".build/apple/Products/\(xcodeBuildConfiguration)/Launch") }
     var stagingURL: URL { buildDir.appendingPathComponent("dmg") }
     var dmgURL: URL { buildDir.appendingPathComponent("\(name).dmg") }
     var backgroundURL: URL { root.appendingPathComponent("public/Launch.png") }
@@ -269,6 +276,7 @@ struct LaunchPackager {
                 "--cache-path", ".build/swiftpm-cache",
                 "--config-path", ".build/swiftpm-config",
                 "--security-path", ".build/swiftpm-security",
+                "-c", buildConfiguration,
                 "--product", name
             ],
             environment: [

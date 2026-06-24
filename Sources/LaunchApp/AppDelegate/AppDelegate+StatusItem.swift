@@ -7,7 +7,7 @@ extension AppDelegate {
             LaunchLog.line("status item button missing")
             return
         }
-        if let icon = Self.menuBarImage() {
+        if let icon = menuBarImage() {
             button.image = icon
             button.title = ""
         } else {
@@ -33,14 +33,34 @@ extension AppDelegate {
         if let image = state.appIcon.image() {
             NSApp.applicationIconImage = image
         }
+        if let image = menuBarImage(), let button = statusItem?.button {
+            button.image = image
+            button.title = ""
+        }
     }
 
-    private static func menuBarImage() -> NSImage? {
-        guard let url = Bundle.main.url(forResource: "MenuBarIcon", withExtension: "png"),
-              let image = NSImage(contentsOf: url) else { return nil }
+    private func menuBarImage() -> NSImage? {
+        let source = state.appIcon.image() ?? bundledMenuBarImage()
+        guard let source else { return nil }
+        let image = NSImage(size: NSSize(width: 18, height: 18))
+        image.lockFocus()
+        defer { image.unlockFocus() }
+        source.draw(
+            in: NSRect(x: 1, y: 1, width: 16, height: 16),
+            from: .zero,
+            operation: .sourceOver,
+            fraction: 1,
+            respectFlipped: true,
+            hints: [.interpolation: NSImageInterpolation.high]
+        )
         image.size = NSSize(width: 18, height: 18)
-        image.isTemplate = true
+        image.isTemplate = false
         return image
+    }
+
+    private func bundledMenuBarImage() -> NSImage? {
+        guard let url = AppIconOption.resourceURL(named: "MenuBarIcon", extension: "png") else { return nil }
+        return NSImage(contentsOf: url)
     }
 
     func makeStatusMenu() -> NSMenu {

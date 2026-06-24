@@ -29,7 +29,8 @@ final class TrackpadGestureMonitor {
         onGateStatus(pinchMonitor.isReady)
         LaunchLog.line("private pinch ready=\(pinchMonitor.isReady)")
 
-        let mask: NSEvent.EventTypeMask = [.magnify, .swipe, .scrollWheel]
+        let localMask: NSEvent.EventTypeMask = [.magnify, .swipe, .scrollWheel]
+        let globalMask: NSEvent.EventTypeMask = [.magnify]
 
         let handler: (NSEvent) -> Void = { event in
             Task { @MainActor in
@@ -53,8 +54,8 @@ final class TrackpadGestureMonitor {
                     if self.isScrollLocked { return }
                     
                     if let intent = TrackpadIntent.horizontalSwipe(deltaX: event.deltaX) {
-                        LaunchLog.line("swipe event deltaX=\(event.deltaX) intent=\(intent)")
                         self.isScrollLocked = true
+                        self.unlockScrollAfter(0.8)
                         onIntent(intent)
                     }
                 } else if event.type == .scrollWheel {
@@ -89,8 +90,9 @@ final class TrackpadGestureMonitor {
                             if timeDiff > minInterval {
                                 self.lastScrollIntentTime = now
                                 self.isScrollLocked = true
-                                self.unlockScrollAfter(LaunchConstants.Launcher.pageChangeCooldown)
-                                LaunchLog.line("scroll event deltaX=\(event.scrollingDeltaX) intent=\(intent)")
+                                if !hasPhase {
+                                    self.unlockScrollAfter(0.8)
+                                }
                                 onIntent(intent)
                             }
                         }
@@ -99,7 +101,7 @@ final class TrackpadGestureMonitor {
             }
         }
 
-        if let local = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { event in
+        if let local = NSEvent.addLocalMonitorForEvents(matching: localMask, handler: { event in
             handler(event)
             return event
         }) {
@@ -107,9 +109,9 @@ final class TrackpadGestureMonitor {
             LaunchLog.line("local trackpad monitor installed")
         }
 
-        if let global = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: handler) {
+        if !pinchMonitor.isReady, let global = NSEvent.addGlobalMonitorForEvents(matching: globalMask, handler: handler) {
             monitors.append(global)
-            LaunchLog.line("global trackpad monitor installed")
+            LaunchLog.line("global magnify fallback monitor installed")
         }
     }
 

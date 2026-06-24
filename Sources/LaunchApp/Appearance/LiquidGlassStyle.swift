@@ -20,13 +20,12 @@ extension View {
         }
     }
 
-    /// 닫힌 폴더 타일: `.regular` real glass (덜 투명) + 폴백은 진한 material.
-    /// `.clear`는 너무 투명해서 타일 형태가 잘 안 보였음 → 살짝 frosted 한 틴트로 형태를 잡음.
+    /// 닫힌 폴더 타일: 반투명 유리(Liquid Glass) 효과 지정.
     func launchpadFolderChrome(cornerRadius: CGFloat) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        return launchGlass(in: shape, interactive: false, clear: false, fallbackMaterial: .regularMaterial)
-            .overlay(shape.fill(.white.opacity(0.06)))
-            .overlay(shape.strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
+        return launchGlass(in: shape, interactive: false, clear: true, fallbackMaterial: LaunchConstants.Glass.folderTileMaterial)
+            .overlay(shape.fill(.white.opacity(LaunchConstants.Glass.folderTileSheenOpacity)))
+            .overlay(shape.strokeBorder(.white.opacity(LaunchConstants.Glass.folderTileStrokeOpacity), lineWidth: 0.8))
     }
 
     /// 열린 폴더 패널 크롬: 소프트 섀도만. 글래스·엣지·스페큘러는 상위 launchGlass가

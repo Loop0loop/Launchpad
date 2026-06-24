@@ -46,6 +46,10 @@ struct AppIcon: View {
         .onTapGesture {
             state.launch(app)
         }
+        .onLongPressGesture(minimumDuration: 0.8) {
+            LaunchLog.line("AppIcon long press app=\(app.id) -> prompting delete")
+            state.moveToTrash(app)
+        }
         .launcherDrag(id: app.id, state: state, layout: layout, pageOffset: pageOffset)
         .contextMenu {
             launcherAppContextMenu(app: app, state: state)
@@ -151,9 +155,9 @@ struct LauncherDragModifier: ViewModifier {
             .opacity(isDragging ? LaunchConstants.Icon.draggedOpacity : 1)
             .offset(translation)
             .zIndex(isDragging ? 100 : 0)
-            .animation(LaunchConstants.Animation.quick, value: isMergeTarget)
-            .animation(isDragging ? nil : LaunchConstants.Animation.spring, value: isDragging)
-            .animation(isDragging ? nil : LaunchConstants.Animation.spring, value: state.dragTranslation)
+            .animation(LaunchConstants.Animation.iconLift, value: isMergeTarget)
+            .animation(isDragging ? nil : LaunchConstants.Animation.iconLift, value: isDragging)
+            .animation(isDragging ? nil : LaunchConstants.Animation.iconLift, value: state.dragTranslation)
             .gesture(
                 DragGesture(minimumDistance: 8, coordinateSpace: .named("launcherGrid"))
                     .updating($isDragActive) { _, dragActiveState, _ in

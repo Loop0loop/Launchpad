@@ -103,8 +103,7 @@ struct PagedGridView: View {
         .offset(x: pageOffset)
         .frame(width: pageWidth, alignment: .leading)
         .clipped()
-        .animation(LaunchConstants.Animation.spring, value: state.currentPage)
-        .animation(LaunchConstants.Animation.spring, value: state.pageDragOffset)
+        .animation(LaunchConstants.Animation.pageSnap, value: state.currentPage)
         .frame(height: gridHeight)
     }
 
@@ -160,7 +159,7 @@ struct LauncherPageControl: View {
                     .animation(LaunchConstants.Animation.fade, value: state.currentPage)
                     .onTapGesture {
                         LaunchLog.line("page dot tapped page=\(page)")
-                        withAnimation(LaunchConstants.Animation.spring) {
+                        withAnimation(LaunchConstants.Animation.pageSnap) {
                             selectPage(page)
                         }
                     }

@@ -54,6 +54,10 @@ extension AppState {
             LaunchLog.line("background dismiss ignored during drag")
             return
         }
+        guard Date() >= backgroundDismissLockedUntil else {
+            LaunchLog.line("background dismiss ignored after show")
+            return
+        }
         guard Date() >= folderReopenLockedUntil else {
             LaunchLog.line("background dismiss ignored during folder close cooldown")
             return

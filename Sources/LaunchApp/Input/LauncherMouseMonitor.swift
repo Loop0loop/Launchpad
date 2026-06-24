@@ -74,36 +74,10 @@ final class LauncherMouseMonitor {
             state.cancelDrag()
         }
 
-        if let folder = state.openFolder {
-            if let window = event.window {
-                let x = event.locationInWindow.x
-                let y = event.locationInWindow.y
-                let w = window.frame.width
-                let h = window.frame.height
-                
-                let folderWidth = LaunchConstants.FolderOverlay.width
-                
-                let appCount = state.apps(in: folder).count
-                let cols = CGFloat(LaunchConstants.FolderOverlay.columns)
-                let rows = ceil(CGFloat(appCount) / cols)
-                let rowHeight = LaunchConstants.FolderOverlay.maxIconSize + LaunchConstants.Icon.spacing + LaunchConstants.Icon.labelHeight
-                let gridHeight = max(LaunchConstants.FolderOverlay.minGridHeight, rows * rowHeight + max(0, rows - 1) * LaunchConstants.FolderOverlay.spacing)
-                let folderHeight = gridHeight + LaunchConstants.FolderOverlay.titleFontSize + 14 + LaunchConstants.FolderOverlay.spacing + LaunchConstants.FolderOverlay.padding * 2
-                
-                let minX = (w - folderWidth) / 2
-                let maxX = (w + folderWidth) / 2
-                let minY = (h - folderHeight) / 2
-                let maxY = (h + folderHeight) / 2
-                
-                let insideFolder = x >= minX && x <= maxX && y >= minY && y <= maxY
-                if !insideFolder {
-                    LaunchLog.line("LauncherMouseMonitor down outside folder card (x=\(x), y=\(y), w=\(w), h=\(h)) -> closing folder")
-                    state.closeFolder()
-                    return nil // swallow click
-                }
-            }
-        }
-
+        // Outside-click-to-close is handled by the SwiftUI FolderDimLayer. A hand-rolled
+        // panel rect here underestimated the real panel and swallowed clicks on its edges
+        // (title field, edge icons) — breaking folder rename and pull-out. Let the guard
+        // below simply not start page-swipe tracking while a folder is open.
         guard state.openFolder == nil, state.query.isEmpty, state.displayMode == .paged, Date() >= pageLockedUntil else {
             tracking = false
             return event
@@ -159,14 +133,14 @@ final class LauncherMouseMonitor {
                                     var switched = false
                                     if edge == .left {
                                         if currentState.currentPage > 0 {
-                                            withAnimation(LaunchConstants.Animation.spring) {
+                                            withAnimation(LaunchConstants.Animation.pageSnap) {
                                                 currentState.selectPage(currentState.currentPage - 1)
                                             }
                                             switched = true
                                         }
                                     } else {
                                         if currentState.currentPage < currentState.pageCount - 1 {
-                                            withAnimation(LaunchConstants.Animation.spring) {
+                                            withAnimation(LaunchConstants.Animation.pageSnap) {
                                                 currentState.selectPage(currentState.currentPage + 1)
                                             }
                                             switched = true
@@ -203,18 +177,42 @@ final class LauncherMouseMonitor {
         if dragStartPage == 0, dragOffset > 0 { dragOffset = min(dragOffset, maxRubber) }
         if dragStartPage == state.pageCount - 1, dragOffset < 0 { dragOffset = max(dragOffset, -maxRubber) }
 
-        state.pageDragOffset = dragOffset
+        var transaction = Transaction()
+        transaction.animation = nil
+        withTransaction(transaction) {
+            state.pageDragOffset = dragOffset
+        }
         return event
     }
 
     private func up(_ event: NSEvent, _ state: AppState) -> NSEvent? {
-        defer { reset() }
-        guard tracking, !state.isDraggingLauncherItem else { return event }
+        guard tracking, !state.isDraggingLauncherItem else {
+            reset()
+            return event
+        }
         let pageWidth = window?.frame.width ?? 0
-        guard abs(dragOffset) >= LaunchConstants.Launcher.dragMinimumDistance, pageWidth > 0 else { return event }
+        guard pageWidth > 0 else {
+            reset()
+            return event
+        }
 
-        if let target = targetPage(pageWidth: pageWidth, state: state) {
-            state.selectPage(target)
+        let target = abs(dragOffset) >= LaunchConstants.Launcher.dragMinimumDistance
+            ? targetPage(pageWidth: pageWidth, state: state)
+            : nil
+        tracking = false
+        dragOffset = 0
+        edgeHoverTimer?.cancel()
+        edgeHoverTimer = nil
+        activeEdge = nil
+
+        withAnimation(LaunchConstants.Animation.pageSnap) {
+            if let target {
+                state.selectPage(target)
+            }
+            state.pageDragOffset = 0
+        }
+
+        if target != nil {
             pageLockedUntil = Date().addingTimeInterval(LaunchConstants.Launcher.pageChangeCooldown)
         }
         return event
