@@ -1,307 +1,301 @@
 # Architecture
 
-Launch is a native macOS Launchpad replacement. The app uses SwiftUI for the
-launcher surface, AppKit for process/window/event integration, and a small
-`LaunchCore` module for pure rules that can be checked without a GUI.
+Launch is a native macOS Launchpad-style launcher.
 
-Implementation phases live in `docs/PHASES.md`.
-
-## References
-
-Official Apple APIs:
-
-- SwiftUI `NSViewRepresentable`: bridge AppKit views into SwiftUI.
-  https://developer.apple.com/documentation/swiftui/nsviewrepresentable
-- AppKit `NSWindow`: borderless launcher and settings windows.
-  https://developer.apple.com/documentation/appkit/nswindow
-- AppKit `NSEvent`: local/global gesture, scroll, and swipe monitors.
-  https://developer.apple.com/documentation/appkit/nsevent
-- Carbon Event Manager `RegisterEventHotKey`: process-level global hot key.
-  https://developer.apple.com/documentation/carbon/1459912-registereventhotkey
-- AppKit `NSWorkspace`: app scanning, app launch, frontmost app tracking.
-  https://developer.apple.com/documentation/appkit/nsworkspace
-- AppKit `NSVisualEffectView`: glass/blur material host.
-  https://developer.apple.com/documentation/appkit/nsvisualeffectview
-- ServiceManagement `SMAppService`: launch-at-login registration.
-  https://developer.apple.com/documentation/servicemanagement/smappservice
-- ApplicationServices Accessibility trust:
-  https://developer.apple.com/documentation/applicationservices/1462083-axisprocesstrustedwithoptions
-
-Repo references checked on 2026-06-23:
-
-- `quicksilver/Quicksilver`: 2905 stars, mature macOS launcher, background
-  catalog + command lifecycle.
-  https://github.com/quicksilver/Quicksilver
-- `ggkevinnnn/LaunchNow`: 792 stars, Swift Launchpad replacement.
-  https://github.com/ggkevinnnn/LaunchNow
-- `Punshnut/macos-launchy`: 146 stars, Swift open-source Launchpad alternative.
-  https://github.com/Punshnut/macos-launchy
-- `kristof12345/Launchpad`: 133 stars, Swift Launchpad-style grid.
-  https://github.com/kristof12345/Launchpad
-
-We borrow lifecycle ideas, not their internal structure. The local app stays
-small until the code proves it needs more layers.
-
-## Domain-Oriented App Boundary
+The app is intentionally small:
 
 ```text
 Launch      executable entry only
-LaunchApp   native macOS app domains
-LaunchCore  pure models and rules
+LaunchApp   AppKit/SwiftUI app domains
+LaunchCore  pure rules checked by LaunchCheck
 ```
 
-Dependency rule:
+## Dependency Rules
 
-- `LaunchCore` imports only `Foundation`.
-- `Launch` imports only AppKit and `LaunchApp`.
-- `LaunchApp` owns AppKit, SwiftUI, persistence, permissions, and input.
-- `AppState` stores user-visible state in one file.
-- `AppState` actions live in domain extensions beside the domain they affect.
-- There is no top-level `Adapters` directory; system-facing code lives under
-  its product domain.
+- `LaunchCore` imports `Foundation` only.
+- `Launch` creates `NSApplication`, installs `AppDelegate`, then runs AppKit.
+- `LaunchApp` owns AppKit, SwiftUI, persistence, permissions, input, and UI.
+- Pure rules go in `LaunchCore`; UI and system integration stay out of it.
+- No top-level `Adapters` bucket. System-facing code lives in its product domain.
 
-Current file boundaries:
+Current folders:
 
 ```text
 Sources/Launch/main.swift
-Sources/LaunchApp/App/*.swift
-Sources/LaunchApp/Appearance/*.swift
-Sources/LaunchApp/Catalog/*.swift
-Sources/LaunchApp/Input/*.swift
-Sources/LaunchApp/Launcher/*.swift
-Sources/LaunchApp/Layout/*.swift
-Sources/LaunchApp/Permissions/*.swift
-Sources/LaunchApp/Settings/*.swift
-Sources/LaunchApp/System/*.swift
-Sources/LaunchCore/*.swift
+Sources/LaunchApp/App
+Sources/LaunchApp/Appearance
+Sources/LaunchApp/Catalog
+Sources/LaunchApp/Input
+Sources/LaunchApp/Launcher
+Sources/LaunchApp/Layout
+Sources/LaunchApp/Permissions
+Sources/LaunchApp/Settings
+Sources/LaunchApp/System
+Sources/LaunchCore
+Sources/LaunchCheck
 ```
 
-## Modules
+## Core Model
 
-### `LaunchCore`
+`LaunchCore` contains rules that should be runnable without a GUI:
 
-Pure code:
+- `LaunchApp`: app identity, name, path.
+- `AppCatalog`: app bundle scanning and display name lookup.
+- `LayoutOrder`: root grid order mutations.
+- `LaunchFolder` / `FolderLayout`: create folders, add apps, remove apps, dissolve small folders.
+- `TrackpadIntent`: convert raw gesture deltas/ratios into launcher intents.
 
-- `LaunchApp`: app identity, name, and path.
-- `AppCatalog`: scans app bundles and extracts display names.
-- `LayoutOrder`: applies and mutates app/folder ordering.
-- `LaunchFolder` and `FolderLayout`: folder creation rules.
-- `TrackpadIntent`: converts gesture deltas into launcher intents.
+If a rule has meaningful branches, add a `LaunchCheck` assertion.
 
-Rules:
+## App State
 
-- No AppKit.
-- No UserDefaults.
-- No global state.
-- If behavior has branches, add one `LaunchCheck` assertion.
+`AppState` is the single observable UI model.
 
-### `Launch`
+It stores:
 
-Thin executable:
+- app catalog and hidden apps
+- folders and root order
+- current page, selection, drag id
+- search query
+- permission states
+- appearance and display settings
+- launcher visibility and page drag offset
 
-- imports `LaunchApp`
-- creates `NSApplication` and `AppDelegate`
-- runs the AppKit event loop
-
-### `LaunchApp`
-
-Native macOS app domain:
-
-- `AppState`: observable state, derived grid items, persistence hooks, app
-  launch, folder operations, permission/login state.
-- `App`: app delegate and launcher lifecycle.
-- `Launcher`: launcher grid, app icon, folder icon, and folder overlay.
-- `Settings`: settings window.
-- `Catalog`: app scanning, source paths, and native Launchpad import.
-- `Layout`: persisted order, folders, grid settings, and display mode.
-- `Input`: global hotkey, hot corner, trackpad, and keyboard state actions.
-- `Permissions`: Accessibility and login item state.
-- `Appearance`: visual settings, icon cache, visual effect bridge, glass styles.
-- `System`: app launch, Finder, trash, Dock operations.
-
-### `LaunchCheck`
-
-One executable smoke check:
-
-- validates fallback display name
-- validates missing app roots
-- validates layout order
-- validates folder creation
-- validates trackpad intent thresholds
-
-This is deliberately not a test framework. The current Command Line Tools
-environment does not expose XCTest/Swift Testing reliably.
-
-## Runtime Lifecycle
-
-### App Start
+Actions are split by domain:
 
 ```text
-NSApplication.shared
-  -> AppDelegate.applicationDidFinishLaunching
-  -> set accessory activation policy
-  -> create borderless launcher window
-  -> create menu bar status item
-  -> connect AppState close/dismiss callbacks
-  -> request Accessibility permission
-  -> register global hotkey
-  -> start trackpad monitor
+App/AppState.swift                 stored state
+Catalog/AppState+Catalog.swift     app scan/source/import actions
+Input/AppState+Input.swift         keyboard/search/page actions
+Layout/AppState+Layout.swift       order/folder actions
+Permissions/AppState+Permissions.swift
+System/AppState+System.swift       app launch/Finder/trash/Dock actions
 ```
 
-The launcher no longer opens automatically on boot. The user triggers it from
-the menu bar or trackpad.
+`AppState` does not own windows directly. AppKit side effects are exposed through
+`LauncherActions`, wired by `AppDelegate`.
 
-### Open Launcher
+## App Boundary
+
+`AppDelegate` owns process-level objects:
+
+- `AppState`
+- `LauncherLifecycle`
+- `IconCache`
+- menu bar status item/menu
+- settings window
+- global hot key monitor
+- hot corner monitor
+- trackpad monitor
+- launcher mouse monitor
+
+`AppDelegate` wires `LauncherActions`:
 
 ```text
-menu/hotkey/gesture
+AppState action
+  -> LauncherActions
+  -> AppDelegate / LauncherLifecycle / AppSystemAdapter
+```
+
+This keeps SwiftUI views calling `AppState` while AppKit remains behind one boundary.
+
+## Launcher Lifecycle
+
+`LauncherLifecycle` owns window visibility and presentation state.
+
+Internal phases:
+
+```text
+hidden -> showing -> shown -> hiding -> hidden
+```
+
+The phase and transition token prevent stale hide/show animation completions
+from ordering the window out after a newer transition has started.
+
+### Show
+
+```text
+menu / hotkey / gesture / hot corner
   -> AppDelegate
   -> LauncherLifecycle.show
-  -> remember frontmost app
-  -> clear search
-  -> resize window to current screen
-  -> make launcher key/front
-  -> activate Launch
+  -> cancel old transition token
+  -> phase = showing
+  -> remember previous app
+  -> clear search, folder, keyboard selection
+  -> launcherVisible = true
+  -> apply window mode and menu bar/Dock presentation
+  -> prepare presentation layer
+  -> order launcher window front
+  -> enable launcher mouse monitor
+  -> animate scale/alpha
+  -> phase = shown
 ```
 
-### Close Launcher
+Opening does not focus search automatically. The launcher can receive keyboard
+navigation without grabbing typed input until the user clicks search.
+
+### Hide
 
 ```text
-ESC/spread/toggle
-  -> AppDelegate
+ESC / toggle / spread
   -> LauncherLifecycle.hide
-  -> order launcher window out
-  -> reactivate previous app
+  -> phase = hiding
+  -> disable launcher mouse monitor
+  -> animate scale/alpha out
+  -> if transition token is still current:
+       launcherVisible = false
+       restore menu bar/Dock
+       order window out
+       reset presentation
+       reactivate previous app
+       phase = hidden
 ```
 
-Launching an app uses a different path:
+### Dismiss
+
+`dismiss()` is immediate. It disables input, restores presentation options,
+sets `launcherVisible = false`, orders the window out, and resets presentation.
+
+Use it for non-animated cleanup paths.
+
+### Launch App
 
 ```text
 app icon click
   -> AppState.launch
-  -> NSWorkspace.open(app.path)
-  -> dismiss launcher without restoring previous app
+  -> LauncherActions.launch
+  -> LauncherLifecycle.launch
+  -> AppSystemAdapter.launch
+  -> animate/dismiss launcher without reactivating previous app
 ```
 
-That prevents the old app from stealing focus from the newly launched app.
+The previous app is not restored after launching a new app, otherwise it can
+steal focus from the launched app.
 
-### App Scan
+## Input Lifecycle
+
+Input is split by source:
+
+- `GlobalHotKeyAdapter`: Carbon global hot keys.
+- `HotCornerMonitor`: pointer polling.
+- `TrackpadGestureMonitor`: local/global AppKit gesture monitors plus optional private multitouch contact counts.
+- `LauncherMouseMonitor`: launcher-only mouse hit testing, background dismiss, page drag.
+- `AppDelegate.handleLauncherKey`: keyboard navigation and type-to-search.
+- `SearchFocusController`: AppKit search field refs and focus state.
+
+Trackpad flow:
+
+```text
+NSEvent / MultitouchSupport
+  -> TrackpadIntent
+  -> AppDelegate
+  -> LauncherLifecycle or AppState.changePage
+```
+
+Mouse flow:
+
+```text
+local mouse monitor
+  -> ignore search and item cells
+  -> page drag when on background
+  -> background click dismiss
+```
+
+The mouse monitor computes item hits using real grid padding/column metrics.
+
+## Rendering
+
+`LauncherView` renders from `AppState`.
+
+Main surface:
+
+```text
+LauncherBackgroundView
+LauncherSearchField
+PagedGridView or search results grid
+LauncherPageControl
+FolderOverlay when openFolder != nil
+```
+
+Folder overlay uses macOS 26 `GlassEffectContainer` / `glassEffect` when
+available. Older systems fall back to `ultraThinMaterial`.
+
+Search is an `NSViewRepresentable` AppKit search bar because SwiftUI focus and
+hit testing were too fragile for this app.
+
+## Catalog And Layout
+
+Refresh flow:
 
 ```text
 AppState.refreshApps
-  -> AppCatalog.scan
-  -> scan /Applications, /System/Applications, ~/Applications
-  -> dedupe by bundle id or path
-  -> sort by localized name
-  -> preserve saved order in UserDefaults
+  -> CatalogStore.scanApps
+  -> LayoutCleanup.cleanup
+  -> save folders and order
+  -> ensure selection
 ```
 
-### Grid Render
+Visible item flow:
 
 ```text
-AppState.visibleItems
-  -> root apps excluding folder members
-  -> folders with resolved child apps
-  -> saved order
+apps - hidden - folder members
+  + folders with resolved children
+  -> saved root order
   -> current page slice
-  -> SwiftUI LazyVGrid
 ```
 
-Icons are cached in memory by app path. No disk cache yet.
+Search hides folders and ranks apps only.
 
-### Search
-
-```text
-query changes
-  -> currentPage = 0
-  -> visibleApps filters by localized case-insensitive substring
-  -> folders are hidden while searching
-```
-
-### Drag Reorder
+Folder flow:
 
 ```text
-onDrag(app)
-  -> state.draggedAppID = app.id
-
-dropEntered(target)
-  -> LayoutOrder.move
-  -> save order
-
-performDrop(target)
-  -> if app-on-app: create folder
-  -> else: keep reorder
-```
-
-### Folder Lifecycle
-
-```text
-app dropped on app
+drop app on app
   -> FolderLayout.createFolder
-  -> remove both apps from root order
-  -> insert folder at earlier position
-  -> persist folders as JSON in UserDefaults
-  -> open folder overlay
+  -> save folders/order
+  -> open overlay
+
+drop app on folder
+  -> FolderLayout.addApp
+  -> save folders/order
+
+remove app from folder
+  -> FolderLayout.removeApp
+  -> dissolve folder when only one app remains
 ```
 
-Folder overlay is presentation only. Folder membership lives in `AppState`.
+## Persistence
 
-### Trackpad Lifecycle
+MVP persistence is `UserDefaults`:
+
+- app source paths
+- hidden app ids
+- root order
+- folders
+- grid layout
+- display mode
+- appearance settings
+- window browsing mode
+
+Move to files only when import/export or backup becomes a user feature.
+
+## Verification
+
+Default checks:
 
 ```text
-TrackpadGestureMonitor.start
-  -> optional MultitouchSupport contact-count monitor
-  -> NSEvent local/global monitors for magnify, swipe, scrollWheel
+swift run LaunchCheck
+swift build
+Scripts/build-app.sh
+swift run Launch
 ```
 
-Intent mapping:
+`swift run Launch` is the only check that proves AppKit startup does not crash.
 
-- 4-finger-gated pinch in: open launcher.
-- 4-finger-gated spread: close launcher.
-- horizontal swipe: previous/next page.
-- horizontal scroll wheel: previous/next page.
+## Current Debt
 
-`NSEvent` does not expose finger count, so exact 4-finger gating uses private
-MultitouchSupport contact counts when available. If it is unavailable, pinch
-falls back to public `NSEvent` behavior.
-
-### Settings Lifecycle
-
-```text
-menu Settings
-  -> create settings NSWindow lazily
-  -> show SwiftUI SettingsView
-```
-
-Settings owns only MVP controls:
-
-- launch at login
-- app refresh
-- Accessibility status and prompt
-
-## Ownership Rules
-
-Add code where it belongs:
-
-- Pure ordering/folder/gesture threshold rule: `LaunchCore`.
-- UI-only layout: SwiftUI view.
-- System API call: adapter section in `Launch`.
-- State mutation visible to UI: `AppState`.
-- Build/run packaging: `Scripts` or `Resources`.
-
-Do not add:
-
-- repositories/interfaces for one implementation
-- dependency injection containers
-- coordinator trees
-- disk icon cache before profiling proves memory cache is not enough
-- a settings model separate from `AppState` before settings grows
-
-## Known Architecture Debt
-
-- `AppState` still owns several user actions and adapter callbacks.
-  Split further only when one action needs a second implementation.
-- Private MultitouchSupport is best-effort.
-  Keep the public `NSEvent` fallback.
-- `UserDefaults` is enough for MVP layout data.
-  Move to JSON files only when import/export or user-visible backup exists.
+- `AppState` remains the central model. Split only when a domain has real
+  independent lifecycle or a second implementation.
+- Private MultitouchSupport is best-effort. Keep public `NSEvent` fallback.
+- Logging is intentionally direct while input/lifecycle behavior is still
+  being tuned.
+- Folder UX still lacks internal reorder and drag-out removal.
