@@ -6,10 +6,8 @@ import LaunchpadCore
 final class TrackpadGestureMonitor {
     private var monitors: [Any] = []
     private let pinchMonitor = PinchContactMonitor()
-    private var lastScrollIntentTime: TimeInterval = 0
+    private var scrollSession = TrackpadGestureSession()
     private var lastPinchIntentTime: TimeInterval = 0
-    private var isScrollLocked = false
-    private var scrollUnlockTask: Task<Void, Never>?
 
     func start(
         onGateStatus: @escaping @MainActor (Bool) -> Void,
@@ -22,7 +20,7 @@ final class TrackpadGestureMonitor {
         LaunchLog.line("trackpad monitor start")
         pinchMonitor.start { intent in
             let now = Date().timeIntervalSinceReferenceDate
-            guard now - self.lastPinchIntentTime >= LaunchConstants.Multitouch.triggerCooldown else { return }
+            guard now - self.lastPinchIntentTime >= LaunchConstants.Multitouch.lifecycleBounceCooldown else { return }
             self.lastPinchIntentTime = now
             onIntent(intent)
         }
@@ -41,56 +39,24 @@ final class TrackpadGestureMonitor {
                 } else if event.type == .swipe {
                     guard !self.pinchMonitor.hasRecentQualifiedTouch else { return }
                     if event.phase.contains(.ended) || event.phase.contains(.cancelled) {
-                        self.isScrollLocked = false
-                        self.scrollUnlockTask?.cancel()
                         return
                     }
-                    if event.phase.contains(.began) {
-                        self.isScrollLocked = false
-                        self.scrollUnlockTask?.cancel()
-                    }
-                    if self.isScrollLocked { return }
                     
                     if let intent = TrackpadIntent.horizontalSwipe(deltaX: event.deltaX) {
-                        self.isScrollLocked = true
-                        self.unlockScrollAfter(0.8)
                         onIntent(intent)
                     }
                 } else if event.type == .scrollWheel {
                     guard !self.pinchMonitor.hasRecentQualifiedTouch else { return }
                     let hasPhase = !event.phase.isEmpty || !event.momentumPhase.isEmpty
-                    if hasPhase {
-                        let isEnded = event.phase.contains(.ended) || event.phase.contains(.cancelled) || event.momentumPhase.contains(.ended)
-                        if isEnded {
-                            self.isScrollLocked = false
-                            self.scrollUnlockTask?.cancel()
-                            return
-                        }
-                        if event.phase.contains(.began) {
-                            self.isScrollLocked = false
-                            self.scrollUnlockTask?.cancel()
-                        }
-                    }
-                    
-                    if self.isScrollLocked {
-                        return
-                    }
-                    
-                    if abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY),
-                       let intent = TrackpadIntent.horizontalScroll(deltaX: event.scrollingDeltaX) {
-                            let now = event.timestamp
-                            let timeDiff = now - self.lastScrollIntentTime
-                            let minInterval = hasPhase ? 0.1 : 0.7
-                            
-                            if timeDiff > minInterval {
-                                self.lastScrollIntentTime = now
-                                self.isScrollLocked = true
-                                if !hasPhase {
-                                    self.unlockScrollAfter(0.8)
-                                }
-                                onIntent(intent)
-                            }
-                    }
+                    let isEnded = event.phase.contains(.ended)
+                        || event.phase.contains(.cancelled)
+                        || event.momentumPhase.contains(.ended)
+                    guard let intent = self.scrollSession.updateHorizontalScroll(
+                        deltaX: Double(event.scrollingDeltaX),
+                        deltaY: Double(event.scrollingDeltaY),
+                        ended: hasPhase && isEnded
+                    ) else { return }
+                    onIntent(intent)
                 }
             }
         }
@@ -110,27 +76,9 @@ final class TrackpadGestureMonitor {
             NSEvent.removeMonitor(monitor)
         }
         monitors = []
-        lastScrollIntentTime = 0
         lastPinchIntentTime = 0
-        isScrollLocked = false
-        scrollUnlockTask?.cancel()
-        scrollUnlockTask = nil
+        scrollSession = TrackpadGestureSession()
         pinchMonitor.stop()
-    }
-
-    private func unlockScrollAfter(_ interval: TimeInterval) {
-        scrollUnlockTask?.cancel()
-        scrollUnlockTask = Task { [weak self] in
-            do {
-                try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
-                try Task.checkCancellation()
-            } catch {
-                return
-            }
-            await MainActor.run {
-                self?.isScrollLocked = false
-            }
-        }
     }
 }
 
@@ -179,8 +127,7 @@ final class PinchContactMonitor {
     private let lock = NSLock()
     private var handle: UnsafeMutableRawPointer?
     private var devices: [MTDeviceRef] = []
-    private var initialRadius: Double?
-    private var lastIntentTime: Double = 0
+    private var gestureSession = TrackpadGestureSession()
     private var lastQualifiedTouchTime: TimeInterval = 0
     private var onPinch: (@MainActor (TrackpadIntent) -> Void)?
     nonisolated(unsafe) fileprivate static var current: PinchContactMonitor?
@@ -228,8 +175,7 @@ final class PinchContactMonitor {
         lock.lock()
         defer { lock.unlock() }
         onPinch = nil
-        initialRadius = nil
-        lastIntentTime = 0
+        gestureSession = TrackpadGestureSession()
         lastQualifiedTouchTime = 0
     }
 
@@ -245,7 +191,7 @@ final class PinchContactMonitor {
 
         let requiredCount = LaunchConstants.Multitouch.gestureFingerCount
         guard touches.count >= requiredCount else {
-            initialRadius = nil
+            _ = gestureSession.updatePinch(radius: nil, timestamp: timestamp)
             return
         }
         lastQualifiedTouchTime = Date().timeIntervalSinceReferenceDate
@@ -257,20 +203,12 @@ final class PinchContactMonitor {
             total + hypot(touch.x - centerX, touch.y - centerY)
         } / Double(selected.count)
 
-        guard let initialRadius, initialRadius > 0 else {
-            self.initialRadius = radius
-            return
-        }
-
-        guard timestamp - lastIntentTime >= LaunchConstants.Multitouch.triggerCooldown,
-              let intent = TrackpadIntent.pinchRadius(
-                ratio: radius / initialRadius,
-                pinchInThreshold: LaunchConstants.Multitouch.pinchInRatio,
-                pinchOutThreshold: LaunchConstants.Multitouch.pinchOutRatio
-              ) else { return }
-
-        lastIntentTime = timestamp
-        self.initialRadius = radius
+        guard let intent = gestureSession.updatePinch(
+            radius: radius,
+            timestamp: timestamp,
+            pinchInThreshold: LaunchConstants.Multitouch.pinchInRatio,
+            pinchOutThreshold: LaunchConstants.Multitouch.pinchOutRatio
+        ) else { return }
 
         let callback = onPinch
         Task { @MainActor in

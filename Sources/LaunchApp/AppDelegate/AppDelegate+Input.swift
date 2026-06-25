@@ -25,16 +25,16 @@ extension AppDelegate {
             switch intent {
             case .open:
                 guard launcherLifecycle?.isVisible != true else { return }
-                trackpadIntentLockedUntil = now.addingTimeInterval(LaunchConstants.Multitouch.triggerCooldown)
+                trackpadIntentLockedUntil = now.addingTimeInterval(LaunchConstants.Multitouch.lifecycleBounceCooldown)
                 LaunchLog.line("trackpad intent=\(intent)")
                 launcherLifecycle?.show()
             case .close:
                 if state.openFolder != nil {
-                    trackpadIntentLockedUntil = now.addingTimeInterval(LaunchConstants.Multitouch.triggerCooldown)
+                    trackpadIntentLockedUntil = now.addingTimeInterval(LaunchConstants.Multitouch.lifecycleBounceCooldown)
                     LaunchLog.line("trackpad intent=\(intent)")
                     state.closeFolder()
                 } else if launcherLifecycle?.isVisible == true {
-                    trackpadIntentLockedUntil = now.addingTimeInterval(LaunchConstants.Multitouch.triggerCooldown)
+                    trackpadIntentLockedUntil = now.addingTimeInterval(LaunchConstants.Multitouch.lifecycleBounceCooldown)
                     LaunchLog.line("trackpad intent=\(intent)")
                     launcherLifecycle?.hide()
                 }

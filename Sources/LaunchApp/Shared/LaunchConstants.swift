@@ -260,5 +260,6 @@ enum LaunchConstants {
         static let pinchInRatio = 0.9
         static let pinchOutRatio = 1.1
         static let triggerCooldown: Double = 0.65
+        static let lifecycleBounceCooldown: Double = 0.18
     }
 }

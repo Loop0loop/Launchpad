@@ -1,4 +1,4 @@
-public enum TrackpadIntent: Equatable {
+public enum TrackpadIntent: Equatable, Sendable {
     case open
     case close
     case previousPage
