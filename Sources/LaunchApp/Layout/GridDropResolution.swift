@@ -37,7 +37,6 @@ extension AppState {
         dragTranslation = translation
         let hovered = (resolution.onIconID != nil && resolution.onIconID != dragging) ? resolution.onIconID : nil
         dragHoverTargetID = hovered
-        maybeOpenFolderOnHover(targetID: hovered)
         // Reflow only when NOT hovering an icon/folder to merge. Update only on slot change.
         let nextIndex = hovered == nil ? resolution.targetIndex : nil
         if nextIndex != dragInsertionIndex { dragInsertionIndex = nextIndex }
@@ -66,23 +65,6 @@ extension AppState {
         let x = layout.horizontalPadding + CGFloat(col) * pitchX + layout.columnWidth / 2
         let y = CGFloat(row) * layout.rowHeight + layout.rowHeight / 2
         return CGPoint(x: x, y: y)
-    }
-
-    /// 드래그 중 폴더 타일 위에 0.45s 머물면 폴더를 자동으로 연다(네이티브 Launchpad).
-    /// 대상이 폴더가 아니거나 바뀌면 타이머 취소. FolderOverlay가 열린 뒤 drag-in/out 처리.
-    func maybeOpenFolderOnHover(targetID: String?) {
-        guard let targetID, let folder = folders.first(where: { $0.id == targetID }) else {
-            folderHoverOpenTask?.cancel()
-            folderHoverOpenTask = nil
-            return
-        }
-        guard openFolder?.id != folder.id, folderHoverOpenTask == nil else { return }
-        folderHoverOpenTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 450_000_000)
-            guard let self, !Task.isCancelled else { return }
-            guard self.openFolder == nil, self.draggingItemID != nil else { return }
-            self.openFolder = folder
-        }
     }
 
     func endItemDrag(onIconID: String?, slotID: String?, targetIndex: Int?) {
@@ -122,8 +104,6 @@ extension AppState {
         dragInsertionIndex = nil
         drag.location = .zero
         folderDragPullingOut = false
-        folderHoverOpenTask?.cancel()
-        folderHoverOpenTask = nil
     }
 
     /// Maps a pointer location (in the `"launcherGrid"` coordinate space) to the item under it.
