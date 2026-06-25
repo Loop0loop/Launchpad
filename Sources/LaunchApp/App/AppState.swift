@@ -58,10 +58,12 @@ final class AppState: ObservableObject {
     /// 드래그 좌표 변환용. 둘 다 `.global` 좌표. launcherGrid = 그리드 컨테이너, folderGrid = 열린 폴더 그리드.
     @Published var launcherGridFrame: CGRect = .zero
     @Published var folderGridFrame: CGRect = .zero
+    @Published var folderDragPullingOut = false
     /// 폴더 내부 재배열 라이브 프리뷰. 드래그 중인 앱과 목표 슬롯. 슬롯을 가로지를 때만 바뀌어
     /// 다른 아이콘이 실시간으로 비켜난다(메인 그리드 dragInsertionIndex와 동일 패턴).
     @Published var folderReorderingID: String?
     @Published var folderDragInsertionIndex: Int?
+    var dragIntent = DragIntent.placing
     @Published var launchAtLogin = false
     @Published var hotkeyDisplay = UserDefaults.standard.string(forKey: "settings.hotkeyDisplay") ?? "⌘2" {
         didSet { UserDefaults.standard.set(hotkeyDisplay, forKey: "settings.hotkeyDisplay") }

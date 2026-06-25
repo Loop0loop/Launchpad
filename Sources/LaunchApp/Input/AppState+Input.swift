@@ -117,6 +117,7 @@ extension AppState {
             folderReopenLockedUntil = Date().addingTimeInterval(0.25)
         }
         openFolder = nil
+        folderDragPullingOut = false
         endFolderReorder()
     }
 
@@ -138,6 +139,10 @@ extension AppState {
         guard nextPage != currentPage else { return }
         LaunchLog.line("select page \(currentPage) -> \(nextPage) pageCount=\(pageCount)")
         currentPage = nextPage
+        if isDraggingLauncherItem {
+            resetDragIntent()
+            dragInsertionIndex = nil
+        }
         if keyboardSelectionActive {
             selectedItemID = items(forPage: nextPage).first?.id
         }

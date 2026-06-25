@@ -49,14 +49,17 @@ struct LauncherView: View {
                         pageSize: pageSize
                     )
                     .frame(width: geometry.size.width, height: geometry.size.height)
-                    .opacity(state.openFolder == nil ? 1 : 0)
+                    .opacity(state.openFolder == nil || state.folderDragPullingOut ? 1 : 0)
                     .allowsHitTesting(state.openFolder == nil || state.isDraggingLauncherItem)
                     .animation(LaunchConstants.Animation.fade, value: state.openFolder?.id)
+                    .animation(LaunchConstants.Animation.fade, value: state.folderDragPullingOut)
 
                     if let folder = state.openFolder {
                         FolderDimLayer(opacity: LaunchConstants.Glass.openFolderDimOpacity) {
                             state.closeFolder()
                         }
+                        .opacity(state.folderDragPullingOut ? 0 : 1)
+                        .animation(LaunchConstants.Animation.fade, value: state.folderDragPullingOut)
                         // 드래그 중에는 dim의 탭 제스처가 진행 중인 그리드 드래그를 가로채지 못하게 한다.
                         .allowsHitTesting(!state.isDraggingLauncherItem)
 

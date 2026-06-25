@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import LaunchpadCore
 import SwiftUI
 
@@ -20,6 +21,17 @@ struct GridDropResolution {
     let targetIndex: Int?
 }
 
+enum DragIntent {
+    case placing
+    case mergeCandidate(targetID: String, since: Date)
+    case mergeConfirmed(targetID: String)
+
+    var confirmedMergeTargetID: String? {
+        if case .mergeConfirmed(let targetID) = self { return targetID }
+        return nil
+    }
+}
+
 extension AppState {
     var isDraggingLauncherItem: Bool { draggingItemID != nil }
     var draggingApp: LaunchApp? { draggingItemID.flatMap(appByID) }
@@ -28,7 +40,7 @@ extension AppState {
         guard query.isEmpty, openFolder == nil else { return }
         draggingItemID = id
         dragTranslation = .zero
-        dragHoverTargetID = nil
+        resetDragIntent()
         dragInsertionIndex = nil
     }
 
@@ -38,11 +50,36 @@ extension AppState {
         dragTranslation = translation
         // 폴더가 열린 상태(spring-loaded 드롭 중)에는 포인터만 추적한다. 그리드 reflow 불필요.
         if openFolder != nil { return }
-        let hovered = (resolution.onIconID != nil && resolution.onIconID != dragging) ? resolution.onIconID : nil
-        dragHoverTargetID = hovered
-        maybeOpenFolderOnHover(targetID: hovered)
-        let nextIndex = hovered == nil ? resolution.targetIndex : nil
+        let candidate = (resolution.onIconID != nil && resolution.onIconID != dragging) ? resolution.onIconID : nil
+        updateDragIntent(candidate)
+        maybeOpenFolderOnHover(targetID: candidate.flatMap { id in folders.contains(where: { $0.id == id }) ? id : nil })
+        dragHoverTargetID = dragIntent.confirmedMergeTargetID
+        let nextIndex = candidate == nil ? resolution.targetIndex : nil
         if nextIndex != dragInsertionIndex { dragInsertionIndex = nextIndex }
+    }
+
+    func updateDragIntent(_ candidate: String?) {
+        guard let candidate else {
+            resetDragIntent()
+            return
+        }
+        switch dragIntent {
+        case .mergeConfirmed(let targetID) where targetID == candidate:
+            return
+        case .mergeCandidate(let targetID, let since) where targetID == candidate:
+            if Date().timeIntervalSince(since) >= LaunchConstants.Launcher.dragMergeDwell {
+                dragIntent = .mergeConfirmed(targetID: candidate)
+            }
+        default:
+            dragIntent = .mergeCandidate(targetID: candidate, since: Date())
+        }
+    }
+
+    func resetDragIntent() {
+        dragIntent = .placing
+        dragHoverTargetID = nil
+        folderHoverOpenTask?.cancel()
+        folderHoverOpenTask = nil
     }
 
     /// Visible items reordered to the live drag preview (dragged moved to the target slot).
@@ -127,7 +164,7 @@ extension AppState {
             return
         }
 
-        if let target = onIconID, target != dragged {
+        if let target = dragIntent.confirmedMergeTargetID, target != dragged {
             let draggedIsApp = appByID(dragged) != nil
             if draggedIsApp, appByID(target) != nil {
                 createFolder(draggedID: dragged, targetID: target)
@@ -155,13 +192,12 @@ extension AppState {
 
     func cancelDrag() {
         draggingItemID = nil
-        dragHoverTargetID = nil
+        resetDragIntent()
         dragTranslation = .zero
         dragInsertionIndex = nil
         drag.location = .zero
+        folderDragPullingOut = false
         endFolderReorder()
-        folderHoverOpenTask?.cancel()
-        folderHoverOpenTask = nil
     }
 
     /// Maps a pointer location (in the `"launcherGrid"` coordinate space) to the item under it.
@@ -183,8 +219,8 @@ extension AppState {
             let id = items[index].id
             let cellCenterX = layout.horizontalPadding + CGFloat(col) * pitchX + layout.columnWidth / 2
             let cellCenterY = CGFloat(row) * layout.rowHeight + layout.rowHeight / 2
-            let thresholdX = layout.iconSize * 0.75
-            let thresholdY = layout.iconSize * 0.75
+            let thresholdX = layout.iconSize * 0.42
+            let thresholdY = layout.iconSize * 0.42
             let onIcon = abs(location.x - cellCenterX) < thresholdX
                 && abs(location.y - cellCenterY) < thresholdY
             return GridDropResolution(onIconID: onIcon ? id : nil, slotID: id, targetIndex: targetIndex)
