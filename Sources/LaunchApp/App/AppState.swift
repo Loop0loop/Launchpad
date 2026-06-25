@@ -4,10 +4,15 @@ import LaunchCore
 
 @MainActor
 final class AppState: ObservableObject {
-    @Published var apps: [LaunchApp] = []
-    @Published var folders: [LaunchFolder] = []
+    @Published var apps: [LaunchApp] = [] {
+        didSet { invalidateVisibleItems() }
+    }
+    @Published var folders: [LaunchFolder] = [] {
+        didSet { invalidateVisibleItems() }
+    }
     @Published var query = "" {
         didSet {
+            invalidateVisibleItems()
             handleQueryChange(oldValue: oldValue)
         }
     }
@@ -53,7 +58,9 @@ final class AppState: ObservableObject {
     @Published var pageDragOffset: CGFloat = 0
     let searchFocus = SearchFocusController()
     @Published var appSourcePaths = AppSourceStore.load()
-    @Published var hiddenAppIDs = Set(UserDefaults.standard.stringArray(forKey: LaunchConstants.Storage.hiddenAppsKey) ?? [])
+    @Published var hiddenAppIDs = Set(UserDefaults.standard.stringArray(forKey: LaunchConstants.Storage.hiddenAppsKey) ?? []) {
+        didSet { invalidateVisibleItems() }
+    }
     @Published var gridLayout = GridLayoutStore.load() {
         didSet {
             guard oldValue != gridLayout else { return }
@@ -125,7 +132,9 @@ final class AppState: ObservableObject {
             refreshAppsAsync()
         }
     }
-    @Published var order: [String] = []
+    @Published var order: [String] = [] {
+        didSet { invalidateVisibleItems() }
+    }
 
     var pageBeforeSearch = 0
     var selectionBeforeSearch: String?
@@ -133,6 +142,7 @@ final class AppState: ObservableObject {
     var folderReopenLockedUntil = Date.distantPast
     var backgroundDismissLockedUntil = Date.distantPast
     var catalogRefreshTask: Task<Void, Never>?
+    var visibleItemsCache: [LauncherItem]?
     var actions = LauncherActions()
 
     init() {
@@ -145,6 +155,10 @@ final class AppState: ObservableObject {
 
     deinit {
         catalogRefreshTask?.cancel()
+    }
+
+    func invalidateVisibleItems() {
+        visibleItemsCache = nil
     }
 
 }

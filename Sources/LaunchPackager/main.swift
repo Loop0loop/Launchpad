@@ -302,7 +302,7 @@ struct LaunchPackager {
         try copy("Resources/AppIconColor.png", to: resourcesURL.appendingPathComponent("AppIconColor.png"))
         try copy("Resources/AppIconMono.png", to: resourcesURL.appendingPathComponent("AppIconMono.png"))
         try fm.copyItem(at: binaryURL, to: macOSURL.appendingPathComponent(name))
-        try copyPackageFrameworks(to: contentsURL.appendingPathComponent("Frameworks"))
+        try copyPackageFrameworks(to: contentsURL.appendingPathComponent("lib"))
         try fm.setAttributes(
             [.posixPermissions: 0o755],
             ofItemAtPath: macOSURL.appendingPathComponent(name).path

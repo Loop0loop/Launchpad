@@ -92,36 +92,44 @@ struct PagedGridView: View {
     let pageSize: Int
 
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(0..<pageCount, id: \.self) { page in
+        ZStack(alignment: .topLeading) {
+            ForEach(renderedPages, id: \.self) { page in
+                let thisPageOffset = pageOffsetFor(page)
                 ZStack(alignment: .top) {
-                    LauncherDismissLayer {
-                        LaunchLog.line("page empty tap dismiss page=\(page)")
-                        state.dismissFromBackground()
+                    if page == state.currentPage {
+                        LauncherDismissLayer {
+                            LaunchLog.line("page empty tap dismiss page=\(page)")
+                            state.dismissFromBackground()
+                        }
                     }
 
-                    if state.isDraggingLauncherItem || abs(page - state.currentPage) <= 1 {
-                        let thisPageOffset = pageOffset + CGFloat(page) * pageWidth
-                        LazyVGrid(columns: columns, spacing: layout.gridRowSpacing) {
-                            ForEach(items(forPage: page, in: visibleItems, pageSize: pageSize)) { item in
-                                LauncherItemView(item: item, state: state, layout: layout, pageOffset: thisPageOffset)
-                            }
+                    LazyVGrid(columns: columns, spacing: layout.gridRowSpacing) {
+                        ForEach(items(forPage: page, in: visibleItems, pageSize: pageSize)) { item in
+                            LauncherItemView(item: item, state: state, layout: layout, pageOffset: thisPageOffset)
                         }
-                        .padding(.horizontal, layout.horizontalPadding)
                     }
+                    .padding(.horizontal, layout.horizontalPadding)
                 }
                 .frame(width: pageWidth, height: gridHeight, alignment: .top)
+                .offset(x: thisPageOffset)
             }
         }
-        .offset(x: pageOffset)
         .frame(width: pageWidth, alignment: .leading)
         .clipped()
         .animation(LaunchConstants.Animation.pageSnap, value: state.currentPage)
         .frame(height: gridHeight)
     }
 
-    private var pageOffset: CGFloat {
-        -CGFloat(state.currentPage) * pageWidth + state.pageDragOffset
+    private var renderedPages: [Int] {
+        if state.isDraggingLauncherItem {
+            return Array(0..<pageCount)
+        }
+        let range = max(0, state.currentPage - 1)...min(pageCount - 1, state.currentPage + 1)
+        return Array(range)
+    }
+
+    private func pageOffsetFor(_ page: Int) -> CGFloat {
+        CGFloat(page - state.currentPage) * pageWidth + state.pageDragOffset
     }
 
     private func items(forPage page: Int, in items: [LauncherItem], pageSize: Int) -> [LauncherItem] {

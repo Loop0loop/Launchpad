@@ -34,7 +34,7 @@ cp Resources/MenuBarIcon.png "$app/Contents/Resources/MenuBarIcon.png"
 cp Resources/AppIconColor.png "$app/Contents/Resources/AppIconColor.png"
 cp Resources/AppIconMono.png "$app/Contents/Resources/AppIconMono.png"
 if [ -d ".build/apple/Products/Debug/Frameworks" ]; then
-  cp -R ".build/apple/Products/Debug/Frameworks" "$app/Contents/Frameworks"
+  cp -R ".build/apple/Products/Debug/Frameworks" "$app/Contents/lib"
 fi
 cp "$binary" "$app/Contents/MacOS/Launch"
 chmod +x "$app/Contents/MacOS/Launch"

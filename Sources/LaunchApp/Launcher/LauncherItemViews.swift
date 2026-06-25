@@ -3,7 +3,7 @@ import SwiftUI
 
 struct LauncherItemView: View {
     let item: LauncherItem
-    @ObservedObject var state: AppState
+    let state: AppState
     let layout: LaunchpadLayoutMetrics
     let pageOffset: CGFloat
 
@@ -19,7 +19,7 @@ struct LauncherItemView: View {
 
 struct AppIcon: View {
     let app: LaunchApp
-    @ObservedObject var state: AppState
+    let state: AppState
     @Environment(\.iconCache) private var iconCache
     let layout: LaunchpadLayoutMetrics
     let pageOffset: CGFloat
@@ -60,7 +60,7 @@ struct AppIcon: View {
 struct FolderIcon: View {
     let folder: LaunchFolder
     let apps: [LaunchApp]
-    @ObservedObject var state: AppState
+    let state: AppState
     @Environment(\.iconCache) private var iconCache
     let layout: LaunchpadLayoutMetrics
     let pageOffset: CGFloat
@@ -141,7 +141,7 @@ private func keyboardSelectionBackground(isSelected: Bool) -> some View {
 /// declare `.coordinateSpace(name: "launcherGrid")`.
 struct LauncherDragModifier: ViewModifier {
     let id: String
-    @ObservedObject var state: AppState
+    let state: AppState
     let layout: LaunchpadLayoutMetrics
     let pageOffset: CGFloat
 

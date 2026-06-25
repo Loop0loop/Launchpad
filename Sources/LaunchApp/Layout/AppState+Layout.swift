@@ -28,22 +28,28 @@ enum LayoutStore {
 
 extension AppState {
     var visibleItems: [LauncherItem] {
+        if let visibleItemsCache { return visibleItemsCache }
+
+        let items: [LauncherItem]
         if !query.isEmpty {
-            return visibleApps.map(LauncherItem.app)
+            items = visibleApps.map(LauncherItem.app)
+        } else {
+            let folderedIDs = Set(folders.flatMap(\.appIDs))
+            let appsByID = Dictionary(uniqueKeysWithValues: apps.map { ($0.id, $0) })
+            let rootApps = apps.filter { !folderedIDs.contains($0.id) && !hiddenAppIDs.contains($0.id) }
+            let appItems = rootApps.map { LauncherItem.app($0) }
+            let folderItems = folders.map { folder in
+                LauncherItem.folder(folder, folder.appIDs.compactMap { appsByID[$0] }.filter { !hiddenAppIDs.contains($0.id) })
+            }
+            let allItems = appItems + folderItems
+            let byID = Dictionary(uniqueKeysWithValues: allItems.map { ($0.id, $0) })
+            let ordered = order.compactMap { byID[$0] }
+            let orderedIDs = Set(ordered.map(\.id))
+            items = ordered + allItems.filter { !orderedIDs.contains($0.id) }
         }
 
-        let folderedIDs = Set(folders.flatMap(\.appIDs))
-        let appsByID = Dictionary(uniqueKeysWithValues: apps.map { ($0.id, $0) })
-        let rootApps = apps.filter { !folderedIDs.contains($0.id) && !hiddenAppIDs.contains($0.id) }
-        let appItems = rootApps.map { LauncherItem.app($0) }
-        let folderItems = folders.map { folder in
-            LauncherItem.folder(folder, folder.appIDs.compactMap { appsByID[$0] }.filter { !hiddenAppIDs.contains($0.id) })
-        }
-        let allItems = appItems + folderItems
-        let byID = Dictionary(uniqueKeysWithValues: allItems.map { ($0.id, $0) })
-        let ordered = order.compactMap { byID[$0] }
-        let orderedIDs = Set(ordered.map(\.id))
-        return ordered + allItems.filter { !orderedIDs.contains($0.id) }
+        visibleItemsCache = items
+        return items
     }
 
     var pageCount: Int {
