@@ -35,6 +35,10 @@ enum DragIntent {
 extension AppState {
     var isDraggingLauncherItem: Bool { draggingItemID != nil }
     var draggingApp: LaunchApp? { draggingItemID.flatMap(appByID) }
+    var draggingLauncherItem: LauncherItem? {
+        guard let draggingItemID else { return nil }
+        return visibleItems.first { $0.id == draggingItemID }
+    }
 
     func beginItemDrag(_ id: String) {
         guard query.isEmpty, openFolder == nil else { return }
@@ -50,7 +54,8 @@ extension AppState {
         dragTranslation = translation
         // 폴더가 열린 상태(spring-loaded 드롭 중)에는 포인터만 추적한다. 그리드 reflow 불필요.
         if openFolder != nil { return }
-        let candidate = (resolution.onIconID != nil && resolution.onIconID != dragging) ? resolution.onIconID : nil
+        let canMerge = appByID(dragging) != nil
+        let candidate = canMerge && resolution.onIconID != dragging ? resolution.onIconID : nil
         updateDragIntent(candidate)
         maybeOpenFolderOnHover(targetID: candidate.flatMap { id in folders.contains(where: { $0.id == id }) ? id : nil })
         dragHoverTargetID = dragIntent.confirmedMergeTargetID
@@ -180,13 +185,14 @@ extension AppState {
             return
         }
 
-        if let target = dragIntent.confirmedMergeTargetID, target != dragged {
-            let draggedIsApp = appByID(dragged) != nil
-            if draggedIsApp, appByID(target) != nil {
+        let draggedIsApp = appByID(dragged) != nil
+        let mergeTarget = dragIntent.confirmedMergeTargetID ?? onIconID
+        if draggedIsApp, let target = mergeTarget, target != dragged {
+            if appByID(target) != nil {
                 createFolder(draggedID: dragged, targetID: target)
                 return
             }
-            if draggedIsApp, folders.contains(where: { $0.id == target }) {
+            if folders.contains(where: { $0.id == target }) {
                 addApp(dragged, toFolder: target)
                 return
             }
@@ -213,6 +219,7 @@ extension AppState {
         dragInsertionIndex = nil
         drag.location = .zero
         folderDragPullingOut = false
+        folderPullOutAppID = nil
         endFolderReorder()
     }
 
@@ -241,9 +248,9 @@ extension AppState {
             let mergeScale = folders.contains { $0.id == id }
                 ? LaunchConstants.Launcher.dragFolderMergeZoneScale
                 : LaunchConstants.Launcher.dragMergeZoneScale
-            let onIcon = dx < layout.iconSize * mergeScale && dy < layout.iconSize * mergeScale
             let localX = location.x - cellMinX
             let insertionBand = layout.columnWidth * LaunchConstants.Launcher.dragInsertionBandRatio
+            let onIcon = dx < layout.iconSize * mergeScale && dy < layout.iconSize * mergeScale
             let insertionIndex: Int? = if !onIcon && localX < insertionBand {
                 targetIndex
             } else if !onIcon && localX > layout.columnWidth - insertionBand {

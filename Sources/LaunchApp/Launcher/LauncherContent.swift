@@ -200,7 +200,7 @@ struct LauncherPageControl: View {
                     .contentShape(Rectangle())
                     .animation(LaunchConstants.Animation.fade, value: state.currentPage)
                     .onTapGesture {
-                        guard state.openFolder == nil, !state.isDraggingLauncherItem else { return }
+                        guard state.openFolder == nil, !state.isDraggingLauncherItem, state.canUsePageControl() else { return }
                         LaunchLog.line("page dot tapped page=\(page)")
                         withAnimation(LaunchConstants.Animation.pageSnap) {
                             selectPage(page)

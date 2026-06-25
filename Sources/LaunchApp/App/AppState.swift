@@ -59,6 +59,9 @@ final class AppState: ObservableObject {
     @Published var launcherGridFrame: CGRect = .zero
     @Published var folderGridFrame: CGRect = .zero
     @Published var folderDragPullingOut = false
+    @Published var folderPullOutAppID: String? {
+        didSet { invalidateVisibleItems() }
+    }
     /// 폴더 내부 재배열 라이브 프리뷰. 드래그 중인 앱과 목표 슬롯. 슬롯을 가로지를 때만 바뀌어
     /// 다른 아이콘이 실시간으로 비켜난다(메인 그리드 dragInsertionIndex와 동일 패턴).
     @Published var folderReorderingID: String?
@@ -185,6 +188,7 @@ final class AppState: ObservableObject {
     var pageBeforeSearch = 0
     var selectionBeforeSearch: String?
     var pageChangeLockedUntil = Date.distantPast
+    var pageControlLockedUntil = Date.distantPast
     var folderReopenLockedUntil = Date.distantPast
     var backgroundDismissLockedUntil = Date.distantPast
     var catalogRefreshTask: Task<Void, Never>?

@@ -72,7 +72,7 @@ struct LauncherView: View {
                     }
 
                     let needsDetachedGhost = state.openFolder != nil || state.draggedCellCenter(layout: layout) == nil
-                    if state.isDraggingLauncherItem, needsDetachedGhost, let app = state.draggingApp {
+                    if state.isDraggingLauncherItem, needsDetachedGhost, let item = state.draggingLauncherItem {
                         let geoGlobal = geometry.frame(in: .global)
                         // launcherGrid 로컬 → ZStack(geo) 로컬 변환 오프셋. 드래그 중 안정적이라 한 번만 계산.
                         let originOffset = CGPoint(
@@ -80,7 +80,7 @@ struct LauncherView: View {
                             y: state.launcherGridFrame.minY - geoGlobal.minY
                         )
                         // DragModel을 직접 관찰하는 전용 뷰. LauncherView 전체 리렌더 없이 고스트만 포인터를 따라간다.
-                        DragGhostView(drag: state.drag, app: app, iconSize: layout.iconSize, originOffset: originOffset)
+                        DragGhostView(drag: state.drag, item: item, iconSize: layout.iconSize, originOffset: originOffset)
                             .zIndex(22)
                     }
                 }
@@ -99,14 +99,56 @@ struct LauncherView: View {
 /// 직접 구독해, 부모(LauncherView)를 리렌더하지 않고 이 뷰만 매 프레임 위치를 갱신한다.
 private struct DragGhostView: View {
     @ObservedObject var drag: DragModel
-    let app: LaunchApp
+    let item: LauncherItem
     let iconSize: CGFloat
     let originOffset: CGPoint
 
-    var body: some View {
-        LoadedIcon(app: app, displaySize: iconSize, loadsImage: true)
+    private var miniIconSize: CGFloat {
+        iconSize * LaunchConstants.Icon.folderPreviewScale
+    }
+
+    private var miniGap: CGFloat {
+        iconSize * LaunchConstants.Icon.folderPreviewGapRatio
+    }
+
+    @ViewBuilder
+    private var icon: some View {
+        switch item {
+        case .app(let app):
+            LoadedIcon(app: app, displaySize: iconSize, loadsImage: true)
+                .frame(width: iconSize, height: iconSize)
+        case .folder(_, let apps):
+            ZStack {
+                Color.clear
+                    .frame(width: iconSize, height: iconSize)
+                    .launchpadFolderChrome(cornerRadius: LaunchConstants.Icon.folderCornerRadius)
+
+                LazyVGrid(
+                    columns: Array(
+                        repeating: GridItem(.fixed(miniIconSize), spacing: miniGap),
+                        count: LaunchConstants.Icon.folderPreviewColumns
+                    ),
+                    spacing: miniGap
+                ) {
+                    ForEach(apps.prefix(LaunchConstants.Icon.folderPreviewLimit)) { app in
+                        LoadedIcon(
+                            app: app,
+                            displaySize: miniIconSize,
+                            loadSize: miniIconSize,
+                            loadsImage: true,
+                            cachesImageInMemory: false
+                        )
+                    }
+                }
+            }
             .frame(width: iconSize, height: iconSize)
+        }
+    }
+
+    var body: some View {
+        icon
             .scaleEffect(1.1)
+            .opacity(drag.hoverTargetID == nil ? 0.95 : 0.55)
             .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
             .position(x: originOffset.x + drag.location.x, y: originOffset.y + drag.location.y)
             .allowsHitTesting(false)

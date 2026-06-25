@@ -34,12 +34,18 @@ extension AppState {
         if !searchQuery.isEmpty {
             items = visibleApps.map(LauncherItem.app)
         } else {
-            let folderedIDs = Set(folders.flatMap(\.appIDs))
+            let folderedIDs = Set(folders.flatMap(\.appIDs).filter { $0 != folderPullOutAppID })
             let appsByID = Dictionary(uniqueKeysWithValues: apps.map { ($0.id, $0) })
             let rootApps = apps.filter { !folderedIDs.contains($0.id) && !hiddenAppIDs.contains($0.id) }
             let appItems = rootApps.map { LauncherItem.app($0) }
             let folderItems = folders.map { folder in
-                LauncherItem.folder(folder, folder.appIDs.compactMap { appsByID[$0] }.filter { !hiddenAppIDs.contains($0.id) })
+                LauncherItem.folder(
+                    folder,
+                    folder.appIDs
+                        .filter { $0 != folderPullOutAppID }
+                        .compactMap { appsByID[$0] }
+                        .filter { !hiddenAppIDs.contains($0.id) }
+                )
             }
             let allItems = appItems + folderItems
             let byID = Dictionary(uniqueKeysWithValues: allItems.map { ($0.id, $0) })
@@ -141,7 +147,7 @@ extension AppState {
     /// 폴더 내부 드래그 라이브 프리뷰: 재배열 중인 앱을 목표 슬롯으로 옮긴 순서.
     /// 메인 그리드의 dragRenderItems와 동일 규칙이라 프리뷰 == 드롭 결과.
     func folderRenderApps(_ folder: LaunchFolder) -> [LaunchApp] {
-        let apps = apps(in: folder)
+        let apps = apps(in: folder).filter { $0.id != folderPullOutAppID }
         guard let id = folderReorderingID, let index = folderDragInsertionIndex,
               apps.contains(where: { $0.id == id }) else { return apps }
         let ids = LayoutOrder.move(id, toIndex: index, in: apps.map(\.id))

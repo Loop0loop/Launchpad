@@ -300,6 +300,9 @@ struct FolderOverlayAppIcon: View {
                         if isPullingOut {
                             state.endFolderReorder()
                             state.folderDragPullingOut = true
+                            if state.folderPullOutAppID != app.id {
+                                state.folderPullOutAppID = app.id
+                            }
                             dragOffset = pullOutOffset(at: value.location)
                             dragPointer = nil
                         } else {
@@ -322,6 +325,7 @@ struct FolderOverlayAppIcon: View {
                             state.reorderAppInFolder(app.id, toIndex: index, folderID: folderID)
                         }
                         state.folderDragPullingOut = false
+                        state.folderPullOutAppID = nil
                         state.endFolderReorder()
                         pullOutStartCenter = nil
                         dragPointer = nil
@@ -331,6 +335,7 @@ struct FolderOverlayAppIcon: View {
             .onChange(of: isDragActive) { oldValue, newValue in
                 if oldValue && !newValue {
                     state.folderDragPullingOut = false
+                    state.folderPullOutAppID = nil
                     state.endFolderReorder()
                     pullOutStartCenter = nil
                     dragPointer = nil
@@ -339,6 +344,7 @@ struct FolderOverlayAppIcon: View {
             }
             .onDisappear {
                 state.folderDragPullingOut = false
+                state.folderPullOutAppID = nil
                 state.endFolderReorder()
                 pullOutStartCenter = nil
             }

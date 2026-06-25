@@ -46,6 +46,7 @@ struct AppIcon: View {
         .overlay(keyboardSelectionBackground(isSelected: state.query.isEmpty && state.showsKeyboardSelection(for: app.id)))
         .animation(LaunchConstants.Animation.iconLift, value: isLanding)
         .highPriorityGesture(TapGesture().onEnded {
+            state.suppressPageControlTap()
             state.launch(app)
         })
         .onLongPressGesture(minimumDuration: 0.8) {
@@ -129,6 +130,7 @@ struct FolderIcon: View {
         .overlay(keyboardSelectionBackground(isSelected: state.query.isEmpty && state.showsKeyboardSelection(for: folder.id)))
         .animation(LaunchConstants.Animation.folder, value: isNewFolder)
         .highPriorityGesture(TapGesture().onEnded {
+            state.suppressPageControlTap()
             state.openFolderFromTap(folder)
         })
         .launcherDrag(id: folder.id, state: state, layout: layout, pageOffset: pageOffset)
@@ -185,7 +187,7 @@ struct LauncherDragModifier: ViewModifier {
                     if draggedCenter != nil {
                         content
                             .scaleEffect(1.1)
-                            .opacity(0.95)
+                            .opacity(drag.hoverTargetID == nil ? 0.95 : 0.55)
                             .offset(floatOffset)
                     }
                 }

@@ -65,6 +65,14 @@ extension AppState {
         handleEscape()
     }
 
+    func suppressPageControlTap() {
+        pageControlLockedUntil = Date().addingTimeInterval(0.20)
+    }
+
+    func canUsePageControl() -> Bool {
+        Date() >= pageControlLockedUntil
+    }
+
     func registerSearchBar(_ bar: LauncherSearchBarView) {
         searchFocus.register(bar)
     }
@@ -118,6 +126,7 @@ extension AppState {
         }
         openFolder = nil
         folderDragPullingOut = false
+        folderPullOutAppID = nil
         endFolderReorder()
     }
 
