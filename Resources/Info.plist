@@ -9,7 +9,7 @@
     <key>CFBundleIdentifier</key>
     <string>app.launch.mvp</string>
     <key>CFBundleName</key>
-    <string>Launcher</string>
+    <string>Launchpad</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

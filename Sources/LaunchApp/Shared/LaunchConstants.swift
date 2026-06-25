@@ -5,7 +5,7 @@ import SwiftUI
 enum LaunchConstants {
     enum App {
         static let menuBarTitle = "L"
-        static var settingsTitle: String { Localized.t("Launch 설정", "Launch Settings") }
+        static var settingsTitle: String { Localized.t("Launchpad 설정", "Launchpad Settings") }
         static let fallbackWindowFrame = NSRect(x: 0, y: 0, width: 1440, height: 900)
     }
 

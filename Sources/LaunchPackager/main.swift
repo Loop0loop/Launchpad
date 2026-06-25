@@ -209,7 +209,7 @@ struct LaunchPackager {
 
     func notarize(identity: String, credentials: NotaryCredentials) throws {
         try buildSignedDMG(identity: identity)
-        try runProcess(
+        let notaryOutput = try runProcess(
             "/usr/bin/xcrun",
             [
                 "notarytool", "submit", dmgURL.path,
@@ -220,6 +220,21 @@ struct LaunchPackager {
             ],
             redactedCommand: "/usr/bin/xcrun notarytool submit \(relative(dmgURL)) --apple-id <redacted> --password <redacted> --team-id <redacted> --wait"
         )
+        if notaryOutput.contains("status: Invalid") {
+            if let submissionID = notarySubmissionID(from: notaryOutput) {
+                _ = try? runProcess(
+                    "/usr/bin/xcrun",
+                    [
+                        "notarytool", "log", submissionID,
+                        "--apple-id", credentials.appleID,
+                        "--password", credentials.password,
+                        "--team-id", credentials.teamID
+                    ],
+                    redactedCommand: "/usr/bin/xcrun notarytool log \(submissionID) --apple-id <redacted> --password <redacted> --team-id <redacted>"
+                )
+            }
+            throw PackagerError.commandFailed("notarytool submit returned Invalid", 1)
+        }
         try runProcess("/usr/bin/xcrun", ["stapler", "staple", dmgURL.path])
         try runProcess("/usr/bin/xcrun", ["stapler", "validate", dmgURL.path])
     }
@@ -302,7 +317,8 @@ struct LaunchPackager {
         try copy("Resources/AppIconColor.png", to: resourcesURL.appendingPathComponent("AppIconColor.png"))
         try copy("Resources/AppIconMono.png", to: resourcesURL.appendingPathComponent("AppIconMono.png"))
         try fm.copyItem(at: binaryURL, to: macOSURL.appendingPathComponent(name))
-        try copyPackageFrameworks(to: contentsURL.appendingPathComponent("lib"))
+        try copyPackageFrameworks(to: contentsURL.appendingPathComponent("Frameworks"))
+        try addFrameworksRPath(to: macOSURL.appendingPathComponent(name))
         try fm.setAttributes(
             [.posixPermissions: 0o755],
             ofItemAtPath: macOSURL.appendingPathComponent(name).path
@@ -372,6 +388,14 @@ struct LaunchPackager {
         try FileManager.default.copyItem(at: packageFrameworksURL, to: destination)
     }
 
+    func addFrameworksRPath(to binary: URL) throws {
+        try runProcess(
+            "/usr/bin/install_name_tool",
+            ["-add_rpath", "@executable_path/../Frameworks", binary.path],
+            quiet: true
+        )
+    }
+
     func requireFile(_ url: URL) throws {
         guard FileManager.default.fileExists(atPath: url.path) else {
             throw PackagerError.missingFile(relative(url))
@@ -390,13 +414,14 @@ struct LaunchPackager {
         }
     }
 
+    @discardableResult
     func runProcess(
         _ executable: String,
         _ arguments: [String],
         environment extraEnvironment: [String: String] = [:],
         quiet: Bool = false,
         redactedCommand: String? = nil
-    ) throws {
+    ) throws -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
@@ -425,6 +450,19 @@ struct LaunchPackager {
             let command = redactedCommand ?? ([executable] + arguments).joined(separator: " ")
             throw PackagerError.commandFailed(command, process.terminationStatus)
         }
+        return output
+    }
+
+    func notarySubmissionID(from output: String) -> String? {
+        let lines = output.split(whereSeparator: \.isNewline).map(String.init)
+        for (index, line) in lines.enumerated() where line.trimmingCharacters(in: .whitespaces) == "id:" {
+            guard index + 1 < lines.count else { continue }
+            return lines[index + 1].trimmingCharacters(in: .whitespaces)
+        }
+        for line in lines where line.trimmingCharacters(in: .whitespaces).hasPrefix("id:") {
+            return line.replacingOccurrences(of: "id:", with: "").trimmingCharacters(in: .whitespaces)
+        }
+        return nil
     }
 
     func requireNotaryCredential(_ key: String, from options: PackagerOptions) throws {

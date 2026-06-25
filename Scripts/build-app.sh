@@ -34,9 +34,10 @@ cp Resources/MenuBarIcon.png "$app/Contents/Resources/MenuBarIcon.png"
 cp Resources/AppIconColor.png "$app/Contents/Resources/AppIconColor.png"
 cp Resources/AppIconMono.png "$app/Contents/Resources/AppIconMono.png"
 if [ -d ".build/apple/Products/Debug/Frameworks" ]; then
-  cp -R ".build/apple/Products/Debug/Frameworks" "$app/Contents/lib"
+  cp -R ".build/apple/Products/Debug/Frameworks" "$app/Contents/Frameworks"
 fi
 cp "$binary" "$app/Contents/MacOS/Launch"
+/usr/bin/install_name_tool -add_rpath "@executable_path/../Frameworks" "$app/Contents/MacOS/Launch" 2>/dev/null || true
 chmod +x "$app/Contents/MacOS/Launch"
 
 echo "$app"
