@@ -1,5 +1,5 @@
 import AppKit
-import LaunchCore
+import LaunchpadCore
 
 extension AppDelegate {
     func confirmMoveToTrash(_ app: LaunchApp) {

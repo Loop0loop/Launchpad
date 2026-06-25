@@ -1,6 +1,6 @@
 import AppKit
 import SwiftUI
-import LaunchCore
+import LaunchpadCore
 
 /// Empty-space page swiping plus Launchpad-style icon-drag paging. Icon dragging is
 /// owned by SwiftUI `DragGesture`; this monitor decides when horizontal movement

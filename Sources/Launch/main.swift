@@ -1,5 +1,5 @@
 import AppKit
-import LaunchApp
+import LaunchpadApp
 
 let app = NSApplication.shared
 let delegate = AppDelegate()

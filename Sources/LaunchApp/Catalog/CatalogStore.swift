@@ -1,5 +1,5 @@
 import Foundation
-import LaunchCore
+import LaunchpadCore
 
 enum CatalogStore {
     static func scanApps(extraRoots: [String] = [], languageCode: String? = nil) -> [LaunchApp] {

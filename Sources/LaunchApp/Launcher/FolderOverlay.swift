@@ -1,4 +1,4 @@
-import LaunchCore
+import LaunchpadCore
 import SwiftUI
 
 struct FolderOverlay: View {
@@ -160,7 +160,7 @@ struct FolderOverlayAppIcon: View {
     let app: LaunchApp
     let folderID: String
     @ObservedObject var state: AppState
-    @Environment(\.iconCache) private var iconCache
+    @EnvironmentObject private var iconCache: IconCache
     @State private var dragOffset: CGSize = .zero
     @GestureState private var isDragActive = false
 
@@ -169,10 +169,7 @@ struct FolderOverlayAppIcon: View {
 
     var body: some View {
         VStack(spacing: LaunchConstants.Icon.spacing) {
-            Image(nsImage: iconCache.icon(for: app, size: LaunchConstants.FolderOverlay.maxIconSize))
-                .resizable()
-                .interpolation(.high)
-                .frame(width: LaunchConstants.FolderOverlay.maxIconSize, height: LaunchConstants.FolderOverlay.maxIconSize)
+            IconImage(image: iconCache.icon(for: app, size: LaunchConstants.FolderOverlay.maxIconSize), size: LaunchConstants.FolderOverlay.maxIconSize)
                 .shadow(color: .black.opacity(0.28), radius: 1.5, y: 1)
 
             Text(app.name)

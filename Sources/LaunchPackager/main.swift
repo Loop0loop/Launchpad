@@ -153,9 +153,9 @@ struct PackagerOptions {
     }
 }
 
-struct LaunchPackager {
+struct LaunchpadPackager {
     let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    let name = "Launch"
+    let name = "Launchpad"
 
     var buildDir: URL { root.appendingPathComponent(".build") }
     var appURL: URL { buildDir.appendingPathComponent("\(name).app") }
@@ -166,7 +166,7 @@ struct LaunchPackager {
     var xcodeBuildConfiguration: String {
         buildConfiguration == "release" ? "Release" : "Debug"
     }
-    var binaryURL: URL { root.appendingPathComponent(".build/apple/Products/\(xcodeBuildConfiguration)/Launch") }
+    var binaryURL: URL { root.appendingPathComponent(".build/apple/Products/\(xcodeBuildConfiguration)/Launchpad") }
     var packageFrameworksURL: URL { root.appendingPathComponent(".build/apple/Products/\(xcodeBuildConfiguration)/Frameworks") }
     var stagingURL: URL { buildDir.appendingPathComponent("dmg") }
     var dmgURL: URL { buildDir.appendingPathComponent("\(name).dmg") }
@@ -389,6 +389,11 @@ struct LaunchPackager {
     }
 
     func addFrameworksRPath(to binary: URL) throws {
+        _ = try? runProcess(
+            "/usr/bin/install_name_tool",
+            ["-delete_rpath", "@executable_path/../lib", binary.path],
+            quiet: true
+        )
         try runProcess(
             "/usr/bin/install_name_tool",
             ["-add_rpath", "@executable_path/../Frameworks", binary.path],
@@ -497,7 +502,7 @@ struct LaunchPackager {
 let options = PackagerOptions(arguments: Array(CommandLine.arguments.dropFirst()))
 
 do {
-    try LaunchPackager().run(options)
+    try LaunchpadPackager().run(options)
 } catch {
     FileHandle.standardError.write(Data("\(error)\n".utf8))
     exit(1)

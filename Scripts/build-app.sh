@@ -11,8 +11,8 @@ xcrun swift build \
   --config-path .build/swiftpm-config \
   --security-path .build/swiftpm-security
 
-app=".build/Launch.app"
-binary=".build/apple/Products/Debug/Launch"
+app=".build/Launchpad.app"
+binary=".build/apple/Products/Debug/Launchpad"
 
 test -x "$binary"
 
@@ -36,8 +36,9 @@ cp Resources/AppIconMono.png "$app/Contents/Resources/AppIconMono.png"
 if [ -d ".build/apple/Products/Debug/Frameworks" ]; then
   cp -R ".build/apple/Products/Debug/Frameworks" "$app/Contents/Frameworks"
 fi
-cp "$binary" "$app/Contents/MacOS/Launch"
-/usr/bin/install_name_tool -add_rpath "@executable_path/../Frameworks" "$app/Contents/MacOS/Launch" 2>/dev/null || true
-chmod +x "$app/Contents/MacOS/Launch"
+cp "$binary" "$app/Contents/MacOS/Launchpad"
+/usr/bin/install_name_tool -delete_rpath "@executable_path/../lib" "$app/Contents/MacOS/Launchpad" 2>/dev/null || true
+/usr/bin/install_name_tool -add_rpath "@executable_path/../Frameworks" "$app/Contents/MacOS/Launchpad" 2>/dev/null || true
+chmod +x "$app/Contents/MacOS/Launchpad"
 
 echo "$app"

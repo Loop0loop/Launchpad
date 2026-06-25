@@ -1,5 +1,5 @@
 import Foundation
-import LaunchCore
+import LaunchpadCore
 
 enum LayoutStore {
     static func loadOrder() -> [String] {

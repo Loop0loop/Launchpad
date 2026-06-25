@@ -1,5 +1,5 @@
 import Foundation
-import LaunchCore
+import LaunchpadCore
 
 extension AppState {
     func launchSelected() {

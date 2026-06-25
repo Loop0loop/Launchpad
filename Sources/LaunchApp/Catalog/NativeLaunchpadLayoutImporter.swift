@@ -1,5 +1,5 @@
 import Foundation
-import LaunchCore
+import LaunchpadCore
 
 enum NativeLaunchpadLayoutImporter {
     static func importOrder(apps: [LaunchApp]) -> [String] {

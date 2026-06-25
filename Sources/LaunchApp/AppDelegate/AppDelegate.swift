@@ -58,7 +58,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         let presentationContainer = LauncherPresentationContainer()
         presentationContainer.wantsLayer = true
 
-        let rootView = LauncherView(state: state).environment(\.iconCache, iconCache)
+        let rootView = LauncherView(state: state).environmentObject(iconCache)
         let hosting = NSHostingView(rootView: rootView)
         hosting.safeAreaRegions = []
         hosting.autoresizingMask = [.width, .height]

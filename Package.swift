@@ -3,28 +3,30 @@
 import PackageDescription
 
 let package = Package(
-    name: "Launch",
+    name: "Launchpad",
     platforms: [.macOS(.v26)],
     products: [
-        .executable(name: "Launch", targets: ["Launch"]),
-        .executable(name: "LaunchPackager", targets: ["LaunchPackager"]),
-        .library(name: "LaunchApp", targets: ["LaunchApp"]),
-        .library(name: "LaunchCore", targets: ["LaunchCore"])
+        .executable(name: "Launchpad", targets: ["Launchpad"]),
+        .executable(name: "LaunchpadPackager", targets: ["LaunchpadPackager"]),
+        .executable(name: "LaunchpadCheck", targets: ["LaunchpadCheck"]),
+        .library(name: "LaunchpadApp", targets: ["LaunchpadApp"]),
+        .library(name: "LaunchpadCore", targets: ["LaunchpadCore"])
     ],
     dependencies: [
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.7.0")
     ],
     targets: [
-        .target(name: "LaunchCore"),
+        .target(name: "LaunchpadCore", path: "Sources/LaunchCore"),
         .target(
-            name: "LaunchApp",
+            name: "LaunchpadApp",
             dependencies: [
-                "LaunchCore",
+                "LaunchpadCore",
                 .product(name: "Sparkle", package: "Sparkle")
-            ]
+            ],
+            path: "Sources/LaunchApp"
         ),
-        .executableTarget(name: "Launch", dependencies: ["LaunchApp"]),
-        .executableTarget(name: "LaunchPackager"),
-        .executableTarget(name: "LaunchCheck", dependencies: ["LaunchCore"])
+        .executableTarget(name: "Launchpad", dependencies: ["LaunchpadApp"], path: "Sources/Launch"),
+        .executableTarget(name: "LaunchpadPackager", path: "Sources/LaunchPackager"),
+        .executableTarget(name: "LaunchpadCheck", dependencies: ["LaunchpadCore"], path: "Sources/LaunchCheck")
     ]
 )

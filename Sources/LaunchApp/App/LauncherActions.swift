@@ -1,4 +1,4 @@
-import LaunchCore
+import LaunchpadCore
 
 @MainActor
 struct LauncherActions {

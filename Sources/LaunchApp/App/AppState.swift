@@ -1,6 +1,6 @@
 import CoreGraphics
 import Foundation
-import LaunchCore
+import LaunchpadCore
 
 @MainActor
 final class AppState: ObservableObject {
@@ -142,6 +142,8 @@ final class AppState: ObservableObject {
     var folderReopenLockedUntil = Date.distantPast
     var backgroundDismissLockedUntil = Date.distantPast
     var catalogRefreshTask: Task<Void, Never>?
+    /// 드래그 중 폴더 위에 머물 때 일정 시간 후 폴더를 자동으로 여는 hover 타이머.
+    var folderHoverOpenTask: Task<Void, Never>?
     var visibleItemsCache: [LauncherItem]?
     var actions = LauncherActions()
 

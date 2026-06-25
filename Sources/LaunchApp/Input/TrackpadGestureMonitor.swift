@@ -1,6 +1,6 @@
 import AppKit
 import Darwin
-import LaunchCore
+import LaunchpadCore
 
 @MainActor
 final class TrackpadGestureMonitor {

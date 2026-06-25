@@ -1,11 +1,11 @@
 import Foundation
-import LaunchCore
+import LaunchpadCore
 
 let url = URL(fileURLWithPath: "/tmp/Fake App.app")
 assert(AppCatalog.displayName(for: url) == "Fake App")
 
 let localizedApp = FileManager.default.temporaryDirectory
-    .appendingPathComponent("LaunchCheck-\(UUID().uuidString)")
+    .appendingPathComponent("LaunchpadCheck-\(UUID().uuidString)")
     .appendingPathComponent("Localized App.app")
 let resources = localizedApp.appendingPathComponent("Contents/Resources")
 try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
@@ -112,4 +112,4 @@ assert(TrackpadIntent.pinchRadius(ratio: 0.89) == .open)
 assert(TrackpadIntent.pinchRadius(ratio: 1.11) == .close)
 assert(TrackpadIntent.pinchRadius(ratio: 1.0) == nil)
 
-print("LaunchCheck OK")
+print("LaunchpadCheck OK")

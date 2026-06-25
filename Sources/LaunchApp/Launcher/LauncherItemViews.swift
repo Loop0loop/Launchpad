@@ -1,4 +1,4 @@
-import LaunchCore
+import LaunchpadCore
 import SwiftUI
 
 struct LauncherItemView: View {
@@ -20,16 +20,13 @@ struct LauncherItemView: View {
 struct AppIcon: View {
     let app: LaunchApp
     let state: AppState
-    @Environment(\.iconCache) private var iconCache
+    @EnvironmentObject private var iconCache: IconCache
     let layout: LaunchpadLayoutMetrics
     let pageOffset: CGFloat
 
     var body: some View {
         VStack(spacing: LaunchConstants.Icon.spacing) {
-            Image(nsImage: iconCache.icon(for: app, size: layout.iconSize))
-                .resizable()
-                .interpolation(.high)
-                .frame(width: layout.iconSize, height: layout.iconSize)
+            IconImage(image: iconCache.icon(for: app, size: layout.iconSize), size: layout.iconSize)
                 .shadow(color: .black.opacity(0.28), radius: 1.5, y: 1)
 
             Text(app.name)
@@ -61,7 +58,7 @@ struct FolderIcon: View {
     let folder: LaunchFolder
     let apps: [LaunchApp]
     let state: AppState
-    @Environment(\.iconCache) private var iconCache
+    @EnvironmentObject private var iconCache: IconCache
     let layout: LaunchpadLayoutMetrics
     let pageOffset: CGFloat
 
@@ -90,10 +87,7 @@ struct FolderIcon: View {
                     spacing: miniGap
                 ) {
                     ForEach(apps.prefix(LaunchConstants.Icon.folderPreviewLimit)) { app in
-                        Image(nsImage: iconCache.icon(for: app, size: layout.iconSize))
-                            .resizable()
-                            .interpolation(.high)
-                            .frame(width: miniIconSize, height: miniIconSize)
+                        IconImage(image: iconCache.icon(for: app, size: layout.iconSize), size: miniIconSize)
                     }
                 }
             }
@@ -156,11 +150,24 @@ struct LauncherDragModifier: ViewModifier {
             height: state.dragTranslation.height
         ) : .zero
 
-        return content
-            .scaleEffect(isDragging ? 1.12 : (isMergeTarget ? 1.16 : 1))
-            .opacity(isDragging ? LaunchConstants.Icon.draggedOpacity : 1)
-            .offset(translation)
-            .zIndex(isDragging ? 100 : 0)
+        // 1C: 드래그 중인 항목은 원래 자리에 어두운 고스트 슬롯을 남기고,
+        // 들어 올려진 반투명 복사본이 포인터를 따라간다(네이티브 Launchpad).
+        return Group {
+            if isDragging {
+                ZStack {
+                    content.opacity(0.16)
+                    content
+                        .scaleEffect(1.12)
+                        .opacity(0.95)
+                        .offset(translation)
+                }
+            } else {
+                content
+                    .scaleEffect(isMergeTarget ? 1.16 : 1)
+                    .opacity(1)
+            }
+        }
+        .zIndex(isDragging ? 100 : 0)
             .animation(LaunchConstants.Animation.iconLift, value: isMergeTarget)
             .animation(isDragging ? nil : LaunchConstants.Animation.iconLift, value: isDragging)
             .animation(isDragging ? nil : LaunchConstants.Animation.iconLift, value: state.dragTranslation)

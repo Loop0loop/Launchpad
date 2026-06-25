@@ -1,6 +1,6 @@
 import AppKit
 import Foundation
-import LaunchCore
+import LaunchpadCore
 
 extension AppState {
     var visibleApps: [LaunchApp] {

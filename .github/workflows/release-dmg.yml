@@ -105,14 +105,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          swift run LaunchPackager notarize
-          mv .build/Launch.dmg ".build/Launch-${{ steps.version.outputs.version }}.dmg"
+          swift run LaunchpadPackager notarize
+          mv .build/Launchpad.dmg ".build/Launchpad-${{ steps.version.outputs.version }}.dmg"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Launch-${{ steps.version.outputs.version }}-dmg
-          path: .build/Launch-${{ steps.version.outputs.version }}.dmg
+          name: Launchpad-${{ steps.version.outputs.version }}-dmg
+          path: .build/Launchpad-${{ steps.version.outputs.version }}.dmg
           if-no-files-found: error
 
       - name: Publish GitHub Release
@@ -123,12 +123,12 @@ jobs:
           set -euo pipefail
 
           tag="${{ steps.version.outputs.tag }}"
-          dmg=".build/Launch-${{ steps.version.outputs.version }}.dmg"
+          dmg=".build/Launchpad-${{ steps.version.outputs.version }}.dmg"
 
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" "$dmg" --clobber
           else
             gh release create "$tag" "$dmg" \
-              --title "Launch $tag" \
-              --notes "Signed and notarized Launch DMG."
+              --title "Launchpad $tag" \
+              --notes "Signed and notarized Launchpad DMG."
           fi

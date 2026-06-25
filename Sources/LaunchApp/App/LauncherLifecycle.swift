@@ -1,5 +1,5 @@
 import AppKit
-import LaunchCore
+import LaunchpadCore
 
 @MainActor
 final class LauncherLifecycle {
