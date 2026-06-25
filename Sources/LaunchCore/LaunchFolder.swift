@@ -32,13 +32,19 @@ public enum FolderLayout {
         appID: String,
         toFolderID folderID: String,
         folders: [LaunchFolder],
-        order: [String]
+        order: [String],
+        at insertIndex: Int? = nil
     ) -> (folders: [LaunchFolder], order: [String]) {
         guard let index = folders.firstIndex(where: { $0.id == folderID }),
               !folders[index].appIDs.contains(appID) else { return (folders, order) }
 
         var nextFolders = folders
-        nextFolders[index].appIDs.append(appID)
+        if let insertIndex {
+            let clamped = min(max(insertIndex, 0), nextFolders[index].appIDs.count)
+            nextFolders[index].appIDs.insert(appID, at: clamped)
+        } else {
+            nextFolders[index].appIDs.append(appID)
+        }
         return (nextFolders, order.filter { $0 != appID })
     }
 

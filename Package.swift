@@ -27,6 +27,7 @@ let package = Package(
         ),
         .executableTarget(name: "Launchpad", dependencies: ["LaunchpadApp"], path: "Sources/Launch"),
         .executableTarget(name: "LaunchpadPackager", path: "Sources/LaunchPackager"),
-        .executableTarget(name: "LaunchpadCheck", dependencies: ["LaunchpadCore"], path: "Sources/LaunchCheck")
+        .executableTarget(name: "LaunchpadCheck", dependencies: ["LaunchpadCore"], path: "Sources/LaunchCheck"),
+        .testTarget(name: "LaunchpadCoreTests", dependencies: ["LaunchpadCore"], path: "Tests/LaunchCoreTests")
     ]
 )
