@@ -23,10 +23,10 @@ if [ -f .env ]; then
   sparkle_feed_url="$(sed -n 's/^SPARKLE_FEED_URL=["'\'']\{0,1\}\([^"'\'']*\)["'\'']\{0,1\}$/\1/p' .env | head -n 1)"
   sparkle_public_key="$(sed -n 's/^SPARKLE_PUBLIC_ED_KEY=["'\'']\{0,1\}\([^"'\'']*\)["'\'']\{0,1\}$/\1/p' .env | head -n 1)"
   if [ -n "$sparkle_feed_url" ]; then
-    /usr/libexec/PlistBuddy -c "Set :SUFeedURL $sparkle_feed_url" "$app/Contents/Info.plist"
+    /usr/bin/plutil -replace SUFeedURL -string "$sparkle_feed_url" "$app/Contents/Info.plist"
   fi
   if [ -n "$sparkle_public_key" ]; then
-    /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $sparkle_public_key" "$app/Contents/Info.plist"
+    /usr/bin/plutil -replace SUPublicEDKey -string "$sparkle_public_key" "$app/Contents/Info.plist"
   fi
 fi
 cp Resources/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"

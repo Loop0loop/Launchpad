@@ -41,6 +41,8 @@ assert(scannedApps.count == 1)
 assert(scannedApps[0].id == "com.example.scanned")
 assert(scannedApps[0].name == "Scanned Name")
 assert(scannedApps[0].path.hasSuffix("/Scanned App.app"))
+assert(scannedApps[0].existingBundleURL?.lastPathComponent == "Scanned App.app")
+assert(LaunchApp(id: "bad", name: "Bad", path: scanRoot.appendingPathComponent("Bad.app").path).existingBundleURL == nil)
 assert(AppCatalog.scan(roots: [scanRoot], isCancelled: { true }).isEmpty)
 
 let apps = [
@@ -65,6 +67,7 @@ assert(AppSearch.rankedApps(searchApps, matching: "ca").map(\.name) == ["Café",
 assert(AppSearch.rankedApps(searchApps, matching: "notes").map(\.name) == ["Notes"])
 assert(AppSearch.rankedApps(searchApps, matching: "example.camera").map(\.name) == ["Camera"])
 assert(UpdateConfiguration(feedURL: "https://example.com/appcast.xml", publicKey: "abc").isConfigured)
+assert(!UpdateConfiguration(feedURL: "http://example.com/appcast.xml", publicKey: "abc").isConfigured)
 assert(!UpdateConfiguration(feedURL: "https://example.com/appcast.xml", publicKey: "REPLACE_WITH_SPARKLE_PUBLIC_ED_KEY").isConfigured)
 assert(!UpdateConfiguration(feedURL: "not a url", publicKey: "abc").isConfigured)
 assert(!UpdateConfiguration(feedURL: nil, publicKey: "abc").isConfigured)

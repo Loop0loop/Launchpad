@@ -140,16 +140,6 @@ private struct FolderTitleNSField: NSViewRepresentable {
             parent.commit()
         }
 
-        func control(
-            _ control: NSControl,
-            textView: NSTextView,
-            completions words: [String],
-            forPartialWordRange charRange: NSRange,
-            indexOfSelectedItem index: UnsafeMutablePointer<Int>
-        ) -> [String] {
-            []
-        }
-
         @MainActor @objc func commitFromAction(_ sender: NSTextField) {
             parent.name = sender.stringValue
             parent.commit()

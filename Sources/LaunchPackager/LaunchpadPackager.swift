@@ -224,8 +224,8 @@ struct LaunchpadPackager {
         let dotEnv = DotEnv.load(from: root.appendingPathComponent(".env"))
         guard let value = PackagerOptions.configValue(envKey, dotEnv: dotEnv), !value.isEmpty else { return }
         _ = try? runProcess(
-            "/usr/libexec/PlistBuddy",
-            ["-c", "Set :\(plistKey) \(value)", plist.path],
+            "/usr/bin/plutil",
+            ["-replace", plistKey, "-string", value, plist.path],
             quiet: true
         )
     }

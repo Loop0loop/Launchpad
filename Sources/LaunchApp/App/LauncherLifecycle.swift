@@ -50,6 +50,7 @@ final class LauncherLifecycle {
         state.openFolder = nil
         state.clearSelection()
         state.cancelDrag()
+        state.actions.restoreLauncherRoot()
 
         state.launcherVisible = true
         state.pageDragOffset = 0
@@ -88,13 +89,7 @@ final class LauncherLifecycle {
 
         runPresentationAnimation(toVisible: false) { [weak self] in
             guard let self, self.transitionToken == token else { return }
-            self.phase = .hidden
-            self.state.launcherVisible = false
-            self.state.actions.clearIconCache()
-            self.restoreSystemVisibility()
-            self.window.orderOut(nil)
-            self.resetPresentation()
-            self.activatePreviousApp()
+            self.completeHide(activatePrevious: true)
         }
     }
 
@@ -106,11 +101,7 @@ final class LauncherLifecycle {
         phase = .hidden
         mouseMonitor?.setEnabled(false)
         state.cancelDrag()
-        restoreSystemVisibility()
-        state.launcherVisible = false
-        state.actions.clearIconCache()
-        window.orderOut(nil)
-        resetPresentation()
+        completeHide(activatePrevious: false)
     }
 
     func launch(_ app: LaunchApp) {
@@ -123,12 +114,7 @@ final class LauncherLifecycle {
             phase = .hiding
             runPresentationAnimation(toVisible: false) { [weak self] in
                 guard let self, self.transitionToken == token else { return }
-                self.phase = .hidden
-                self.state.launcherVisible = false
-                self.state.actions.clearIconCache()
-                self.restoreSystemVisibility()
-                self.window.orderOut(nil)
-                self.resetPresentation()
+                self.completeHide(activatePrevious: false)
             }
         } else {
             dismiss()
@@ -190,6 +176,17 @@ final class LauncherLifecycle {
         window.alphaValue = 1
         window.contentView?.alphaValue = 1
         setPresentationScale(1)
+    }
+
+    private func completeHide(activatePrevious: Bool) {
+        phase = .hidden
+        state.launcherVisible = false
+        state.actions.clearIconCache()
+        restoreSystemVisibility()
+        window.orderOut(nil)
+        resetPresentation()
+        state.actions.releaseLauncherRoot()
+        if activatePrevious { activatePreviousApp() }
     }
 
     private func updateWindowChrome() {

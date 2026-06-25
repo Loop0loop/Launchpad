@@ -69,15 +69,6 @@ struct LauncherSearchBarRepresentable: NSViewRepresentable {
             text = field.stringValue
         }
 
-        func control(
-            _ control: NSControl,
-            textView: NSTextView,
-            completions words: [String],
-            forPartialWordRange charRange: NSRange,
-            indexOfSelectedItem index: UnsafeMutablePointer<Int>
-        ) -> [String] {
-            []
-        }
     }
 }
 

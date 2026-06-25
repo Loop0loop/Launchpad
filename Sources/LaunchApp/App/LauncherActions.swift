@@ -15,4 +15,6 @@ struct LauncherActions {
     var applyAppIcon: () -> Void = {}
     var applyInputSettings: () -> Void = {}
     var clearIconCache: () -> Void = {}
+    var restoreLauncherRoot: () -> Void = {}
+    var releaseLauncherRoot: () -> Void = {}
 }

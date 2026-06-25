@@ -10,6 +10,15 @@ public struct LaunchApp: Codable, Identifiable, Hashable, Sendable {
         self.name = name
         self.path = path
     }
+
+    public var existingBundleURL: URL? {
+        let url = URL(fileURLWithPath: path).standardizedFileURL
+        var isDirectory = ObjCBool(false)
+        guard url.pathExtension == "app",
+              FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+              isDirectory.boolValue else { return nil }
+        return url
+    }
 }
 
 public enum AppCatalog {

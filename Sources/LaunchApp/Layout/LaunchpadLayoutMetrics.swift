@@ -42,15 +42,10 @@ struct LaunchpadLayoutMetrics {
         safeTopInset + searchBarHeight + searchToGridGap
     }
 
-    /// Total height reserved at bottom for page control + gap + dock.
-    func bottomChromeHeight(showsPageControl: Bool) -> CGFloat {
-        guard showsPageControl else { return safeBottomInset }
-        return pageControlHeight + gridToPagerGap + safeBottomInset
-    }
-
     /// Grid area between top and bottom chrome.
     func gridHeight(showsPageControl: Bool) -> CGFloat {
-        let available = size.height - topChromeHeight - bottomChromeHeight(showsPageControl: showsPageControl)
+        let bottomChromeHeight = showsPageControl ? pageControlHeight + gridToPagerGap + safeBottomInset : safeBottomInset
+        let available = size.height - topChromeHeight - bottomChromeHeight
         return max(available, 120)
     }
 

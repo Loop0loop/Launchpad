@@ -20,17 +20,7 @@ extension AppState {
 
     func hide(_ app: LaunchApp) {
         hiddenAppIDs.insert(app.id)
-        persistHiddenApps()
-        ensureSelection()
-    }
-
-    func unhide(_ id: String) {
-        hiddenAppIDs.remove(id)
-        persistHiddenApps()
-        ensureSelection()
-    }
-
-    fileprivate func persistHiddenApps() {
         UserDefaults.standard.set(Array(hiddenAppIDs), forKey: LaunchConstants.Storage.hiddenAppsKey)
+        ensureSelection()
     }
 }

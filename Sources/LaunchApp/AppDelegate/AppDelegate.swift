@@ -12,6 +12,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     let updater = AppUpdater()
     var window: NSWindow?
     var launcherLifecycle: LauncherLifecycle?
+    var launcherContainer: LauncherPresentationContainer?
+    var launcherHostingView: NSHostingView<AnyView>?
     var settingsWindow: NSWindow?
     var statusItem: NSStatusItem?
     var keyMonitor: Any?
@@ -57,15 +59,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         window.isFloatingPanel = false
         let presentationContainer = LauncherPresentationContainer()
         presentationContainer.wantsLayer = true
-
-        let rootView = LauncherView(state: state)
-            .environmentObject(iconCache)
-            .environmentObject(state.drag)
-        let hosting = NSHostingView(rootView: rootView)
-        hosting.safeAreaRegions = []
-        hosting.autoresizingMask = [.width, .height]
-        presentationContainer.addSubview(hosting)
-        hosting.frame = presentationContainer.bounds
+        launcherContainer = presentationContainer
 
         window.contentView = presentationContainer
         window.acceptsMouseMovedEvents = true
@@ -91,7 +85,28 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             applyMenuBarVisibility: { [weak self] in self?.applyMenuBarVisibility() },
             applyAppIcon: { [weak self] in self?.applyAppIcon() },
             applyInputSettings: { [weak self] in self?.applyInputSettings() },
-            clearIconCache: { [weak self] in self?.iconCache.clear() }
+            clearIconCache: { [weak self] in self?.iconCache.clear() },
+            restoreLauncherRoot: { [weak self] in self?.setLauncherRoot(active: true) },
+            releaseLauncherRoot: { [weak self] in self?.setLauncherRoot(active: false) }
         )
+    }
+
+    private func setLauncherRoot(active: Bool) {
+        if active {
+            guard launcherHostingView == nil, let launcherContainer else { return }
+            let root = LauncherView(state: state)
+                .environmentObject(iconCache)
+                .environmentObject(state.drag)
+            let hosting = NSHostingView(rootView: AnyView(root))
+            hosting.safeAreaRegions = []
+            hosting.autoresizingMask = [.width, .height]
+            launcherHostingView = hosting
+            launcherContainer.addSubview(hosting)
+            hosting.frame = launcherContainer.bounds
+        } else {
+            launcherHostingView?.rootView = AnyView(EmptyView())
+            launcherHostingView?.removeFromSuperview()
+            launcherHostingView = nil
+        }
     }
 }

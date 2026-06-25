@@ -14,7 +14,7 @@ enum CatalogStore {
     static func loadCachedApps() -> [LaunchApp] {
         guard let data = UserDefaults.standard.data(forKey: LaunchConstants.Storage.catalogAppsKey),
               let decoded = try? JSONDecoder().decode([LaunchApp].self, from: data) else { return [] }
-        return decoded
+        return decoded.filter { $0.existingBundleURL != nil }
     }
 
     static func saveCachedApps(_ apps: [LaunchApp]) {

@@ -88,7 +88,6 @@ enum LaunchConstants {
         static let maxFolderDim = 0.55
         static let defaultBackgroundTransparency = 0.85
         static let defaultFolderDimOpacity = 0.28
-        static let settingsBackdropOpacity = 0.18
     }
 
     /// Liquid Glass 튜닝 노브. 폴더 패널/타일은 `.clear` glassEffect에 시스템
@@ -97,16 +96,10 @@ enum LaunchConstants {
     enum Glass {
         static let panelShadowOpacity: CGFloat = 0.28
         static let panelShadowRadius: CGFloat = 28
-        static let searchBarShadowOpacity: CGFloat = 0.035
-        static let searchBarShadowRadius: CGFloat = 8
-        static let searchBarStrokeOpacity: CGFloat = 0.55
 
         // 1. 열린 폴더 패널 (Opened Folder Panel)
         static let folderBackgroundOpacity: CGFloat = 0.004                // 틴트 강도 (0.0 ~ 1.0)
         static let folderStrokeOpacity: CGFloat = 0.34
-
-        // 2. 닫힌 폴더 타일 (Closed Folder Tile / Icon)
-        static let folderTileStrokeOpacity: CGFloat = 0.50                 // 폴더 타일 얇은 외곽선
 
         static let openFolderDimOpacity: CGFloat = 0.035
     }
@@ -130,7 +123,6 @@ enum LaunchConstants {
 
     enum Launcher {
         static var searchPlaceholder: String { Localized.t("App 검색", "Search Applications") }
-        static let pageSize = 35
         static let columns = 7
         static let rows = 5
 
@@ -158,8 +150,6 @@ enum LaunchConstants {
         static let searchFontSize: CGFloat = 15
 
         static let backgroundMaterial: NSVisualEffectView.Material = .fullScreenUI
-        static let backgroundOpacity = 0.06
-        static let overlayOpacity = 0.28
 
         static let pageDotSize: CGFloat = 8
         static let pageDotSpacing: CGFloat = 8
@@ -185,9 +175,6 @@ enum LaunchConstants {
         static let iconLift = SwiftUI.Animation.interactiveSpring(response: 0.22, dampingFraction: 0.78, blendDuration: 0.03)
         static let fade = SwiftUI.Animation.easeInOut(duration: 0.18)
         static let quick = SwiftUI.Animation.easeOut(duration: 0.14)
-        static let presentation = SwiftUI.Animation.easeOut(duration: 0.22)
-
-        static let spring = pageSnap
     }
 
     enum Icon {

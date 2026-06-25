@@ -143,19 +143,6 @@ extension AppState {
         }
     }
 
-    func goToPage(_ page: Int) {
-        guard !isDraggingLauncherItem else {
-            LaunchLog.line("go page blocked drag")
-            return
-        }
-        guard Date() >= pageChangeLockedUntil else { return }
-        let oldPage = currentPage
-        selectPage(page)
-        if currentPage != oldPage {
-            pageChangeLockedUntil = Date().addingTimeInterval(LaunchConstants.Launcher.pageChangeCooldown)
-        }
-    }
-
     func changePage(_ delta: Int) {
         guard delta != 0 else { return }
         guard !isDraggingLauncherItem else {

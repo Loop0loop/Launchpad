@@ -13,7 +13,7 @@ public struct UpdateConfiguration: Equatable, Sendable {
 
     public var isConfigured: Bool {
         guard let publicKey, !publicKey.isEmpty, publicKey != Self.placeholderPublicKey else { return false }
-        guard let feedURL, let url = URL(string: feedURL), url.scheme != nil, url.host != nil else { return false }
+        guard let feedURL, let url = URL(string: feedURL), url.scheme == "https", url.host != nil else { return false }
         return true
     }
 }

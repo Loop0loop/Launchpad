@@ -3,11 +3,9 @@ import AppKit
 @MainActor
 final class SearchFocusController {
     weak var field: NSTextField?
-    weak var barView: LauncherSearchBarView?
     var shouldFocusOnShow = false
 
     func register(_ bar: LauncherSearchBarView) {
-        barView = bar
         field = bar.textField
     }
 
