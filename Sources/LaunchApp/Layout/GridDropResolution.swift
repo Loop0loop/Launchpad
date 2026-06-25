@@ -22,6 +22,7 @@ struct GridDropResolution {
 
 extension AppState {
     var isDraggingLauncherItem: Bool { draggingItemID != nil }
+    var draggingApp: LaunchApp? { draggingItemID.flatMap(appByID) }
 
     func beginItemDrag(_ id: String) {
         guard query.isEmpty, openFolder == nil else { return }
@@ -35,9 +36,11 @@ extension AppState {
         guard let dragging = draggingItemID else { return }
         drag.location = location
         dragTranslation = translation
+        // 폴더가 열린 상태(spring-loaded 드롭 중)에는 포인터만 추적한다. 그리드 reflow 불필요.
+        if openFolder != nil { return }
         let hovered = (resolution.onIconID != nil && resolution.onIconID != dragging) ? resolution.onIconID : nil
         dragHoverTargetID = hovered
-        // Reflow only when NOT hovering an icon/folder to merge. Update only on slot change.
+        maybeOpenFolderOnHover(targetID: hovered)
         let nextIndex = hovered == nil ? resolution.targetIndex : nil
         if nextIndex != dragInsertionIndex { dragInsertionIndex = nextIndex }
     }
@@ -65,6 +68,23 @@ extension AppState {
         let x = layout.horizontalPadding + CGFloat(col) * pitchX + layout.columnWidth / 2
         let y = CGFloat(row) * layout.rowHeight + layout.rowHeight / 2
         return CGPoint(x: x, y: y)
+    }
+
+    /// 드래그 중 폴더 타일 위에 0.45s 머물면 폴더를 자동으로 연다(네이티브 spring-loaded).
+    /// 열린 뒤에는 endItemDrag가 폴더 안 슬롯에 드롭을 받는다.
+    func maybeOpenFolderOnHover(targetID: String?) {
+        guard let targetID, let folder = folders.first(where: { $0.id == targetID }) else {
+            folderHoverOpenTask?.cancel()
+            folderHoverOpenTask = nil
+            return
+        }
+        guard openFolder?.id != folder.id, folderHoverOpenTask == nil else { return }
+        folderHoverOpenTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            guard let self, !Task.isCancelled else { return }
+            guard self.openFolder == nil, self.draggingItemID != nil else { return }
+            self.openFolder = folder
+        }
     }
 
     func endItemDrag(onIconID: String?, slotID: String?, targetIndex: Int?) {
@@ -104,6 +124,8 @@ extension AppState {
         dragInsertionIndex = nil
         drag.location = .zero
         folderDragPullingOut = false
+        folderHoverOpenTask?.cancel()
+        folderHoverOpenTask = nil
     }
 
     /// Maps a pointer location (in the `"launcherGrid"` coordinate space) to the item under it.

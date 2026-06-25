@@ -181,6 +181,8 @@ final class AppState: ObservableObject {
     var backgroundDismissLockedUntil = Date.distantPast
     var catalogRefreshTask: Task<Void, Never>?
     var searchDebounceTask: Task<Void, Never>?
+    /// 드래그 중 폴더 위에 머물 때 0.45s 후 폴더를 자동으로 여는 hover 타이머.
+    var folderHoverOpenTask: Task<Void, Never>?
     var visibleItemsCache: [LauncherItem]?
     var actions = LauncherActions()
 

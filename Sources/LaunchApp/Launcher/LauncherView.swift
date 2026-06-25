@@ -51,7 +51,7 @@ struct LauncherView: View {
                     // Visible when no folder is open, and while pulling an app out of a folder
                     // (the panel dissolves) so the user sees the grid it's dropping back onto.
                     .opacity(state.openFolder == nil || state.folderDragPullingOut ? 1 : 0)
-                    .allowsHitTesting(state.openFolder == nil)
+                    .allowsHitTesting(state.openFolder == nil || state.isDraggingLauncherItem)
                     .animation(LaunchConstants.Animation.fade, value: state.openFolder?.id)
                     .animation(LaunchConstants.Animation.fade, value: state.folderDragPullingOut)
 
@@ -68,6 +68,21 @@ struct LauncherView: View {
                                     .combined(with: .opacity)
                             )
                             .zIndex(21)
+                    }
+
+                    if state.isDraggingLauncherItem, state.openFolder != nil, let app = state.draggingApp {
+                        let geoGlobal = geometry.frame(in: .global)
+                        let ghostPos = CGPoint(
+                            x: state.launcherGridFrame.minX - geoGlobal.minX + state.drag.location.x,
+                            y: state.launcherGridFrame.minY - geoGlobal.minY + state.drag.location.y
+                        )
+                        LoadedIcon(app: app, displaySize: layout.iconSize, loadsImage: true)
+                            .frame(width: layout.iconSize, height: layout.iconSize)
+                            .scaleEffect(1.1)
+                            .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
+                            .position(ghostPos)
+                            .allowsHitTesting(false)
+                            .zIndex(22)
                     }
                 }
                 .frame(width: geometry.size.width, height: geometry.size.height)
