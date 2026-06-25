@@ -65,6 +65,7 @@ struct FolderOverlay: View {
             }
             .frame(maxWidth: .infinity, minHeight: LaunchConstants.FolderOverlay.minGridHeight, alignment: .topLeading)
             .coordinateSpace(name: "folderGrid")
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { state.folderGridFrame = $0 }
         }
         .padding(.horizontal, LaunchConstants.FolderOverlay.horizontalPadding)
         .padding(.vertical, LaunchConstants.FolderOverlay.verticalPadding)

@@ -55,6 +55,9 @@ final class AppState: ObservableObject {
     /// crosses into a new slot, so the grid rebuilds on slot crossings, not every frame.
     @Published var dragInsertionIndex: Int?
     @Published var openFolder: LaunchFolder?
+    /// 드래그 좌표 변환용. 둘 다 `.global` 좌표. launcherGrid = 그리드 컨테이너, folderGrid = 열린 폴더 그리드.
+    @Published var launcherGridFrame: CGRect = .zero
+    @Published var folderGridFrame: CGRect = .zero
     /// True while an app is being dragged past the pull-out threshold inside an open folder:
     /// the folder surface dissolves so only the dragged app stays in hand.
     @Published var folderDragPullingOut = false
@@ -178,8 +181,6 @@ final class AppState: ObservableObject {
     var backgroundDismissLockedUntil = Date.distantPast
     var catalogRefreshTask: Task<Void, Never>?
     var searchDebounceTask: Task<Void, Never>?
-    /// 드래그 중 폴더 위에 머물 때 일정 시간 후 폴더를 자동으로 여는 hover 타이머.
-    var folderHoverOpenTask: Task<Void, Never>?
     var visibleItemsCache: [LauncherItem]?
     var actions = LauncherActions()
 

@@ -38,6 +38,7 @@ struct LauncherContent: View {
             }
             .frame(height: gridHeight)
             .coordinateSpace(name: "launcherGrid")
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { state.launcherGridFrame = $0 }
 
             if showsPageControl {
                 Spacer(minLength: layout.gridToPagerGap)
