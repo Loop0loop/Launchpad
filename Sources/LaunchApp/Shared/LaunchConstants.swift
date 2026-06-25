@@ -165,6 +165,8 @@ enum LaunchConstants {
         static let pageChangeCooldown: TimeInterval = 0.35
         static let folderEntranceScale: CGFloat = 0.85
         static let dragEdgeWidth: CGFloat = 60
+        static let dragMergeZoneScale: CGFloat = 0.30
+        static let dragHoldZoneScale: CGFloat = 0.55
         static let dragMergeDwell: TimeInterval = 0.28
         // First dwell before edge-drag paging fires (LauncherMouseMonitor re-arms slower after).
         static let dragPageScrollInterval: TimeInterval = 0.45
@@ -205,6 +207,7 @@ enum LaunchConstants {
         static let cornerRadius: CGFloat = 44
         static let maxIconSize: CGFloat = 98
         static let labelWidth: CGFloat = 126
+        static let pullOutSlop: CGFloat = 24
 
         // Cell pitch in the folder grid's own coordinate space, for drop->slot mapping.
         static var colPitch: CGFloat { gridItemWidth + gridSpacing }

@@ -64,6 +64,7 @@ final class AppState: ObservableObject {
     @Published var folderReorderingID: String?
     @Published var folderDragInsertionIndex: Int?
     var dragIntent = DragIntent.placing
+    var dragMergeConfirmTask: Task<Void, Never>?
     @Published var launchAtLogin = false
     @Published var hotkeyDisplay = UserDefaults.standard.string(forKey: "settings.hotkeyDisplay") ?? "⌘2" {
         didSet { UserDefaults.standard.set(hotkeyDisplay, forKey: "settings.hotkeyDisplay") }
@@ -185,6 +186,7 @@ final class AppState: ObservableObject {
     var catalogRefreshTask: Task<Void, Never>?
     var searchDebounceTask: Task<Void, Never>?
     /// 드래그 중 폴더 위에 머물 때 0.45s 후 폴더를 자동으로 여는 hover 타이머.
+    var folderHoverTargetID: String?
     var folderHoverOpenTask: Task<Void, Never>?
     var visibleItemsCache: [LauncherItem]?
     var actions = LauncherActions()
@@ -199,6 +201,8 @@ final class AppState: ObservableObject {
 
     deinit {
         catalogRefreshTask?.cancel()
+        dragMergeConfirmTask?.cancel()
+        folderHoverOpenTask?.cancel()
     }
 
     func invalidateVisibleItems() {

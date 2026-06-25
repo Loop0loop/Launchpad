@@ -186,7 +186,6 @@ final class FolderTitleNSTextField: NSTextField {
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKey()
         window?.makeFirstResponder(self)
-        selectText(nil)
         super.mouseDown(with: event)
     }
 }
@@ -243,7 +242,8 @@ struct FolderOverlayAppIcon: View {
     private func isInsideFolderGrid(_ location: CGPoint) -> Bool {
         let size = state.folderGridFrame.size
         guard size.width > 0, size.height > 0 else { return true }
-        return location.x >= 0 && location.y >= 0 && location.x <= size.width && location.y <= size.height
+        let slop = LaunchConstants.FolderOverlay.pullOutSlop
+        return location.x >= -slop && location.y >= -slop && location.x <= size.width + slop && location.y <= size.height + slop
     }
 
     private var iconView: some View {

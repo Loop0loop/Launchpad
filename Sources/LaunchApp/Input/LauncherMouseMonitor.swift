@@ -120,6 +120,12 @@ final class LauncherMouseMonitor {
                     activeEdge = edge
                     edgeHoverTimer?.cancel()
                     edgeHoverTimer = Task {
+                        defer {
+                            if activeEdge == edge {
+                                activeEdge = nil
+                                edgeHoverTimer = nil
+                            }
+                        }
                         var isFirst = true
                         while true {
                             do {

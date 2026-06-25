@@ -69,15 +69,29 @@ extension AppState {
         case .mergeCandidate(let targetID, let since) where targetID == candidate:
             if Date().timeIntervalSince(since) >= LaunchConstants.Launcher.dragMergeDwell {
                 dragIntent = .mergeConfirmed(targetID: candidate)
+                dragHoverTargetID = candidate
             }
         default:
             dragIntent = .mergeCandidate(targetID: candidate, since: Date())
+            dragMergeConfirmTask?.cancel()
+            dragMergeConfirmTask = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64(LaunchConstants.Launcher.dragMergeDwell * 1_000_000_000))
+                guard let self, !Task.isCancelled else { return }
+                guard self.draggingItemID != nil, self.openFolder == nil else { return }
+                if case .mergeCandidate(let targetID, _) = self.dragIntent, targetID == candidate {
+                    self.dragIntent = .mergeConfirmed(targetID: candidate)
+                    self.dragHoverTargetID = candidate
+                }
+            }
         }
     }
 
     func resetDragIntent() {
         dragIntent = .placing
         dragHoverTargetID = nil
+        dragMergeConfirmTask?.cancel()
+        dragMergeConfirmTask = nil
+        folderHoverTargetID = nil
         folderHoverOpenTask?.cancel()
         folderHoverOpenTask = nil
     }
@@ -111,15 +125,20 @@ extension AppState {
     /// 열린 뒤에는 endItemDrag가 폴더 안 슬롯에 드롭을 받는다.
     func maybeOpenFolderOnHover(targetID: String?) {
         guard let targetID, let folder = folders.first(where: { $0.id == targetID }) else {
+            folderHoverTargetID = nil
             folderHoverOpenTask?.cancel()
             folderHoverOpenTask = nil
             return
         }
-        guard openFolder?.id != folder.id, folderHoverOpenTask == nil else { return }
+        guard openFolder?.id != folder.id else { return }
+        guard folderHoverTargetID != folder.id || folderHoverOpenTask == nil else { return }
+        folderHoverTargetID = folder.id
+        folderHoverOpenTask?.cancel()
         folderHoverOpenTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 450_000_000)
             guard let self, !Task.isCancelled else { return }
             guard self.openFolder == nil, self.draggingItemID != nil else { return }
+            guard self.folderHoverTargetID == folder.id else { return }
             self.openFolder = folder
         }
     }
@@ -151,9 +170,6 @@ extension AppState {
             if appByID(dragged) != nil, !folder.appIDs.contains(dragged) {
                 if let slot = folderDropSlot(forCount: folder.appIDs.count) {
                     addApp(dragged, toFolder: folder.id, at: slot)
-                } else if folderGridFrame == .zero {
-                    // 폴더가 막 열려 그리드 frame이 아직 측정되지 않음 → 끝에 추가(무음 드롭 방지).
-                    addApp(dragged, toFolder: folder.id)
                 } else {
                     // 패널 밖에서 놓음 → 취소.
                     closeFolder()
@@ -219,11 +235,17 @@ extension AppState {
             let id = items[index].id
             let cellCenterX = layout.horizontalPadding + CGFloat(col) * pitchX + layout.columnWidth / 2
             let cellCenterY = CGFloat(row) * layout.rowHeight + layout.rowHeight / 2
-            let thresholdX = layout.iconSize * 0.42
-            let thresholdY = layout.iconSize * 0.42
-            let onIcon = abs(location.x - cellCenterX) < thresholdX
-                && abs(location.y - cellCenterY) < thresholdY
-            return GridDropResolution(onIconID: onIcon ? id : nil, slotID: id, targetIndex: targetIndex)
+            let dx = abs(location.x - cellCenterX)
+            let dy = abs(location.y - cellCenterY)
+            let onIcon = dx < layout.iconSize * LaunchConstants.Launcher.dragMergeZoneScale
+                && dy < layout.iconSize * LaunchConstants.Launcher.dragMergeZoneScale
+            let holdsIconInPlace = dx < layout.iconSize * LaunchConstants.Launcher.dragHoldZoneScale
+                && dy < layout.iconSize * LaunchConstants.Launcher.dragHoldZoneScale
+            return GridDropResolution(
+                onIconID: onIcon ? id : nil,
+                slotID: holdsIconInPlace ? nil : id,
+                targetIndex: holdsIconInPlace ? nil : targetIndex
+            )
         } else {
             return GridDropResolution(onIconID: nil, slotID: nil, targetIndex: targetIndex)
         }
