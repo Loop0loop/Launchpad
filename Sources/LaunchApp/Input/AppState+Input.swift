@@ -137,11 +137,14 @@ extension AppState {
     func selectPage(_ page: Int) {
         let nextPage = min(max(page, 0), pageCount - 1)
         guard nextPage != currentPage else { return }
-        LaunchLog.line("select page \(currentPage) -> \(nextPage) pageCount=\(pageCount)")
+        let oldPage = currentPage
+        LaunchLog.line("select page \(oldPage) -> \(nextPage) pageCount=\(pageCount)")
         currentPage = nextPage
         if isDraggingLauncherItem {
             resetDragIntent()
-            dragInsertionIndex = nil
+            dragInsertionIndex = nextPage > oldPage
+                ? nextPage * gridLayout.pageSize
+                : min(visibleItems.count, (nextPage + 1) * gridLayout.pageSize)
         }
         if keyboardSelectionActive {
             selectedItemID = items(forPage: nextPage).first?.id

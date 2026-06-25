@@ -221,6 +221,7 @@ extension AppState {
     func saveOrder(_ order: [String]? = nil) {
         self.order = order ?? visibleItems.map(\.id)
         LayoutStore.saveOrder(self.order)
+        currentPage = min(currentPage, pageCount - 1)
     }
 
     func applyNameSort() {

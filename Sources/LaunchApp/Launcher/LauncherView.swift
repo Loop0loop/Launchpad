@@ -71,7 +71,8 @@ struct LauncherView: View {
                             .zIndex(21)
                     }
 
-                    if state.isDraggingLauncherItem, state.openFolder != nil, let app = state.draggingApp {
+                    let needsDetachedGhost = state.openFolder != nil || state.draggedCellCenter(layout: layout) == nil
+                    if state.isDraggingLauncherItem, needsDetachedGhost, let app = state.draggingApp {
                         let geoGlobal = geometry.frame(in: .global)
                         // launcherGrid 로컬 → ZStack(geo) 로컬 변환 오프셋. 드래그 중 안정적이라 한 번만 계산.
                         let originOffset = CGPoint(

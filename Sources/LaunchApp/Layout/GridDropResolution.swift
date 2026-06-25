@@ -233,19 +233,31 @@ extension AppState {
 
         if index < items.count {
             let id = items[index].id
+            let cellMinX = layout.horizontalPadding + CGFloat(col) * pitchX
             let cellCenterX = layout.horizontalPadding + CGFloat(col) * pitchX + layout.columnWidth / 2
             let cellCenterY = CGFloat(row) * layout.rowHeight + layout.rowHeight / 2
             let dx = abs(location.x - cellCenterX)
             let dy = abs(location.y - cellCenterY)
-            let onIcon = dx < layout.iconSize * LaunchConstants.Launcher.dragMergeZoneScale
-                && dy < layout.iconSize * LaunchConstants.Launcher.dragMergeZoneScale
+            let mergeScale = folders.contains { $0.id == id }
+                ? LaunchConstants.Launcher.dragFolderMergeZoneScale
+                : LaunchConstants.Launcher.dragMergeZoneScale
+            let onIcon = dx < layout.iconSize * mergeScale && dy < layout.iconSize * mergeScale
+            let localX = location.x - cellMinX
+            let insertionBand = layout.columnWidth * LaunchConstants.Launcher.dragInsertionBandRatio
+            let insertionIndex: Int? = if !onIcon && localX < insertionBand {
+                targetIndex
+            } else if !onIcon && localX > layout.columnWidth - insertionBand {
+                targetIndex + 1
+            } else {
+                nil
+            }
             // In the icon row, keep the occupied cell stable so a direct app->app/folder
             // drag can reach the merge zone instead of pushing the target away.
-            let holdsIconInPlace = dy < layout.iconSize * LaunchConstants.Launcher.dragHoldZoneScale
+            let holdsIconInPlace = insertionIndex == nil && dy < layout.iconSize * LaunchConstants.Launcher.dragHoldZoneScale
             return GridDropResolution(
                 onIconID: onIcon ? id : nil,
                 slotID: holdsIconInPlace ? nil : id,
-                targetIndex: holdsIconInPlace ? nil : targetIndex
+                targetIndex: holdsIconInPlace ? nil : insertionIndex ?? targetIndex
             )
         } else {
             return GridDropResolution(onIconID: nil, slotID: nil, targetIndex: targetIndex)

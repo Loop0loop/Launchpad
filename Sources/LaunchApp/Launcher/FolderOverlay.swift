@@ -151,37 +151,6 @@ private struct FolderTitleNSField: NSViewRepresentable {
 final class FolderTitleNSTextField: NSTextField {
     override var acceptsFirstResponder: Bool { true }
 
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard event.modifierFlags.contains(.command),
-              let key = event.charactersIgnoringModifiers?.lowercased() else {
-            return super.performKeyEquivalent(with: event)
-        }
-        switch key {
-        case "a":
-            if let editor = currentEditor() {
-                editor.selectAll(nil)
-            } else {
-                selectText(nil)
-            }
-            return true
-        case "c":
-            return NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: self)
-        case "v":
-            return NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: self)
-        case "x":
-            return NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: self)
-        case "z":
-            if event.modifierFlags.contains(.shift) {
-                currentEditor()?.undoManager?.redo()
-            } else {
-                currentEditor()?.undoManager?.undo()
-            }
-            return true
-        default:
-            return super.performKeyEquivalent(with: event)
-        }
-    }
-
     override func mouseDown(with event: NSEvent) {
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKey()
@@ -196,6 +165,8 @@ struct FolderOverlayAppIcon: View {
     @ObservedObject var state: AppState
     @State private var dragOffset: CGSize = .zero
     @State private var dragPointer: CGPoint?
+    @State private var iconFrame: CGRect = .zero
+    @State private var pullOutStartCenter: CGPoint?
     @State private var isLaunching = false
     @GestureState private var isDragActive = false
 
@@ -239,6 +210,33 @@ struct FolderOverlayAppIcon: View {
         )
     }
 
+    private var folderSlotIndex: Int {
+        state.folders.first { $0.id == folderID }?.appIDs.firstIndex(of: app.id) ?? 0
+    }
+
+    private func folderLocalLocation(from globalLocation: CGPoint) -> CGPoint {
+        CGPoint(
+            x: globalLocation.x - state.folderGridFrame.minX,
+            y: globalLocation.y - state.folderGridFrame.minY
+        )
+    }
+
+    private func pullOutOffset(at globalLocation: CGPoint) -> CGSize {
+        if pullOutStartCenter == nil {
+            if iconFrame != .zero {
+                pullOutStartCenter = CGPoint(x: iconFrame.midX, y: iconFrame.midY)
+            } else {
+                let localCenter = cellCenter(folderSlotIndex)
+                pullOutStartCenter = CGPoint(
+                    x: state.folderGridFrame.minX + localCenter.x,
+                    y: state.folderGridFrame.minY + localCenter.y
+                )
+            }
+        }
+        let center = pullOutStartCenter ?? globalLocation
+        return CGSize(width: globalLocation.x - center.x, height: globalLocation.y - center.y)
+    }
+
     private func isInsideFolderGrid(_ location: CGPoint) -> Bool {
         let size = state.folderGridFrame.size
         guard size.width > 0, size.height > 0 else { return true }
@@ -264,10 +262,11 @@ struct FolderOverlayAppIcon: View {
 
     var body: some View {
         iconView
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { iconFrame = $0 }
             // Reorder: the in-place cell is an invisible gap; a copy floats under the pointer.
-            .offset(isPullingOut ? dragOffset : .zero)
             .scaleEffect(isLaunching ? 1.16 : 1)
             .scaleEffect(isPullingOut ? 1.12 : 1)
+            .offset(isPullingOut ? dragOffset : .zero)
             .opacity(isLaunching ? 0 : (isReordering || (state.folderDragPullingOut && !isPullingOut) ? 0 : 1))
             .overlay {
                 if isReordering {
@@ -291,37 +290,40 @@ struct FolderOverlayAppIcon: View {
             }
             // Inside the folder grid: reorder. Outside it: pull the app back to the root grid.
             .simultaneousGesture(
-                DragGesture(minimumDistance: 8, coordinateSpace: .named("folderGrid"))
+                DragGesture(minimumDistance: 8, coordinateSpace: .global)
                     .updating($isDragActive) { _, dragActiveState, _ in
                         dragActiveState = true
                     }
                     .onChanged { value in
-                        let isPullingOut = state.folderDragPullingOut || !isInsideFolderGrid(value.location)
+                        let localLocation = folderLocalLocation(from: value.location)
+                        let isPullingOut = state.folderDragPullingOut || !isInsideFolderGrid(localLocation)
                         if isPullingOut {
                             state.endFolderReorder()
                             state.folderDragPullingOut = true
-                            dragOffset = value.translation
+                            dragOffset = pullOutOffset(at: value.location)
                             dragPointer = nil
                         } else {
                             state.folderDragPullingOut = false
                             dragOffset = .zero
-                            dragPointer = value.location
-                            state.updateFolderReorder(app.id, toIndex: slotIndex(at: value.location))
+                            dragPointer = localLocation
+                            state.updateFolderReorder(app.id, toIndex: slotIndex(at: localLocation))
                         }
                     }
                     .onEnded { value in
-                        let pulledOut = state.folderDragPullingOut || !isInsideFolderGrid(value.location)
+                        let localLocation = folderLocalLocation(from: value.location)
+                        let pulledOut = state.folderDragPullingOut || !isInsideFolderGrid(localLocation)
                         if pulledOut {
                             LaunchLog.line("folder pull-out app=\(app.id) folder=\(folderID)")
                             state.removeApp(app.id, fromFolder: folderID)
                             state.closeFolder()
                             state.revealItem(app.id)
                         } else {
-                            let index = state.folderDragInsertionIndex ?? slotIndex(at: value.location)
+                            let index = state.folderDragInsertionIndex ?? slotIndex(at: localLocation)
                             state.reorderAppInFolder(app.id, toIndex: index, folderID: folderID)
                         }
                         state.folderDragPullingOut = false
                         state.endFolderReorder()
+                        pullOutStartCenter = nil
                         dragPointer = nil
                         withAnimation(LaunchConstants.Animation.iconLift) { dragOffset = .zero }
                     }
@@ -330,6 +332,7 @@ struct FolderOverlayAppIcon: View {
                 if oldValue && !newValue {
                     state.folderDragPullingOut = false
                     state.endFolderReorder()
+                    pullOutStartCenter = nil
                     dragPointer = nil
                     withAnimation(LaunchConstants.Animation.iconLift) { dragOffset = .zero }
                 }
@@ -337,6 +340,7 @@ struct FolderOverlayAppIcon: View {
             .onDisappear {
                 state.folderDragPullingOut = false
                 state.endFolderReorder()
+                pullOutStartCenter = nil
             }
             .contextMenu {
                 launcherAppContextMenu(app: app, state: state)

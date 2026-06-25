@@ -29,6 +29,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         LaunchLog.app.info("applicationDidFinishLaunching")
         LaunchLog.line("app did finish launching")
         NSApp.setActivationPolicy(.accessory)
+        installMainMenu()
         makeWindow()
         state.refreshAppsAsync(
             priority: state.apps.isEmpty ? .userInitiated : .utility,

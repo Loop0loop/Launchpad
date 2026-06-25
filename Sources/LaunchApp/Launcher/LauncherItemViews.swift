@@ -45,9 +45,9 @@ struct AppIcon: View {
         .scaleEffect(isLanding ? LaunchConstants.Launcher.folderPullOutLandingScale : 1)
         .overlay(keyboardSelectionBackground(isSelected: state.query.isEmpty && state.showsKeyboardSelection(for: app.id)))
         .animation(LaunchConstants.Animation.iconLift, value: isLanding)
-        .onTapGesture {
+        .highPriorityGesture(TapGesture().onEnded {
             state.launch(app)
-        }
+        })
         .onLongPressGesture(minimumDuration: 0.8) {
             LaunchLog.line("AppIcon long press app=\(app.id) -> prompting delete")
             state.moveToTrash(app)
@@ -128,9 +128,9 @@ struct FolderIcon: View {
         .scaleEffect(isNewFolder ? LaunchConstants.Launcher.folderCreationScale : 1)
         .overlay(keyboardSelectionBackground(isSelected: state.query.isEmpty && state.showsKeyboardSelection(for: folder.id)))
         .animation(LaunchConstants.Animation.folder, value: isNewFolder)
-        .onTapGesture {
+        .highPriorityGesture(TapGesture().onEnded {
             state.openFolderFromTap(folder)
-        }
+        })
         .launcherDrag(id: folder.id, state: state, layout: layout, pageOffset: pageOffset)
     }
 }
@@ -173,19 +173,21 @@ struct LauncherDragModifier: ViewModifier {
 
         // The dragged item reserves its preview cell as a gap so the others reflow around it,
         // while a lifted copy is offset to sit under the pointer wherever the gap lands.
-        let floatOffset: CGSize = {
-            guard isDragging, let center = state.draggedCellCenter(layout: layout) else { return .zero }
-            return CGSize(width: drag.location.x - center.x, height: drag.location.y - center.y)
-        }()
+        let draggedCenter = isDragging ? state.draggedCellCenter(layout: layout) : nil
+        let floatOffset = draggedCenter.map {
+            CGSize(width: drag.location.x - $0.x, height: drag.location.y - $0.y)
+        } ?? .zero
 
         return Group {
             if isDragging {
                 ZStack {
                     content.opacity(0)
-                    content
-                        .scaleEffect(1.1)
-                        .opacity(0.95)
-                        .offset(floatOffset)
+                    if draggedCenter != nil {
+                        content
+                            .scaleEffect(1.1)
+                            .opacity(0.95)
+                            .offset(floatOffset)
+                    }
                 }
             } else {
                 content
