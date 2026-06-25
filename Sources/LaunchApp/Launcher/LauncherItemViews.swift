@@ -27,6 +27,7 @@ struct AppIcon: View {
     let loadsIcon: Bool
 
     var body: some View {
+        let isLanding = state.folderPullOutLandingID == app.id
         VStack(spacing: LaunchConstants.Icon.spacing) {
             LoadedIcon(app: app, displaySize: layout.iconSize, loadsImage: loadsIcon)
                 .shadow(color: .black.opacity(0.28), radius: 1.5, y: 1)
@@ -41,7 +42,9 @@ struct AppIcon: View {
         .frame(width: max(layout.iconSize, layout.labelWidth))
         .contentShape(Rectangle())
         .frame(width: layout.columnWidth)
+        .scaleEffect(isLanding ? LaunchConstants.Launcher.folderPullOutLandingScale : 1)
         .overlay(keyboardSelectionBackground(isSelected: state.query.isEmpty && state.showsKeyboardSelection(for: app.id)))
+        .animation(LaunchConstants.Animation.iconLift, value: isLanding)
         .onTapGesture {
             state.launch(app)
         }
@@ -73,6 +76,7 @@ struct FolderIcon: View {
     }
 
     var body: some View {
+        let isNewFolder = state.folderCreationAnimationID == folder.id
         VStack(spacing: LaunchConstants.Icon.spacing) {
             ZStack {
                 // `.clear` 글래스 타일 — 안은 투명, 배경이 비침. 미니 아이콘은 그 위에
@@ -121,7 +125,9 @@ struct FolderIcon: View {
         .frame(width: max(layout.iconSize, layout.labelWidth))
         .contentShape(Rectangle())
         .frame(width: layout.columnWidth)
+        .scaleEffect(isNewFolder ? LaunchConstants.Launcher.folderCreationScale : 1)
         .overlay(keyboardSelectionBackground(isSelected: state.query.isEmpty && state.showsKeyboardSelection(for: folder.id)))
+        .animation(LaunchConstants.Animation.folder, value: isNewFolder)
         .onTapGesture {
             state.openFolderFromTap(folder)
         }

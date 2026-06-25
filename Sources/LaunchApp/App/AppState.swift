@@ -65,6 +65,10 @@ final class AppState: ObservableObject {
     @Published var folderDragInsertionIndex: Int?
     var dragIntent = DragIntent.placing
     var dragMergeConfirmTask: Task<Void, Never>?
+    @Published var folderCreationAnimationID: String?
+    var folderCreationOpenTask: Task<Void, Never>?
+    @Published var folderPullOutLandingID: String?
+    var folderPullOutLandingTask: Task<Void, Never>?
     @Published var launchAtLogin = false
     @Published var hotkeyDisplay = UserDefaults.standard.string(forKey: "settings.hotkeyDisplay") ?? "⌘2" {
         didSet { UserDefaults.standard.set(hotkeyDisplay, forKey: "settings.hotkeyDisplay") }
@@ -203,6 +207,8 @@ final class AppState: ObservableObject {
         catalogRefreshTask?.cancel()
         dragMergeConfirmTask?.cancel()
         folderHoverOpenTask?.cancel()
+        folderCreationOpenTask?.cancel()
+        folderPullOutLandingTask?.cancel()
     }
 
     func invalidateVisibleItems() {

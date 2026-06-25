@@ -85,8 +85,9 @@ extension AppState {
         }
 
         LaunchLog.line("create folder dragged=\(draggedID) target=\(targetID)")
+        let folderID = "folder-\(UUID().uuidString)"
         let result = FolderLayout.createFolder(
-            id: "folder-\(UUID().uuidString)",
+            id: folderID,
             draggedID: draggedID,
             targetID: targetID,
             folders: folders,
@@ -95,7 +96,16 @@ extension AppState {
         folders = result.folders
         LayoutStore.saveFolders(folders)
         saveOrder(result.order)
-        openFolder = folders.last
+        folderCreationAnimationID = folderID
+        folderCreationOpenTask?.cancel()
+        folderCreationOpenTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(LaunchConstants.Launcher.folderCreationOpenDelay * 1_000_000_000))
+            guard let self, !Task.isCancelled else { return }
+            guard self.folderCreationAnimationID == folderID else { return }
+            self.openFolder = self.folders.first { $0.id == folderID }
+            self.folderCreationAnimationID = nil
+            self.folderCreationOpenTask = nil
+        }
     }
 
     func addApp(_ appID: String, toFolder folderID: String, at index: Int? = nil) {
@@ -183,6 +193,25 @@ extension AppState {
         guard let index = visibleItems.firstIndex(where: { $0.id == id }) else { return }
         let page = index / gridLayout.pageSize
         if page != currentPage { currentPage = page }
+        folderPullOutLandingID = id
+        folderPullOutLandingTask?.cancel()
+        folderPullOutLandingTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(LaunchConstants.Launcher.folderPullOutLandingDuration * 1_000_000_000))
+            guard let self, !Task.isCancelled else { return }
+            if self.folderPullOutLandingID == id {
+                self.folderPullOutLandingID = nil
+            }
+            self.folderPullOutLandingTask = nil
+        }
+    }
+
+    func clearFolderTransientAnimations() {
+        folderCreationOpenTask?.cancel()
+        folderCreationOpenTask = nil
+        folderCreationAnimationID = nil
+        folderPullOutLandingTask?.cancel()
+        folderPullOutLandingTask = nil
+        folderPullOutLandingID = nil
     }
 
     func itemName(_ id: String) -> String {

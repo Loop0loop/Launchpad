@@ -47,6 +47,7 @@ final class LauncherLifecycle {
         phase = .showing
         rememberPreviousApp()
         state.query = ""
+        state.clearFolderTransientAnimations()
         state.openFolder = nil
         state.clearSelection()
         state.cancelDrag()
@@ -81,6 +82,7 @@ final class LauncherLifecycle {
             delegate.settingsWindow?.orderOut(nil)
         }
         mouseMonitor?.setEnabled(false)
+        state.clearFolderTransientAnimations()
         state.cancelDrag()
 
         let token = UUID()
@@ -100,6 +102,7 @@ final class LauncherLifecycle {
         transitionToken = UUID()
         phase = .hidden
         mouseMonitor?.setEnabled(false)
+        state.clearFolderTransientAnimations()
         state.cancelDrag()
         completeHide(activatePrevious: false)
     }
@@ -108,6 +111,7 @@ final class LauncherLifecycle {
         AppSystemAdapter.launch(app)
         if window.isVisible {
             mouseMonitor?.setEnabled(false)
+            state.clearFolderTransientAnimations()
             state.cancelDrag()
             let token = UUID()
             transitionToken = token

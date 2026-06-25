@@ -168,6 +168,10 @@ enum LaunchConstants {
         static let dragMergeZoneScale: CGFloat = 0.30
         static let dragHoldZoneScale: CGFloat = 0.55
         static let dragMergeDwell: TimeInterval = 0.28
+        static let folderCreationOpenDelay: TimeInterval = 0.16
+        static let folderCreationScale: CGFloat = 1.10
+        static let folderPullOutLandingScale: CGFloat = 1.08
+        static let folderPullOutLandingDuration: TimeInterval = 0.32
         // First dwell before edge-drag paging fires (LauncherMouseMonitor re-arms slower after).
         static let dragPageScrollInterval: TimeInterval = 0.45
     }
