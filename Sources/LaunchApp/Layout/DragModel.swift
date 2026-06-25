@@ -9,4 +9,6 @@ import CoreGraphics
 final class DragModel: ObservableObject {
     @Published var translation: CGSize = .zero
     @Published var hoverTargetID: String?
+    /// Pointer location in the "launcherGrid" space; the lifted copy tracks this each frame.
+    @Published var location: CGPoint = .zero
 }

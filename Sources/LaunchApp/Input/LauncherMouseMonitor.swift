@@ -183,7 +183,7 @@ final class LauncherMouseMonitor {
         let maxRubber = pageWidth * LaunchConstants.Launcher.pageRubberBandRatio
         if dragStartPage == 0, dragOffset > 0 { dragOffset = min(dragOffset, maxRubber) }
         if dragStartPage == state.pageCount - 1, dragOffset < 0 { dragOffset = max(dragOffset, -maxRubber) }
-        guard abs(dragOffset - state.pageDragOffset) >= 0.75 else { return event }
+        guard abs(dragOffset - state.pageDragOffset) >= LaunchConstants.Launcher.pageDragUpdateStep else { return event }
 
         var transaction = Transaction()
         transaction.animation = nil

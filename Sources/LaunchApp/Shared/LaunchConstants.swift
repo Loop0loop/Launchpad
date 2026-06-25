@@ -171,6 +171,7 @@ enum LaunchConstants {
         static let pageDragThreshold: CGFloat = 60
         static let pageSwipeThresholdRatio: CGFloat = 0.15
         static let pageRubberBandRatio: CGFloat = 0.25
+        static let pageDragUpdateStep: CGFloat = 2
         static let pageChangeCooldown: TimeInterval = 0.35
         static let folderEntranceScale: CGFloat = 0.85
         static let dragEdgeWidth: CGFloat = 60
@@ -179,7 +180,7 @@ enum LaunchConstants {
     }
 
     enum Animation {
-        static let pageSnap = SwiftUI.Animation.interactiveSpring(response: 0.28, dampingFraction: 0.96, blendDuration: 0.03)
+        static let pageSnap = SwiftUI.Animation.interactiveSpring(response: 0.22, dampingFraction: 0.99, blendDuration: 0.02)
         static let folder = SwiftUI.Animation.spring(response: 0.28, dampingFraction: 0.88, blendDuration: 0.04)
         static let iconLift = SwiftUI.Animation.interactiveSpring(response: 0.22, dampingFraction: 0.78, blendDuration: 0.03)
         static let fade = SwiftUI.Animation.easeInOut(duration: 0.18)

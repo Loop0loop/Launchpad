@@ -51,6 +51,9 @@ final class AppState: ObservableObject {
         get { drag.translation }
         set { drag.translation = newValue }
     }
+    /// Live-reflow target slot while dragging a grid icon. Changes only when the pointer
+    /// crosses into a new slot, so the grid rebuilds on slot crossings, not every frame.
+    @Published var dragInsertionIndex: Int?
     @Published var openFolder: LaunchFolder?
     /// True while an app is being dragged past the pull-out threshold inside an open folder:
     /// the folder surface dissolves so only the dragged app stays in hand.

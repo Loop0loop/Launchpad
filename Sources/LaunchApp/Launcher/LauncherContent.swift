@@ -92,6 +92,8 @@ struct PagedGridView: View {
     let pageSize: Int
 
     var body: some View {
+        // While dragging, render the live preview order so the other icons reflow around the gap.
+        let renderItems = state.isDraggingLauncherItem ? state.dragRenderItems : visibleItems
         ZStack(alignment: .topLeading) {
             ForEach(renderedPages, id: \.self) { page in
                 let thisPageOffset = pageOffsetFor(page)
@@ -104,7 +106,7 @@ struct PagedGridView: View {
                     }
 
                     LazyVGrid(columns: columns, spacing: layout.gridRowSpacing) {
-                        ForEach(items(forPage: page, in: visibleItems, pageSize: pageSize)) { item in
+                        ForEach(items(forPage: page, in: renderItems, pageSize: pageSize)) { item in
                             LauncherItemView(item: item, state: state, layout: layout, pageOffset: thisPageOffset)
                         }
                     }
@@ -117,6 +119,7 @@ struct PagedGridView: View {
         .frame(width: pageWidth, alignment: .leading)
         .clipped()
         .animation(LaunchConstants.Animation.pageSnap, value: state.currentPage)
+        .animation(LaunchConstants.Animation.iconLift, value: state.dragInsertionIndex)
         .frame(height: gridHeight)
     }
 

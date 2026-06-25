@@ -144,21 +144,21 @@ struct LauncherDragModifier: ViewModifier {
         let isDragging = state.draggingItemID == id
         let isMergeTarget = drag.hoverTargetID == id
 
-        let translation = isDragging ? CGSize(
-            width: drag.translation.width - pageOffset,
-            height: drag.translation.height
-        ) : .zero
+        // The dragged item reserves its preview cell as a gap so the others reflow around it,
+        // while a lifted copy is offset to sit under the pointer wherever the gap lands.
+        let floatOffset: CGSize = {
+            guard isDragging, let center = state.draggedCellCenter(layout: layout) else { return .zero }
+            return CGSize(width: drag.location.x - center.x, height: drag.location.y - center.y)
+        }()
 
-        // 1C: 드래그 중인 항목은 원래 자리에 어두운 고스트 슬롯을 남기고,
-        // 들어 올려진 반투명 복사본이 포인터를 따라간다(네이티브 Launchpad).
         return Group {
             if isDragging {
                 ZStack {
-                    content.opacity(0.16)
+                    content.opacity(0)
                     content
-                        .scaleEffect(1.12)
+                        .scaleEffect(1.1)
                         .opacity(0.95)
-                        .offset(translation)
+                        .offset(floatOffset)
                 }
             } else {
                 content
@@ -169,7 +169,6 @@ struct LauncherDragModifier: ViewModifier {
         .zIndex(isDragging ? 100 : 0)
             .animation(LaunchConstants.Animation.iconLift, value: isMergeTarget)
             .animation(isDragging ? nil : LaunchConstants.Animation.iconLift, value: isDragging)
-            .animation(isDragging ? nil : LaunchConstants.Animation.iconLift, value: drag.translation)
             .gesture(
                 DragGesture(minimumDistance: 8, coordinateSpace: .named("launcherGrid"))
                     .updating($isDragActive) { _, dragActiveState, _ in
@@ -178,7 +177,7 @@ struct LauncherDragModifier: ViewModifier {
                     .onChanged { value in
                         if state.draggingItemID == nil { state.beginItemDrag(id) }
                         let resolved = state.dropResolution(at: value.location, layout: layout)
-                        state.updateItemDrag(translation: value.translation, hoveredID: resolved.onIconID)
+                        state.updateItemDrag(location: value.location, translation: value.translation, resolution: resolved)
                     }
                     .onEnded { value in
                         let resolved = state.dropResolution(at: value.location, layout: layout)

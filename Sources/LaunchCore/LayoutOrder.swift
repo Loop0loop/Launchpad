@@ -15,5 +15,15 @@ public enum LayoutOrder {
         next.insert(id, at: min(target, next.count))
         return next
     }
+
+    /// Move `id` to an absolute slot. Shared by the live drag preview and the committed
+    /// drop so what the user sees while dragging is exactly where the icon lands.
+    public static func move(_ id: String, toIndex index: Int, in order: [String]) -> [String] {
+        guard let from = order.firstIndex(of: id) else { return order }
+        var next = order
+        next.remove(at: from)
+        next.insert(id, at: min(max(index, 0), next.count))
+        return next
+    }
 }
 

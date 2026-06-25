@@ -28,13 +28,44 @@ extension AppState {
         draggingItemID = id
         dragTranslation = .zero
         dragHoverTargetID = nil
+        dragInsertionIndex = nil
     }
 
-    func updateItemDrag(translation: CGSize, hoveredID: String?) {
+    func updateItemDrag(location: CGPoint, translation: CGSize, resolution: GridDropResolution) {
         guard let dragging = draggingItemID else { return }
+        drag.location = location
         dragTranslation = translation
-        dragHoverTargetID = (hoveredID != nil && hoveredID != dragging) ? hoveredID : nil
-        maybeOpenFolderOnHover(targetID: dragHoverTargetID)
+        let hovered = (resolution.onIconID != nil && resolution.onIconID != dragging) ? resolution.onIconID : nil
+        dragHoverTargetID = hovered
+        maybeOpenFolderOnHover(targetID: hovered)
+        // Reflow only when NOT hovering an icon/folder to merge. Update only on slot change.
+        let nextIndex = hovered == nil ? resolution.targetIndex : nil
+        if nextIndex != dragInsertionIndex { dragInsertionIndex = nextIndex }
+    }
+
+    /// Visible items reordered to the live drag preview (dragged moved to the target slot).
+    /// Identical move rule as the committed drop, so preview == result.
+    var dragRenderItems: [LauncherItem] {
+        let items = visibleItems
+        guard let dragging = draggingItemID, let index = dragInsertionIndex else { return items }
+        let ids = LayoutOrder.move(dragging, toIndex: index, in: items.map(\.id))
+        let byID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
+        return ids.compactMap { byID[$0] }
+    }
+
+    /// Center of the dragged icon's current preview cell, in "launcherGrid" space, so the
+    /// lifted copy can be offset to sit under the pointer regardless of where it reflows to.
+    func draggedCellCenter(layout: LaunchpadLayoutMetrics) -> CGPoint? {
+        guard let dragging = draggingItemID,
+              let global = dragRenderItems.firstIndex(where: { $0.id == dragging }) else { return nil }
+        let idx = global - currentPage * gridLayout.pageSize
+        guard idx >= 0, idx < gridLayout.pageSize else { return nil }
+        let col = idx % layout.columns
+        let row = idx / layout.columns
+        let pitchX = layout.columnWidth + layout.gridColumnSpacing
+        let x = layout.horizontalPadding + CGFloat(col) * pitchX + layout.columnWidth / 2
+        let y = CGFloat(row) * layout.rowHeight + layout.rowHeight / 2
+        return CGPoint(x: x, y: y)
     }
 
     /// 드래그 중 폴더 타일 위에 0.45s 머물면 폴더를 자동으로 연다(네이티브 Launchpad).
@@ -81,16 +112,15 @@ extension AppState {
         guard query.isEmpty else { return }
         let orderIDs = visibleItems.map(\.id)
         guard orderIDs.contains(id) else { return }
-        var next = orderIDs.filter { $0 != id }
-        let insertIndex = min(max(targetIndex, 0), next.count)
-        next.insert(id, at: insertIndex)
-        saveOrder(next)
+        saveOrder(LayoutOrder.move(id, toIndex: targetIndex, in: orderIDs))
     }
 
     func cancelDrag() {
         draggingItemID = nil
         dragHoverTargetID = nil
         dragTranslation = .zero
+        dragInsertionIndex = nil
+        drag.location = .zero
         folderHoverOpenTask?.cancel()
         folderHoverOpenTask = nil
     }
