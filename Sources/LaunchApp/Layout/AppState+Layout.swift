@@ -98,15 +98,16 @@ extension AppState {
         openFolder = folders.last
     }
 
-    func addApp(_ appID: String, toFolder folderID: String) {
+    func addApp(_ appID: String, toFolder folderID: String, at index: Int? = nil) {
         guard query.isEmpty else { return }
         guard folders.allSatisfy({ !$0.appIDs.contains(appID) }) else { return }
-        LaunchLog.line("add app to folder app=\(appID) folder=\(folderID)")
+        LaunchLog.line("add app to folder app=\(appID) folder=\(folderID) at=\(index.map(String.init) ?? "end")")
         let result = FolderLayout.addApp(
             appID: appID,
             toFolderID: folderID,
             folders: folders,
-            order: visibleItems.map(\.id)
+            order: visibleItems.map(\.id),
+            at: index
         )
         folders = result.folders
         LayoutStore.saveFolders(folders)

@@ -87,9 +87,38 @@ extension AppState {
         }
     }
 
+    /// 현재 드래그 포인터가 열린 폴더 그리드의 어느 슬롯을 가리키는지. 폴더 밖이면 nil.
+    func folderDropSlot(forCount count: Int) -> Int? {
+        let loc = drag.location
+        return FolderDropGeometry.slot(
+            pointerX: Double(loc.x), pointerY: Double(loc.y),
+            launcherGridOriginX: Double(launcherGridFrame.minX),
+            launcherGridOriginY: Double(launcherGridFrame.minY),
+            folderGridX: Double(folderGridFrame.minX),
+            folderGridY: Double(folderGridFrame.minY),
+            folderGridWidth: Double(folderGridFrame.width),
+            folderGridHeight: Double(folderGridFrame.height),
+            columns: LaunchConstants.FolderOverlay.columns,
+            colPitch: Double(LaunchConstants.FolderOverlay.colPitch),
+            rowPitch: Double(LaunchConstants.FolderOverlay.rowPitch),
+            count: count
+        )
+    }
+
     func endItemDrag(onIconID: String?, slotID: String?, targetIndex: Int?) {
         defer { cancelDrag() }
-        guard let dragged = draggingItemID, query.isEmpty, openFolder == nil else { return }
+        guard let dragged = draggingItemID, query.isEmpty else { return }
+
+        // Spring-loaded: 폴더가 열린 상태로 드롭 — 포인터가 폴더 안이면 해당 슬롯에 추가, 밖이면 취소.
+        if let folder = openFolder {
+            if appByID(dragged) != nil, !folder.appIDs.contains(dragged),
+               let slot = folderDropSlot(forCount: folder.appIDs.count) {
+                addApp(dragged, toFolder: folder.id, at: slot)
+            } else {
+                closeFolder()
+            }
+            return
+        }
 
         if let target = onIconID, target != dragged {
             let draggedIsApp = appByID(dragged) != nil
