@@ -75,4 +75,20 @@ public enum FolderLayout {
 
         return (nextFolders, nextOrder)
     }
+
+    public static func reorderApp(
+        appID: String,
+        inFolderID folderID: String,
+        folders: [LaunchFolder],
+        toIndex index: Int
+    ) -> [LaunchFolder] {
+        guard let folderIndex = folders.firstIndex(where: { $0.id == folderID }) else { return folders }
+        var nextFolders = folders
+        var ids = nextFolders[folderIndex].appIDs
+        guard let from = ids.firstIndex(of: appID) else { return folders }
+        ids.remove(at: from)
+        ids.insert(appID, at: min(max(index, 0), ids.count))
+        nextFolders[folderIndex].appIDs = ids
+        return nextFolders
+    }
 }

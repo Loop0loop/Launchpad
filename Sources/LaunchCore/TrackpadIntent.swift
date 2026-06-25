@@ -22,6 +22,20 @@ public enum TrackpadIntent: Equatable, Sendable {
         return nil
     }
 
+    public static func pageSwipe(
+        offset: Double,
+        velocity: Double,
+        pageWidth: Double,
+        distanceThreshold: Double = 60,
+        distanceRatio: Double = 0.15,
+        velocityThreshold: Double = 900
+    ) -> TrackpadIntent? {
+        let threshold = max(pageWidth * distanceRatio, distanceThreshold)
+        if offset <= -threshold || velocity <= -velocityThreshold { return .nextPage }
+        if offset >= threshold || velocity >= velocityThreshold { return .previousPage }
+        return nil
+    }
+
     public static func shouldAcceptScrollIntent(eventTime: Double, lastIntentTime: Double, minimumInterval: Double = 0.7) -> Bool {
         eventTime - lastIntentTime > minimumInterval
     }

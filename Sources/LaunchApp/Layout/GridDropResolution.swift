@@ -159,7 +159,7 @@ extension AppState {
         dragTranslation = .zero
         dragInsertionIndex = nil
         drag.location = .zero
-        folderDragPullingOut = false
+        endFolderReorder()
         folderHoverOpenTask?.cancel()
         folderHoverOpenTask = nil
     }

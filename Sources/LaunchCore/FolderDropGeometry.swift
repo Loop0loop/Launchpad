@@ -18,9 +18,11 @@ public enum FolderDropGeometry {
         let localY = globalY - folderGridY
         guard localX >= 0, localY >= 0,
               localX <= folderGridWidth, localY <= folderGridHeight else { return nil }
-        return GridGeometry.cellIndex(
+        let insertionCount = max(count + 1, 1)
+        let index = GridGeometry.cellIndex(
             x: localX, y: localY,
-            columns: columns, colPitch: colPitch, rowPitch: rowPitch, count: count
+            columns: columns, colPitch: colPitch, rowPitch: rowPitch, count: insertionCount
         )
+        return min(index, count)
     }
 }

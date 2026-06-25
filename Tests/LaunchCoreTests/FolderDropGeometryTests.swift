@@ -25,9 +25,12 @@ final class FolderDropGeometryTests: XCTestCase {
         XCTAssertEqual(slot(px: 110, py: 210), 4)
     }
 
-    func testClampedToCount() {
-        // 마지막 행/열 영역 → count-1 로 clamp
-        XCTAssertEqual(slot(px: 490, py: 290), 5)
+    func testLastExistingCell() {
+        XCTAssertEqual(slot(px: 210, py: 210), 5)
+    }
+
+    func testEmptyCellAfterLastAppAppends() {
+        XCTAssertEqual(slot(px: 490, py: 290), 6)
     }
 
     func testOutsideLeftReturnsNil() {

@@ -49,6 +49,7 @@ struct LauncherContent: View {
                     selectPage: state.selectPage
                 )
                 .frame(height: layout.pageControlHeight)
+                .allowsHitTesting(state.openFolder == nil && !state.isDraggingLauncherItem)
             }
 
             Spacer(minLength: layout.safeBottomInset)
@@ -199,6 +200,7 @@ struct LauncherPageControl: View {
                     .contentShape(Rectangle())
                     .animation(LaunchConstants.Animation.fade, value: state.currentPage)
                     .onTapGesture {
+                        guard state.openFolder == nil, !state.isDraggingLauncherItem else { return }
                         LaunchLog.line("page dot tapped page=\(page)")
                         withAnimation(LaunchConstants.Animation.pageSnap) {
                             selectPage(page)

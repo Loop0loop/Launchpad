@@ -42,4 +42,19 @@ final class FolderLayoutTests: XCTestCase {
         XCTAssertFalse(r.order.contains("c"))
         XCTAssertEqual(r.order, ["f1"])
     }
+
+    func testReorderAppWithinFolder() {
+        let r = FolderLayout.reorderApp(appID: "a", inFolderID: "f1", folders: [folder()], toIndex: 1)
+        XCTAssertEqual(r[0].appIDs, ["b", "a"])
+    }
+
+    func testReorderAppClampsToFolderEnd() {
+        let r = FolderLayout.reorderApp(appID: "a", inFolderID: "f1", folders: [folder()], toIndex: 99)
+        XCTAssertEqual(r[0].appIDs, ["b", "a"])
+    }
+
+    func testReorderMissingAppIsNoOp() {
+        let r = FolderLayout.reorderApp(appID: "x", inFolderID: "f1", folders: [folder()], toIndex: 0)
+        XCTAssertEqual(r[0].appIDs, ["a", "b"])
+    }
 }

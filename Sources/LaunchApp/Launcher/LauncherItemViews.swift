@@ -98,6 +98,17 @@ struct FolderIcon: View {
                         )
                     }
                 }
+
+                if apps.count > LaunchConstants.Icon.folderPreviewLimit {
+                    Text("+\(apps.count - LaunchConstants.Icon.folderPreviewLimit)")
+                        .font(.system(size: max(10, layout.iconSize * 0.13), weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(.black.opacity(0.42), in: Capsule())
+                        .frame(width: layout.iconSize, height: layout.iconSize, alignment: .bottomTrailing)
+                        .padding(layout.iconSize * 0.08)
+                }
             }
 
             Text(folder.name)

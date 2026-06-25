@@ -14,6 +14,8 @@ final class LauncherMouseMonitor {
 
     private var tracking = false
     private var dragOffset: CGFloat = 0
+    private var dragVelocityX: CGFloat = 0
+    private var lastDragTime = Date.distantPast
     private var dragStartPage = 0
     private var pageLockedUntil = Date.distantPast
 
@@ -51,6 +53,7 @@ final class LauncherMouseMonitor {
     private func reset() {
         tracking = false
         dragOffset = 0
+        dragVelocityX = 0
         state?.pageDragOffset = 0
         edgeHoverTimer?.cancel()
         edgeHoverTimer = nil
@@ -76,7 +79,7 @@ final class LauncherMouseMonitor {
 
         // Outside-click-to-close is handled by the SwiftUI FolderDimLayer. A hand-rolled
         // panel rect here underestimated the real panel and swallowed clicks on its edges
-        // (title field, edge icons) — breaking folder rename and pull-out. Let the guard
+        // (title field, edge icons) — breaking folder rename/reorder. Let the guard
         // below simply not start page-swipe tracking while a folder is open.
         guard state.openFolder == nil, state.query.isEmpty, state.displayMode == .paged, Date() >= pageLockedUntil else {
             tracking = false
@@ -84,6 +87,8 @@ final class LauncherMouseMonitor {
         }
         tracking = true
         dragOffset = 0
+        dragVelocityX = 0
+        lastDragTime = Date()
         dragStartPage = state.currentPage
         state.pageDragOffset = 0
         return event
@@ -176,6 +181,12 @@ final class LauncherMouseMonitor {
         }
 
         guard tracking else { return event }
+        let now = Date()
+        let dt = now.timeIntervalSince(lastDragTime)
+        if dt > 0 {
+            dragVelocityX = event.deltaX / dt
+        }
+        lastDragTime = now
         dragOffset += event.deltaX
         let pageWidth = window?.frame.width ?? 0
         guard pageWidth > 0 else { return event }
@@ -204,11 +215,10 @@ final class LauncherMouseMonitor {
             return event
         }
 
-        let target = abs(dragOffset) >= LaunchConstants.Launcher.dragMinimumDistance
-            ? targetPage(pageWidth: pageWidth, state: state)
-            : nil
+        let target = targetPage(pageWidth: pageWidth, state: state)
         tracking = false
         dragOffset = 0
+        dragVelocityX = 0
         edgeHoverTimer?.cancel()
         edgeHoverTimer = nil
         activeEdge = nil
@@ -227,13 +237,22 @@ final class LauncherMouseMonitor {
     }
 
     private func targetPage(pageWidth: CGFloat, state: AppState) -> Int? {
-        let threshold = max(pageWidth * LaunchConstants.Launcher.pageSwipeThresholdRatio, LaunchConstants.Launcher.pageDragThreshold)
-        var target = dragStartPage
-        if dragOffset < -threshold {
-            target = min(dragStartPage + 1, state.pageCount - 1)
-        } else if dragOffset > threshold {
-            target = max(dragStartPage - 1, 0)
+        guard abs(dragOffset) >= LaunchConstants.Launcher.dragMinimumDistance else { return nil }
+        switch TrackpadIntent.pageSwipe(
+            offset: Double(dragOffset),
+            velocity: Double(dragVelocityX),
+            pageWidth: Double(pageWidth),
+            distanceThreshold: Double(LaunchConstants.Launcher.pageDragThreshold),
+            distanceRatio: Double(LaunchConstants.Launcher.pageSwipeThresholdRatio)
+        ) {
+        case .nextPage:
+            let target = min(dragStartPage + 1, state.pageCount - 1)
+            return target == dragStartPage ? nil : target
+        case .previousPage:
+            let target = max(dragStartPage - 1, 0)
+            return target == dragStartPage ? nil : target
+        default:
+            return nil
         }
-        return target == dragStartPage ? nil : target
     }
 }

@@ -24,12 +24,8 @@ struct FolderOverlay: View {
 
     @ViewBuilder
     private var folderContent: some View {
-        // Surface (glass/stroke) and title fade out while pulling an app out, so the folder
-        // visibly dissolves and only the dragged icon remains. No clipShape: the dragged icon
-        // must stay visible as it crosses the panel edge.
         folderPanel
-            .background(panelSurface.opacity(state.folderDragPullingOut ? 0 : 1))
-            .animation(LaunchConstants.Animation.fade, value: state.folderDragPullingOut)
+            .background(panelSurface)
             .tahoeFolderPanelChrome()
     }
 
@@ -56,16 +52,18 @@ struct FolderOverlay: View {
             FolderTitleField(name: $folderName, width: panelWidth - LaunchConstants.FolderOverlay.horizontalPadding * 2) {
                 state.renameFolder(folder.id, to: folderName)
             }
-            .opacity(state.folderDragPullingOut ? 0 : 1)
 
             LazyVGrid(columns: columns, spacing: LaunchConstants.FolderOverlay.spacing) {
-                ForEach(state.apps(in: folder)) { app in
+                // 재배열 중에는 옮긴 순서로 렌더해 다른 아이콘이 실시간으로 비켜난다(라이브 reflow).
+                ForEach(state.folderRenderApps(folder)) { app in
                     FolderOverlayAppIcon(app: app, folderID: folder.id, state: state)
                 }
             }
             .frame(maxWidth: .infinity, minHeight: LaunchConstants.FolderOverlay.minGridHeight, alignment: .topLeading)
             .coordinateSpace(name: "folderGrid")
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { state.folderGridFrame = $0 }
+            .animation(LaunchConstants.Animation.iconLift, value: state.folderDragInsertionIndex)
+            .animation(LaunchConstants.Animation.iconLift, value: folder.appIDs)
         }
         .padding(.horizontal, LaunchConstants.FolderOverlay.horizontalPadding)
         .padding(.vertical, LaunchConstants.FolderOverlay.verticalPadding)
@@ -164,13 +162,47 @@ struct FolderOverlayAppIcon: View {
     let app: LaunchApp
     let folderID: String
     @ObservedObject var state: AppState
-    @State private var dragOffset: CGSize = .zero
+    @State private var dragPointer: CGPoint?
+    @State private var isLaunching = false
     @GestureState private var isDragActive = false
 
-    /// Drag distance past which releasing pulls the app out of the folder.
-    private static let pullOutThreshold: CGFloat = 100
+    /// True while this icon is being dragged to reorder within the panel.
+    private var isReordering: Bool {
+        state.folderReorderingID == app.id
+    }
 
-    var body: some View {
+    /// Cell center (folderGrid space) for slot `index`, matching GridGeometry.cellIndex binning.
+    private func cellCenter(_ index: Int) -> CGPoint {
+        let f = LaunchConstants.FolderOverlay.self
+        let col = index % f.columns
+        let row = index / f.columns
+        return CGPoint(
+            x: CGFloat(col) * f.colPitch + f.gridItemWidth / 2,
+            y: CGFloat(row) * f.rowPitch + f.maxIconSize / 2
+        )
+    }
+
+    /// Offset that floats the reorder copy under the pointer, independent of which cell the
+    /// gap reflows to (same trick as the main grid's draggedCellCenter/floatOffset).
+    private var reorderFloatOffset: CGSize {
+        guard let pointer = dragPointer, let index = state.folderDragInsertionIndex else { return .zero }
+        let center = cellCenter(index)
+        return CGSize(width: pointer.x - center.x, height: pointer.y - center.y)
+    }
+
+    private func slotIndex(at location: CGPoint) -> Int {
+        let count = state.folders.first { $0.id == folderID }?.appIDs.count ?? 0
+        return GridGeometry.cellIndex(
+            x: Double(location.x),
+            y: Double(location.y),
+            columns: LaunchConstants.FolderOverlay.columns,
+            colPitch: Double(LaunchConstants.FolderOverlay.colPitch),
+            rowPitch: Double(LaunchConstants.FolderOverlay.rowPitch),
+            count: count
+        )
+    }
+
+    private var iconView: some View {
         VStack(spacing: LaunchConstants.Icon.spacing) {
             LoadedIcon(app: app, displaySize: LaunchConstants.FolderOverlay.maxIconSize, loadsImage: state.launcherVisible)
                 .shadow(color: .black.opacity(0.28), radius: 1.5, y: 1)
@@ -184,69 +216,65 @@ struct FolderOverlayAppIcon: View {
         }
         .frame(width: LaunchConstants.FolderOverlay.gridItemWidth)
         .contentShape(Rectangle())
-        // Other icons fade while one is pulled out; the dragged one stays in hand.
-        .opacity(state.folderDragPullingOut && dragOffset == .zero ? 0 : 1)
-        .offset(dragOffset)
-        .scaleEffect(dragOffset == .zero ? 1 : 1.12)
-        .zIndex(dragOffset == .zero ? 0 : 100)
-        .onTapGesture {
-            state.launch(app)
-        }
-        .onLongPressGesture(minimumDuration: 0.8) {
-            LaunchLog.line("FolderOverlayAppIcon long press app=\(app.id) -> prompting delete")
-            state.moveToTrash(app)
-        }
-        // Drag within the panel reorders; drag far enough out pulls the app back to the grid.
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 8, coordinateSpace: .named("folderGrid"))
-                .updating($isDragActive) { _, dragActiveState, _ in
-                    dragActiveState = true
+    }
+
+    var body: some View {
+        iconView
+            // Reorder: the in-place cell is an invisible gap; a copy floats under the pointer.
+            .scaleEffect(isLaunching ? 1.16 : 1)
+            .opacity(isLaunching ? 0 : (isReordering ? 0 : 1))
+            .overlay {
+                if isReordering {
+                    iconView
+                        .scaleEffect(1.12)
+                        .offset(reorderFloatOffset)
                 }
-                .onChanged { value in
-                    dragOffset = value.translation
-                    // Past the threshold the folder dissolves so the app is "in hand".
-                    state.folderDragPullingOut = hypot(value.translation.width, value.translation.height) > Self.pullOutThreshold
+            }
+            .zIndex(isReordering || isLaunching ? 100 : 0)
+            .onTapGesture {
+                withAnimation(LaunchConstants.Animation.quick) {
+                    isLaunching = true
                 }
-                .onEnded { value in
-                    let pulledOut = hypot(value.translation.width, value.translation.height) > Self.pullOutThreshold
-                    state.folderDragPullingOut = false
-                    if pulledOut {
-                        LaunchLog.line("folder pull-out app=\(app.id) folder=\(folderID)")
-                        state.removeApp(app.id, fromFolder: folderID)
-                        // Close + page to the app so it's visibly dropped back on the grid.
-                        state.closeFolder()
-                        state.revealItem(app.id)
-                    } else {
-                        // Stayed in the panel: drop maps to a slot and reorders.
-                        let count = state.folders.first { $0.id == folderID }?.appIDs.count ?? 0
-                        let index = GridGeometry.cellIndex(
-                            x: Double(value.location.x),
-                            y: Double(value.location.y),
-                            columns: LaunchConstants.FolderOverlay.columns,
-                            colPitch: Double(LaunchConstants.FolderOverlay.colPitch),
-                            rowPitch: Double(LaunchConstants.FolderOverlay.rowPitch),
-                            count: count
-                        )
-                        state.reorderAppInFolder(app.id, toIndex: index, folderID: folderID)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                    state.launch(app)
+                }
+            }
+            .onLongPressGesture(minimumDuration: 0.8) {
+                LaunchLog.line("FolderOverlayAppIcon long press app=\(app.id) -> prompting delete")
+                state.moveToTrash(app)
+            }
+            // Drag within the panel only reorders. Leaving the panel clamps to the nearest slot.
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 8, coordinateSpace: .named("folderGrid"))
+                    .updating($isDragActive) { _, dragActiveState, _ in
+                        dragActiveState = true
                     }
-                    withAnimation(LaunchConstants.Animation.iconLift) { dragOffset = .zero }
+                    .onChanged { value in
+                        dragPointer = value.location
+                        state.updateFolderReorder(app.id, toIndex: slotIndex(at: value.location))
+                    }
+                    .onEnded { value in
+                        let index = state.folderDragInsertionIndex ?? slotIndex(at: value.location)
+                        state.reorderAppInFolder(app.id, toIndex: index, folderID: folderID)
+                        state.endFolderReorder()
+                        dragPointer = nil
+                    }
+            )
+            .onChange(of: isDragActive) { oldValue, newValue in
+                if oldValue && !newValue {
+                    state.endFolderReorder()
+                    dragPointer = nil
                 }
-        )
-        .onChange(of: isDragActive) { oldValue, newValue in
-            if oldValue && !newValue {
-                state.folderDragPullingOut = false
-                withAnimation(LaunchConstants.Animation.iconLift) { dragOffset = .zero }
             }
-        }
-        .onDisappear {
-            state.folderDragPullingOut = false
-        }
-        .contextMenu {
-            launcherAppContextMenu(app: app, state: state)
-            Divider()
-            Button(LaunchConstants.Menu.removeFromFolder) {
-                state.removeApp(app.id, fromFolder: folderID)
+            .onDisappear {
+                state.endFolderReorder()
             }
-        }
+            .contextMenu {
+                launcherAppContextMenu(app: app, state: state)
+                Divider()
+                Button(LaunchConstants.Menu.removeFromFolder) {
+                    state.removeApp(app.id, fromFolder: folderID)
+                }
+            }
     }
 }

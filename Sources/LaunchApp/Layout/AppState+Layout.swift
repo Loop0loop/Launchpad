@@ -128,19 +128,39 @@ extension AppState {
         openFolder = folders.first { $0.id == folderID }
     }
 
+    /// 폴더 내부 드래그 라이브 프리뷰: 재배열 중인 앱을 목표 슬롯으로 옮긴 순서.
+    /// 메인 그리드의 dragRenderItems와 동일 규칙이라 프리뷰 == 드롭 결과.
+    func folderRenderApps(_ folder: LaunchFolder) -> [LaunchApp] {
+        let apps = apps(in: folder)
+        guard let id = folderReorderingID, let index = folderDragInsertionIndex,
+              apps.contains(where: { $0.id == id }) else { return apps }
+        let ids = LayoutOrder.move(id, toIndex: index, in: apps.map(\.id))
+        let byID = Dictionary(uniqueKeysWithValues: apps.map { ($0.id, $0) })
+        return ids.compactMap { byID[$0] }
+    }
+
+    /// 슬롯이 바뀔 때만 갱신(슬롯 가로지름마다 reflow, 매 프레임 아님).
+    func updateFolderReorder(_ appID: String, toIndex index: Int) {
+        if folderReorderingID != appID { folderReorderingID = appID }
+        if folderDragInsertionIndex != index { folderDragInsertionIndex = index }
+    }
+
+    func endFolderReorder() {
+        folderReorderingID = nil
+        folderDragInsertionIndex = nil
+    }
+
     /// Reorder an app within its folder to a target slot. Called once on drop, so it
     /// persists immediately (no transient mid-drag writes).
     func reorderAppInFolder(_ appID: String, toIndex index: Int, folderID: String) {
-        guard let fi = folders.firstIndex(where: { $0.id == folderID }) else { return }
-        var ids = folders[fi].appIDs
-        guard let from = ids.firstIndex(of: appID) else { return }
-        ids.remove(at: from)
-        ids.insert(appID, at: min(max(index, 0), ids.count))
-        guard ids != folders[fi].appIDs else { return }
+        let nextFolders = FolderLayout.reorderApp(appID: appID, inFolderID: folderID, folders: folders, toIndex: index)
+        guard nextFolders != folders else { return }
         LaunchLog.line("folder reorder app=\(appID) -> index=\(index) folder=\(folderID)")
-        folders[fi].appIDs = ids
+        folders = nextFolders
         LayoutStore.saveFolders(folders)
-        if openFolder?.id == folderID { openFolder = folders[fi] }
+        if openFolder?.id == folderID {
+            openFolder = folders.first { $0.id == folderID }
+        }
     }
 
     func renameFolder(_ folderID: String, to name: String) {
