@@ -112,12 +112,6 @@ final class PinchContactMonitor {
         var zDensity: Float
     }
 
-    fileprivate struct TouchPoint {
-        let id: Int32
-        let x: Double
-        let y: Double
-    }
-
     typealias MTDeviceRef = OpaquePointer
     typealias MTDeviceCreateList = @convention(c) () -> Unmanaged<CFArray>
     typealias MTRegisterContactFrameCallback = @convention(c) (MTDeviceRef, ContactCallback) -> Void
@@ -185,18 +179,17 @@ final class PinchContactMonitor {
         return Date().timeIntervalSinceReferenceDate - lastQualifiedTouchTime < 0.45
     }
 
-    fileprivate func process(touches: [TouchPoint], timestamp: Double) {
+    fileprivate func process(touches: [TrackpadTouchSample], timestamp: Double) {
         lock.lock()
         defer { lock.unlock() }
 
         let requiredCount = LaunchConstants.Multitouch.gestureFingerCount
-        guard touches.count >= requiredCount else {
+        guard let selected = TrackpadContactQuality.qualifiedPinchTouches(touches, requiredCount: requiredCount) else {
             _ = gestureSession.updatePinch(radius: nil, timestamp: timestamp)
             return
         }
         lastQualifiedTouchTime = Date().timeIntervalSinceReferenceDate
 
-        let selected = Array(touches.sorted { $0.id < $1.id }.prefix(requiredCount))
         let centerX = selected.map(\.x).reduce(0, +) / Double(selected.count)
         let centerY = selected.map(\.y).reduce(0, +) / Double(selected.count)
         let radius = selected.reduce(0) { total, touch in
@@ -225,10 +218,13 @@ private let contactCallback: PinchContactMonitor.ContactCallback = { _, touchesR
 
     let touchesPointer = UnsafePointer(touchesRawPointer.bindMemory(to: PinchContactMonitor.MTTouch.self, capacity: Int(contactCount)))
     let touches = UnsafeBufferPointer(start: touchesPointer, count: Int(contactCount)).map { touch in
-        PinchContactMonitor.TouchPoint(
+        TrackpadTouchSample(
             id: touch.fingerID,
             x: Double(touch.normalizedVector.position.x),
-            y: Double(touch.normalizedVector.position.y)
+            y: Double(touch.normalizedVector.position.y),
+            majorAxis: Double(touch.majorAxis),
+            minorAxis: Double(touch.minorAxis),
+            zTotal: Double(touch.zTotal)
         )
     }
 

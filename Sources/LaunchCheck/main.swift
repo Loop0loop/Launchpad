@@ -153,6 +153,27 @@ assert(TrackpadIntent.pinchRadius(ratio: 0.89) == .open)
 assert(TrackpadIntent.pinchRadius(ratio: 1.11) == .close)
 assert(TrackpadIntent.pinchRadius(ratio: 1.0) == nil)
 
+let fingerTouches = [
+    TrackpadTouchSample(id: 3, x: 0.1, y: 0.1, majorAxis: 0.12, minorAxis: 0.08),
+    TrackpadTouchSample(id: 1, x: 0.2, y: 0.1, majorAxis: 0.13, minorAxis: 0.08),
+    TrackpadTouchSample(id: 4, x: 0.1, y: 0.2, majorAxis: 0.12, minorAxis: 0.09),
+    TrackpadTouchSample(id: 2, x: 0.2, y: 0.2, majorAxis: 0.13, minorAxis: 0.09)
+]
+assert(TrackpadContactQuality.qualifiedPinchTouches(fingerTouches)?.map(\.id) == [1, 2, 3, 4])
+assert(TrackpadContactQuality.qualifiedPinchTouches(fingerTouches + [
+    TrackpadTouchSample(id: 5, x: 0.3, y: 0.2, majorAxis: 0.11, minorAxis: 0.08)
+]) != nil)
+assert(TrackpadContactQuality.qualifiedPinchTouches(fingerTouches + [
+    TrackpadTouchSample(id: 5, x: 0.3, y: 0.2),
+    TrackpadTouchSample(id: 6, x: 0.4, y: 0.2)
+]) == nil)
+assert(TrackpadContactQuality.qualifiedPinchTouches([
+    TrackpadTouchSample(id: 1, x: 0.1, y: 0.1, majorAxis: 0.45, minorAxis: 0.28),
+    TrackpadTouchSample(id: 2, x: 0.2, y: 0.1, majorAxis: 0.44, minorAxis: 0.27),
+    TrackpadTouchSample(id: 3, x: 0.1, y: 0.2, majorAxis: 0.46, minorAxis: 0.29),
+    TrackpadTouchSample(id: 4, x: 0.2, y: 0.2, majorAxis: 0.43, minorAxis: 0.26)
+]) == nil)
+
 var pinchSession = TrackpadGestureSession()
 assert(pinchSession.updatePinch(radius: 1.0, timestamp: 1.0) == nil)
 assert(pinchSession.updatePinch(radius: 0.89, timestamp: 1.01) == nil)
