@@ -265,11 +265,11 @@ Manual checks:
 - Modify only focused visual files under `Sources/LaunchApp/Launcher`
 - Modify constants in `Sources/LaunchApp/Shared/LaunchConstants.swift` when needed
 
-- [ ] **Step 1: Keep native-feeling surfaces**
+- [x] **Step 1: Keep native-feeling surfaces**
 
 Polish glass, dim layer, folder chrome, icon spacing, and animation timings without changing interaction state.
 
-- [ ] **Step 2: Verify escape paths**
+- [x] **Step 2: Verify escape paths**
 
 Manual checks:
 

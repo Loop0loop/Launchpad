@@ -61,7 +61,7 @@ struct LauncherView: View {
                         .opacity(state.folderDragPullingOut ? 0 : 1)
                         .animation(LaunchConstants.Animation.fade, value: state.folderDragPullingOut)
                         // 드래그 중에는 dim의 탭 제스처가 진행 중인 그리드 드래그를 가로채지 못하게 한다.
-                        .allowsHitTesting(!state.isDraggingLauncherItem)
+                        .allowsHitTesting(!state.isHandlingLauncherDrag)
 
                         FolderOverlay(folder: folder, state: state, availableWidth: geometry.size.width)
                             .transition(

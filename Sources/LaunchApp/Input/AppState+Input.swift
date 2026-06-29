@@ -31,7 +31,7 @@ extension AppState {
             LaunchLog.line("handleEscape ignored launcher not visible")
             return
         }
-        if isDraggingLauncherItem {
+        if isHandlingLauncherDrag {
             cancelDrag()
         } else if isEditingLayout {
             LaunchLog.line("handleEscape stop layout edit mode")
@@ -54,7 +54,7 @@ extension AppState {
             LaunchLog.line("background dismiss ignored launcher not visible")
             return
         }
-        guard !isDraggingLauncherItem else {
+        guard !isHandlingLauncherDrag else {
             LaunchLog.line("background dismiss ignored during drag")
             return
         }
