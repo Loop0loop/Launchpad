@@ -98,7 +98,7 @@ Expected: resolver assertions pass for automatic, 3-finger, 4-finger, 5-finger, 
 - Modify: `Sources/LaunchApp/Input/SystemTrackpadSettings.swift`
 - Modify: `Sources/LaunchApp/AppDelegate/AppDelegate+Input.swift`
 
-- [ ] **Step 1: Write every known Launchpad/Show Desktop pinch key**
+- [x] **Step 1: Write every known Launchpad/Show Desktop pinch key**
 
 For both domains:
 
@@ -116,7 +116,7 @@ com.apple.trackpad.fourFingerPinchSwipeGesture
 com.apple.trackpad.fiveFingerPinchSwipeGesture
 ```
 
-- [ ] **Step 2: Apply settings immediately**
+- [x] **Step 2: Apply settings immediately**
 
 After writing defaults, run Apple's settings activation helper from app code when it exists:
 
@@ -124,7 +124,7 @@ After writing defaults, run Apple's settings activation helper from app code whe
 /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
 ```
 
-- [ ] **Step 3: Verify defaults**
+- [x] **Step 3: Verify defaults**
 
 Run:
 
