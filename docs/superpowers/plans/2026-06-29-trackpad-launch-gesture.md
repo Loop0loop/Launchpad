@@ -208,7 +208,7 @@ Hot corner: Enabled
 - Modify: `Sources/LaunchCore/TrackpadIntent.swift`
 - Modify: `Sources/LaunchCheck/main.swift`
 
-- [ ] **Step 1: Verify full-screen/windowed modes**
+- [x] **Step 1: Verify full-screen/windowed modes**
 
 Manual checks:
 
@@ -216,11 +216,11 @@ Manual checks:
 - Window browsing mode stays normal-level and movable.
 - Page control matches the visible page.
 
-- [ ] **Step 2: Keep page gestures out of icon drag**
+- [x] **Step 2: Keep page gestures out of icon drag**
 
 Horizontal swipe/scroll should page only when no app/folder drag is active.
 
-- [ ] **Step 3: Verify natural paging direction**
+- [x] **Step 3: Verify natural paging direction**
 
 Manual check with trackpad: left/right movement should feel like Apple's Launchpad paging.
 
