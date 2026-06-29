@@ -153,11 +153,14 @@ final class LauncherLifecycle {
     /// https://developer.apple.com/documentation/appkit/nsanimationcontext
     private func runPresentationAnimation(toVisible: Bool, completion: @escaping @MainActor () -> Void) {
         preparePresentationLayer()
-        let endScale = toVisible ? CGFloat(1) : LaunchConstants.Lifecycle.hiddenScale
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        let endScale = reduceMotion ? CGFloat(1) : (toVisible ? CGFloat(1) : LaunchConstants.Lifecycle.hiddenScale)
         let endAlpha = toVisible ? CGFloat(1) : CGFloat(0)
 
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = toVisible ? LaunchConstants.Lifecycle.windowShowDuration : LaunchConstants.Lifecycle.windowHideDuration
+            context.duration = reduceMotion
+                ? LaunchConstants.Lifecycle.reduceMotionDuration
+                : (toVisible ? LaunchConstants.Lifecycle.windowShowDuration : LaunchConstants.Lifecycle.windowHideDuration)
             context.timingFunction = CAMediaTimingFunction(name: toVisible ? .easeOut : .easeIn)
             context.allowsImplicitAnimation = true
             window.animator().alphaValue = endAlpha

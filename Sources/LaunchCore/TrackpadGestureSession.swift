@@ -1,7 +1,13 @@
 public struct TrackpadGestureSession {
     private enum PinchState {
         case idle
-        case tracking(initialRadius: Double, pendingIntent: TrackpadIntent?, lastIntent: TrackpadIntent?)
+        case tracking(
+            initialRadius: Double,
+            initialCenterX: Double?,
+            initialCenterY: Double?,
+            pendingIntent: TrackpadIntent?,
+            lastIntent: TrackpadIntent?
+        )
     }
 
     private var pinchState: PinchState = .idle
@@ -12,11 +18,15 @@ public struct TrackpadGestureSession {
 
     public mutating func updatePinch(
         radius: Double?,
+        centerX: Double? = nil,
+        centerY: Double? = nil,
         timestamp _: Double,
         pinchInThreshold: Double = 0.9,
         pinchOutThreshold: Double = 1.1,
         immediatePinchInThreshold: Double = 0.82,
-        immediatePinchOutThreshold: Double = 1.18
+        immediatePinchOutThreshold: Double = 1.18,
+        minimumPinchCenterTolerance: Double = 0.035,
+        pinchCenterTravelRatio: Double = 1.0
     ) -> TrackpadIntent? {
         guard let radius, radius > 0 else {
             pinchState = .idle
@@ -25,11 +35,23 @@ public struct TrackpadGestureSession {
 
         switch pinchState {
         case .idle:
-            pinchState = .tracking(initialRadius: radius, pendingIntent: nil, lastIntent: nil)
+            pinchState = .tracking(
+                initialRadius: radius,
+                initialCenterX: centerX,
+                initialCenterY: centerY,
+                pendingIntent: nil,
+                lastIntent: nil
+            )
             return nil
-        case .tracking(let initialRadius, let pendingIntent, let lastIntent):
+        case .tracking(let initialRadius, let initialCenterX, let initialCenterY, let pendingIntent, let lastIntent):
             guard initialRadius > 0 else {
-                pinchState = .tracking(initialRadius: radius, pendingIntent: nil, lastIntent: lastIntent)
+                pinchState = .tracking(
+                    initialRadius: radius,
+                    initialCenterX: centerX,
+                    initialCenterY: centerY,
+                    pendingIntent: nil,
+                    lastIntent: lastIntent
+                )
                 return nil
             }
 
@@ -39,27 +61,66 @@ public struct TrackpadGestureSession {
                     pinchInThreshold: pinchInThreshold,
                     pinchOutThreshold: pinchOutThreshold
                   ) else {
-                pinchState = .tracking(initialRadius: initialRadius, pendingIntent: nil, lastIntent: lastIntent)
+                pinchState = .tracking(
+                    initialRadius: initialRadius,
+                    initialCenterX: initialCenterX,
+                    initialCenterY: initialCenterY,
+                    pendingIntent: nil,
+                    lastIntent: lastIntent
+                )
                 return nil
             }
 
             guard intent != lastIntent else {
-                pinchState = .tracking(initialRadius: initialRadius, pendingIntent: nil, lastIntent: lastIntent)
+                pinchState = .tracking(
+                    initialRadius: initialRadius,
+                    initialCenterX: initialCenterX,
+                    initialCenterY: initialCenterY,
+                    pendingIntent: nil,
+                    lastIntent: lastIntent
+                )
                 return nil
+            }
+
+            if let initialCenterX, let initialCenterY, let centerX, let centerY {
+                let radiusDelta = abs(radius - initialRadius)
+                let centerDeltaX = centerX - initialCenterX
+                let centerDeltaY = centerY - initialCenterY
+                let centerTravel = (centerDeltaX * centerDeltaX + centerDeltaY * centerDeltaY).squareRoot()
+                guard centerTravel <= max(minimumPinchCenterTolerance, radiusDelta * pinchCenterTravelRatio) else {
+                    pinchState = .tracking(
+                        initialRadius: initialRadius,
+                        initialCenterX: initialCenterX,
+                        initialCenterY: initialCenterY,
+                        pendingIntent: nil,
+                        lastIntent: lastIntent
+                    )
+                    return nil
+                }
+            }
+
+            func trackingState(pendingIntent: TrackpadIntent?, lastIntent: TrackpadIntent?) -> PinchState {
+                .tracking(
+                    initialRadius: initialRadius,
+                    initialCenterX: initialCenterX,
+                    initialCenterY: initialCenterY,
+                    pendingIntent: pendingIntent,
+                    lastIntent: lastIntent
+                )
             }
 
             let isImmediate = ratio <= immediatePinchInThreshold || ratio >= immediatePinchOutThreshold
             if isImmediate {
-                pinchState = .tracking(initialRadius: initialRadius, pendingIntent: nil, lastIntent: intent)
+                pinchState = trackingState(pendingIntent: nil, lastIntent: intent)
                 return intent
             }
 
             guard pendingIntent == intent else {
-                pinchState = .tracking(initialRadius: initialRadius, pendingIntent: intent, lastIntent: lastIntent)
+                pinchState = trackingState(pendingIntent: intent, lastIntent: lastIntent)
                 return nil
             }
 
-            pinchState = .tracking(initialRadius: initialRadius, pendingIntent: nil, lastIntent: intent)
+            pinchState = trackingState(pendingIntent: nil, lastIntent: intent)
             return intent
         }
     }

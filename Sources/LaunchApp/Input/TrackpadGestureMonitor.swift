@@ -204,6 +204,8 @@ final class PinchContactMonitor {
 
         guard let intent = gestureSession.updatePinch(
             radius: radius,
+            centerX: centerX,
+            centerY: centerY,
             timestamp: timestamp,
             pinchInThreshold: LaunchConstants.Multitouch.pinchInRatio,
             pinchOutThreshold: LaunchConstants.Multitouch.pinchOutRatio

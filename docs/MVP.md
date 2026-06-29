@@ -7,7 +7,7 @@ LaunchOS 느낌의 macOS Launchpad 대체 앱. Pro/결제/라이선스 없음.
 - [x] SwiftPM macOS app scaffold
 - [x] Minimal `.app` bundle builder
 - [x] MVP phase tracker
-- [x] Minimal `LaunchCheck` runnable check
+- [x] Minimal `LaunchpadCheck` runnable check
 
 ## Phase 1 - Launcher Shell
 

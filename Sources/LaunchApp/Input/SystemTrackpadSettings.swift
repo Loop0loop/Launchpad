@@ -13,11 +13,19 @@ enum SystemTrackpadSettings {
         "com.apple.trackpad.fourFingerPinchSwipeGesture",
         "com.apple.trackpad.fiveFingerPinchSwipeGesture"
     ]
+    private static let currentHostLaunchpadGestureDefaults = [
+        "com.apple.trackpad.fourFingerPinchSwipeGesture": 2,
+        "com.apple.trackpad.fiveFingerPinchSwipeGesture": 2
+    ]
 
     static func load() -> SystemTrackpadGestureSettings {
         SystemTrackpadGestureSettings(
-            fourFingerPinchEnabled: bool("TrackpadFourFingerPinchGesture") || bool("com.apple.trackpad.fourFingerPinchSwipeGesture"),
-            fiveFingerPinchEnabled: bool("TrackpadFiveFingerPinchGesture") || bool("com.apple.trackpad.fiveFingerPinchSwipeGesture")
+            fourFingerPinchEnabled: bool("TrackpadFourFingerPinchGesture")
+                || bool("com.apple.trackpad.fourFingerPinchSwipeGesture")
+                || currentHostGlobalInt("com.apple.trackpad.fourFingerPinchSwipeGesture") > 0,
+            fiveFingerPinchEnabled: bool("TrackpadFiveFingerPinchGesture")
+                || bool("com.apple.trackpad.fiveFingerPinchSwipeGesture")
+                || currentHostGlobalInt("com.apple.trackpad.fiveFingerPinchSwipeGesture") > 0
         )
     }
 
@@ -28,6 +36,32 @@ enum SystemTrackpadSettings {
             }
             CFPreferencesAppSynchronize(domain as CFString)
         }
+        for key in currentHostLaunchpadGestureDefaults.keys {
+            writeCurrentHostGlobal(0, key: key)
+        }
+        CFPreferencesSynchronize(
+            kCFPreferencesAnyApplication,
+            kCFPreferencesCurrentUser,
+            kCFPreferencesCurrentHost
+        )
+        applySystemSettings()
+    }
+
+    static func restoreNativeLaunchpadPinch() {
+        for domain in domains {
+            for key in launchpadGestureKeys {
+                write(1, key: key, domain: domain)
+            }
+            CFPreferencesAppSynchronize(domain as CFString)
+        }
+        for (key, value) in currentHostLaunchpadGestureDefaults {
+            writeCurrentHostGlobal(value, key: key)
+        }
+        CFPreferencesSynchronize(
+            kCFPreferencesAnyApplication,
+            kCFPreferencesCurrentUser,
+            kCFPreferencesCurrentHost
+        )
         applySystemSettings()
     }
 
@@ -44,6 +78,26 @@ enum SystemTrackpadSettings {
         CFPreferencesSetAppValue(key as CFString, value as CFNumber, domain as CFString)
     }
 
+    private static func currentHostGlobalInt(_ key: String) -> Int {
+        let value = CFPreferencesCopyValue(
+            key as CFString,
+            kCFPreferencesAnyApplication,
+            kCFPreferencesCurrentUser,
+            kCFPreferencesCurrentHost
+        )
+        return (value as? NSNumber)?.intValue ?? 0
+    }
+
+    private static func writeCurrentHostGlobal(_ value: Int, key: String) {
+        CFPreferencesSetValue(
+            key as CFString,
+            value as CFNumber,
+            kCFPreferencesAnyApplication,
+            kCFPreferencesCurrentUser,
+            kCFPreferencesCurrentHost
+        )
+    }
+
     private static func applySystemSettings() {
         let tool = "/System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings"
         guard FileManager.default.isExecutableFile(atPath: tool) else { return }
@@ -52,5 +106,6 @@ enum SystemTrackpadSettings {
         process.executableURL = URL(fileURLWithPath: tool)
         process.arguments = ["-u"]
         try? process.run()
+        process.waitUntilExit()
     }
 }

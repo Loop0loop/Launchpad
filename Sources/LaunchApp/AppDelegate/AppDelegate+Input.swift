@@ -73,7 +73,11 @@ extension AppDelegate {
     }
 
     private func changePageFromTrackpad(_ delta: Int, intent: TrackpadIntent, ignoredLog: String) {
-        if launcherLifecycle?.isVisible == true, !state.isHandlingLauncherDrag {
+        if launcherLifecycle?.isVisible == true,
+           state.openFolder == nil,
+           state.query.isEmpty,
+           state.displayMode == .paged,
+           !state.isHandlingLauncherDrag {
             let oldPage = state.currentPage
             withAnimation(LaunchConstants.Animation.pageSnap) {
                 state.changePage(delta)

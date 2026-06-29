@@ -68,7 +68,7 @@ open .build/Launchpad.app
 Launch        실행 엔트리
 LaunchApp     AppKit, SwiftUI, 입력, 권한, 설정, 시스템 연동
 LaunchCore    Foundation만 사용하는 순수 규칙
-LaunchCheck   LaunchCore 규칙 검증 실행 파일
+LaunchpadCheck LaunchCore 규칙 검증 실행 파일
 ```
 
 규칙:

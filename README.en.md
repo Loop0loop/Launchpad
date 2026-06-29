@@ -68,7 +68,7 @@ Manual checks:
 Launch        executable entry point
 LaunchApp     AppKit, SwiftUI, input, permissions, settings, system integration
 LaunchCore    pure rules that import Foundation only
-LaunchCheck   executable checks for LaunchCore rules
+LaunchpadCheck executable checks for LaunchCore rules
 ```
 
 Rules:

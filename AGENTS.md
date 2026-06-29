@@ -18,7 +18,8 @@ Current priority bugs:
 
 - Keep `LaunchCore` pure. It should import `Foundation` only.
 - Put pure layout/search/folder/gesture rules in `LaunchCore` and cover
-  meaningful branches with `LaunchCheck` assertions.
+  meaningful branches with `LaunchpadCheck` assertions or focused
+  `LaunchpadCoreTests`.
 - Keep AppKit, SwiftUI, persistence, permissions, and system APIs in
   `LaunchApp`.
 - `AppState` is the single observable UI model. Prefer domain extensions over
@@ -46,17 +47,18 @@ Run these before claiming a fix:
 
 ```sh
 swift build
-swift run LaunchCheck
+swift run LaunchpadCheck
+swift test
 ```
 
-`swift test` currently reports no tests because this package has no test target.
-Use `LaunchCheck` for executable rule checks until a real test target exists.
+Use `LaunchpadCheck` for executable rule checks and `swift test` for the
+`LaunchpadCoreTests` XCTest target.
 
 For UI/gesture changes, also run the app bundle when practical:
 
 ```sh
 Scripts/build-app.sh
-open .build/Launch.app
+open .build/Launchpad.app
 ```
 
 Manual checks for this project:

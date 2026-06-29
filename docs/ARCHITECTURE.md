@@ -7,7 +7,7 @@ The app is intentionally small:
 ```text
 Launch      executable entry only
 LaunchApp   AppKit/SwiftUI app domains
-LaunchCore  pure rules checked by LaunchCheck
+LaunchCore  pure rules checked by LaunchpadCheck and LaunchpadCoreTests
 ```
 
 ## Dependency Rules
@@ -65,7 +65,8 @@ Swift module style:
 - `LaunchFolder` / `FolderLayout`: create folders, add apps, remove apps, dissolve small folders.
 - `TrackpadIntent`: convert raw gesture deltas/ratios into launcher intents.
 
-If a rule has meaningful branches, add a `LaunchCheck` assertion.
+If a rule has meaningful branches, add a `LaunchpadCheck` assertion or a focused
+`LaunchpadCoreTests` case.
 
 ## App State
 
@@ -311,8 +312,9 @@ Move to files only when import/export or backup becomes a user feature.
 Default checks:
 
 ```text
-swift run LaunchCheck
 swift build
+swift run LaunchpadCheck
+swift test
 Scripts/build-app.sh
 swift run Launchpad
 ```

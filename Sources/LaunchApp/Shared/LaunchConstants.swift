@@ -171,8 +171,8 @@ enum LaunchConstants {
         static let dragInsertionBandRatio: CGFloat = 0.18
         static let dragMergeDwell: TimeInterval = 0.28
         static let editModeLongPress: TimeInterval = 0.35
-        static let folderCreationOpenDelay: TimeInterval = 0.16
-        static let folderCreationScale: CGFloat = 1.10
+        static let folderCreationOpenDelay: TimeInterval = 0.24
+        static let folderCreationScale: CGFloat = 1.04
         static let folderPullOutLandingScale: CGFloat = 1.08
         static let folderPullOutLandingDuration: TimeInterval = 0.32
         // First dwell before edge-drag paging fires (LauncherMouseMonitor re-arms slower after).
@@ -224,7 +224,8 @@ enum LaunchConstants {
     enum Lifecycle {
         static let windowShowDuration: TimeInterval = 0.24
         static let windowHideDuration: TimeInterval = 0.18
-        static let hiddenScale: CGFloat = 0.92
+        static let reduceMotionDuration: TimeInterval = 0.12
+        static let hiddenScale: CGFloat = 0.965
     }
 
     enum WindowBrowsing {

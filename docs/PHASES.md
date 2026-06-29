@@ -125,7 +125,7 @@ observers or domain stores.
 
 - Domain-oriented folder layout under `Sources/LaunchApp`.
 - `LaunchCore` pure rules.
-- `LaunchCheck` smoke assertions.
+- `LaunchpadCheck` smoke assertions.
 - Launcher lifecycle object.
 - Menu bar item and right-click menu.
 - Trackpad open/close/page gestures.
@@ -144,14 +144,15 @@ observers or domain stores.
 - Keep one implementation concrete. No protocols until a second implementation exists.
 - Keep system APIs behind `AppDelegate`, `LauncherLifecycle`, or domain adapters.
 - Keep pure rules in `LaunchCore`.
-- Add `LaunchCheck` assertions for new pure behavior.
+- Add `LaunchpadCheck` assertions or focused `LaunchpadCoreTests` for new pure behavior.
 - Run all default checks before calling work done.
 
 Default checks:
 
 ```text
-swift run LaunchCheck
 swift build
+swift run LaunchpadCheck
+swift test
 Scripts/build-app.sh
 swift run Launchpad
 ```
@@ -172,7 +173,7 @@ can be moved across pages. Today a drag is stuck on the page it started on.
 - Single dwell timer (~0.6s) advances/retreats `currentPage`, then re-arms.
 - Cancel the timer when the pointer leaves the band, drops, or the drag cancels.
 - `dropResolution` keeps targeting the now-visible page.
-- Pure edge-band + page-step math lives in `LaunchCore`; assert in `LaunchCheck`.
+- Pure edge-band + page-step math lives in `LaunchCore`; assert in `LaunchpadCheck` or `LaunchpadCoreTests`.
 
 Touches: `Layout/AppState+Layout.swift`, `Launcher/LauncherItemViews.swift`
 (`LauncherDragModifier` already passes pointer location), `LaunchCore`.
@@ -187,7 +188,7 @@ work (`FolderOverlayAppIcon` pull-out, `removeApp(_:fromFolder:)`).
 - Pure reorder rule over `folder.appIDs` in `LaunchCore`.
 - `FolderOverlay` drag updates a preview index while dragging; commit on drop.
 - Keep right-click `Remove from Folder`; keep one-app dissolve.
-- Add `LaunchCheck` assertions for the new pure order rule.
+- Add `LaunchpadCheck` assertions or `LaunchpadCoreTests` for the new pure order rule.
 
 Touches: `Launcher/FolderOverlay.swift`, `Layout/AppState+Layout.swift`, `LaunchCore`.
 
@@ -202,7 +203,7 @@ Goal: page swipe follows the finger and commits by velocity, not distance alone.
 - Rubber-band back to the current page when neither threshold is met.
 - Disable left/right swipe while searching.
 - Pure threshold/velocity decision in `LaunchCore` (extend `TrackpadIntent`);
-  assert in `LaunchCheck`.
+  assert in `LaunchpadCheck` or `LaunchpadCoreTests`.
 
 Touches: `Input/LauncherMouseMonitor.swift`, `Input/TrackpadGestureMonitor.swift`,
 `LaunchCore/TrackpadIntent.swift`.
@@ -259,8 +260,9 @@ Stop condition: no updater work beyond existing Sparkle wiring.
 A phase is done when:
 
 - behavior works manually where UI is involved
-- `swift run LaunchCheck` passes
 - `swift build` passes
+- `swift run LaunchpadCheck` passes
+- `swift test` passes
 - `Scripts/build-app.sh` passes
 - `swift run Launchpad` starts without immediate crash
 - docs are updated when lifecycle or ownership changes

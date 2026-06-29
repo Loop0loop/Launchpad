@@ -172,7 +172,13 @@ assert(TrackpadContactQuality.qualifiedPinchTouches([
     TrackpadTouchSample(id: 2, x: 0.2, y: 0.1, majorAxis: 0.44, minorAxis: 0.27),
     TrackpadTouchSample(id: 3, x: 0.1, y: 0.2, majorAxis: 0.46, minorAxis: 0.29),
     TrackpadTouchSample(id: 4, x: 0.2, y: 0.2, majorAxis: 0.43, minorAxis: 0.26)
-]) == nil)
+])?.map(\.id) == [1, 2, 3, 4])
+assert(TrackpadContactQuality.qualifiedPinchTouches([
+    TrackpadTouchSample(id: 1, x: 0.1, y: 0.1, majorAxis: 7.51, minorAxis: 6.40),
+    TrackpadTouchSample(id: 2, x: 0.2, y: 0.1, majorAxis: 9.57, minorAxis: 7.22),
+    TrackpadTouchSample(id: 3, x: 0.1, y: 0.2, majorAxis: 8.10, minorAxis: 6.80),
+    TrackpadTouchSample(id: 4, x: 0.2, y: 0.2, majorAxis: 8.90, minorAxis: 7.00)
+])?.map(\.id) == [1, 2, 3, 4])
 
 let noSystemPinch = SystemTrackpadGestureSettings(fourFingerPinchEnabled: false, fiveFingerPinchEnabled: false)
 let systemFourPinch = SystemTrackpadGestureSettings(fourFingerPinchEnabled: true, fiveFingerPinchEnabled: false)
@@ -208,6 +214,16 @@ assert(largePinchSession.updatePinch(radius: 0.78, timestamp: 3.01) == .open)
 assert(largePinchSession.updatePinch(radius: 0.70, timestamp: 3.02) == nil)
 assert(largePinchSession.updatePinch(radius: 1.11, timestamp: 3.03) == nil)
 assert(largePinchSession.updatePinch(radius: 1.12, timestamp: 3.04) == .close)
+
+var centeredPinchSession = TrackpadGestureSession()
+assert(centeredPinchSession.updatePinch(radius: 1.0, centerX: 0.50, centerY: 0.50, timestamp: 4.0) == nil)
+assert(centeredPinchSession.updatePinch(radius: 0.89, centerX: 0.51, centerY: 0.50, timestamp: 4.01) == nil)
+assert(centeredPinchSession.updatePinch(radius: 0.88, centerX: 0.51, centerY: 0.50, timestamp: 4.02) == .open)
+
+var translatedPinchSession = TrackpadGestureSession()
+assert(translatedPinchSession.updatePinch(radius: 1.0, centerX: 0.50, centerY: 0.50, timestamp: 5.0) == nil)
+assert(translatedPinchSession.updatePinch(radius: 0.89, centerX: 0.64, centerY: 0.50, timestamp: 5.01) == nil)
+assert(translatedPinchSession.updatePinch(radius: 0.88, centerX: 0.68, centerY: 0.50, timestamp: 5.02) == nil)
 
 var scrollSession = TrackpadGestureSession()
 assert(scrollSession.updateHorizontalScroll(deltaX: -10, deltaY: 3) == nil)

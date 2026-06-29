@@ -276,7 +276,8 @@ struct LauncherDragModifier: ViewModifier {
                 }
             } else {
                 content
-                    .scaleEffect(isMergeTarget ? 1.16 : 1)
+                    .scaleEffect(isMergeTarget ? 1.04 : 1)
+                    .brightness(isMergeTarget ? 0.04 : 0)
                     .opacity(1)
             }
         }

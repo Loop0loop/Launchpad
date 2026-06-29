@@ -16,7 +16,8 @@ Required checks:
 
 ```text
 swift build
-swift run LaunchCheck
+swift run LaunchpadCheck
+swift test
 Scripts/build-app.sh
 swift run Launchpad
 ```
@@ -39,8 +40,9 @@ swift run Launchpad
 Required checks:
 
 ```text
-swift run LaunchCheck
 swift build
+swift run LaunchpadCheck
+swift test
 manual launcher interaction
 ```
 
@@ -53,8 +55,9 @@ manual launcher interaction
 Required checks:
 
 ```text
-swift run LaunchCheck
 swift build
+swift run LaunchpadCheck
+swift test
 manual restart when persistence changed
 ```
 
@@ -103,7 +106,7 @@ Use these when reviewing code:
 - Avoid protocol layers until there are two real implementations.
 - Avoid force casts and `try!`.
 - Guard private API usage with public fallback.
-- Add one `LaunchCheck` assertion for new pure behavior.
+- Add one `LaunchpadCheck` assertion or `LaunchpadCoreTests` case for new pure behavior.
 - Keep production Swift files under 300 lines. When a file grows beyond that,
   split by domain before adding more behavior.
 - Use Swift-style domain entry files, not barrel/export files. `main.swift`

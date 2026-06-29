@@ -20,16 +20,9 @@ public enum TrackpadContactQuality {
     public static func qualifiedPinchTouches(
         _ touches: [TrackpadTouchSample],
         requiredCount: Int = 4,
-        maxContactCount: Int = 5,
-        maxMajorAxis: Double = 0.28,
-        maxMinorAxis: Double = 0.20
+        maxContactCount: Int = 5
     ) -> [TrackpadTouchSample]? {
         guard touches.count >= requiredCount, touches.count <= maxContactCount else { return nil }
-        let selected = Array(touches.sorted { $0.id < $1.id }.prefix(requiredCount))
-        guard selected.allSatisfy({
-            ($0.majorAxis <= 0 || $0.majorAxis <= maxMajorAxis)
-                && ($0.minorAxis <= 0 || $0.minorAxis <= maxMinorAxis)
-        }) else { return nil }
-        return selected
+        return Array(touches.sorted { $0.id < $1.id }.prefix(requiredCount))
     }
 }
