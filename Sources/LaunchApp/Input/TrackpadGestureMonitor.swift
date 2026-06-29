@@ -10,14 +10,17 @@ final class TrackpadGestureMonitor {
     private var lastPinchIntentTime: TimeInterval = 0
 
     func start(
+        requiredFingerCounts: [Int],
         onGateStatus: @escaping @MainActor (Bool) -> Void,
         onIntent: @escaping @MainActor (TrackpadIntent) -> Void
     ) {
         guard monitors.isEmpty else {
+            pinchMonitor.requiredFingerCounts = requiredFingerCounts
             onGateStatus(pinchMonitor.isReady)
             return
         }
         LaunchLog.line("trackpad monitor start")
+        pinchMonitor.requiredFingerCounts = requiredFingerCounts
         pinchMonitor.start { intent in
             let now = Date().timeIntervalSinceReferenceDate
             guard now - self.lastPinchIntentTime >= LaunchConstants.Multitouch.lifecycleBounceCooldown else { return }
@@ -125,6 +128,7 @@ final class PinchContactMonitor {
     private var lastQualifiedTouchTime: TimeInterval = 0
     private var onPinch: (@MainActor (TrackpadIntent) -> Void)?
     nonisolated(unsafe) fileprivate static var current: PinchContactMonitor?
+    var requiredFingerCounts = [LaunchConstants.Multitouch.defaultGestureFingerCount]
 
     private var _isReady = false
     var isReady: Bool {
@@ -183,8 +187,10 @@ final class PinchContactMonitor {
         lock.lock()
         defer { lock.unlock() }
 
-        let requiredCount = LaunchConstants.Multitouch.gestureFingerCount
-        guard let selected = TrackpadContactQuality.qualifiedPinchTouches(touches, requiredCount: requiredCount) else {
+        guard let selected = requiredFingerCounts
+            .sorted(by: >)
+            .compactMap({ TrackpadContactQuality.qualifiedPinchTouches(touches, requiredCount: $0) })
+            .first else {
             _ = gestureSession.updatePinch(radius: nil, timestamp: timestamp)
             return
         }

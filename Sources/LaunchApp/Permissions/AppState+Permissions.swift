@@ -1,3 +1,5 @@
+import LaunchpadCore
+
 extension AppState {
     func refreshLoginItemStatus() {
         launchAtLogin = LoginItemAdapter.isEnabled
@@ -32,8 +34,12 @@ extension AppState {
         accessibilityState = accessibilityTrusted ? .allowed : .needsApproval
     }
 
-    func setTrackpadGateActive(_ isActive: Bool) {
-        trackpadGateState = isActive ? .exactPinch : .fallbackPinch
+    func setTrackpadGateActive(_ isActive: Bool, conflicted: Bool = false) {
+        trackpadGateState = isActive && !conflicted ? .exactPinch : .fallbackPinch
+    }
+
+    func applyResolvedTrackpadGesture(_ resolved: ResolvedTrackpadGesture) {
+        trackpadGateState = resolved.conflicted ? .fallbackPinch : trackpadGateState
     }
 
     func setGlobalHotKeyActive(_ isActive: Bool) {

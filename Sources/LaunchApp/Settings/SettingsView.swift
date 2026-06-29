@@ -1,4 +1,5 @@
 import AppKit
+import LaunchpadCore
 import SwiftUI
 
 /// Tabbed settings panel (General / Interface / Apps / Advanced / About), liquid-glass styled.
@@ -76,9 +77,11 @@ struct SettingsView: View {
 
                 SettingsRow(title: Localized.t("트랙패드 동작", "Trackpad Action")) {
                     Picker("", selection: $state.trackpadSetting) {
-                        Text(Localized.t("손가락 4개 또는 5개로 핀치", "Pinch with 4 or 5 fingers")).tag("Pinch with 4 or 5 fingers")
-                        Text(Localized.t("손가락 3개로 쓸어넘기기", "Swipe with 3 fingers")).tag("Swipe with 3 fingers")
-                        Text(Localized.t("비활성화", "Disabled")).tag("Disabled")
+                        Text(Localized.t("자동", "Automatic")).tag(TrackpadGestureResolver.automatic)
+                        Text(Localized.t("손가락 3개로 핀치", "Pinch with 3 fingers")).tag(TrackpadGestureResolver.pinch3)
+                        Text(Localized.t("손가락 4개로 핀치", "Pinch with 4 fingers")).tag(TrackpadGestureResolver.pinch4)
+                        Text(Localized.t("손가락 5개로 핀치", "Pinch with 5 fingers")).tag(TrackpadGestureResolver.pinch5)
+                        Text(Localized.t("비활성화", "Disabled")).tag(TrackpadGestureResolver.disabled)
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)

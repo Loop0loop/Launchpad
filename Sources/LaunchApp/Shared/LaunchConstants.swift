@@ -254,7 +254,7 @@ enum LaunchConstants {
         static let createListSymbol = "MTDeviceCreateList"
         static let registerContactFrameCallbackSymbol = "MTRegisterContactFrameCallback"
         static let deviceStartSymbol = "MTDeviceStart"
-        static let gestureFingerCount = 4
+        static let defaultGestureFingerCount = 4
         static let pinchInRatio = 0.9
         static let pinchOutRatio = 1.1
         static let triggerCooldown: Double = 0.65

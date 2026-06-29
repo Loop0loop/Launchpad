@@ -5,17 +5,32 @@ import SwiftUI
 extension AppDelegate {
     func startTrackpadMonitor() {
         LaunchLog.line("start trackpad monitor")
-        guard state.trackpadSetting != "Disabled" else {
+        let resolvedGesture = TrackpadGestureResolver.resolve(
+            preferred: state.trackpadSetting,
+            system: SystemTrackpadSettings.load()
+        )
+        LaunchLog.line(
+            "trackpad resolved setting=\(resolvedGesture.setting) fingers=\(resolvedGesture.fingerCounts.map(String.init).joined(separator: ",")) conflicted=\(resolvedGesture.conflicted) reserveNativePinch=\(resolvedGesture.shouldReserveNativePinch)"
+        )
+        if resolvedGesture.shouldReserveNativePinch {
+            SystemTrackpadSettings.reserveNativeLaunchpadPinch()
+            LaunchLog.line("trackpad reserved native Launchpad pinch")
+        }
+        state.applyResolvedTrackpadGesture(resolvedGesture)
+        guard !resolvedGesture.fingerCounts.isEmpty else {
             trackpadMonitor.stop()
             state.setTrackpadGateActive(false)
             return
         }
-        trackpadMonitor.start { [weak self] isActive in
+        trackpadMonitor.start(requiredFingerCounts: resolvedGesture.fingerCounts) { [weak self] isActive in
             LaunchLog.line("trackpad gate active=\(isActive)")
-            self?.state.setTrackpadGateActive(isActive)
+            self?.state.setTrackpadGateActive(isActive, conflicted: resolvedGesture.conflicted)
         } onIntent: { [weak self] intent in
             guard let self else { return }
-            guard state.trackpadSetting != "Disabled" else { return }
+            guard TrackpadGestureResolver.resolve(
+                preferred: state.trackpadSetting,
+                system: SystemTrackpadSettings.load()
+            ).fingerCounts.isEmpty == false else { return }
             // Settings floats above the launcher, so trackpad gestures still open it.
             let now = Date()
             guard now >= trackpadIntentLockedUntil else {
@@ -84,7 +99,9 @@ extension AppDelegate {
     }
 
     func startHotCornerMonitor() {
+        LaunchLog.line("start hot corner monitor corner=\(state.hotCornerSetting)")
         hotCornerMonitor.start(corner: state.hotCornerSetting) { [weak self] in
+            LaunchLog.line("hot corner show")
             self?.launcherLifecycle?.show()
         }
     }

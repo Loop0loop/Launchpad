@@ -81,7 +81,7 @@ final class AppState: ObservableObject {
             actions.applyInputSettings()
         }
     }
-    @Published var trackpadSetting = UserDefaults.standard.string(forKey: "settings.trackpadSetting") ?? "Pinch with 4 or 5 fingers" {
+    @Published var trackpadSetting = UserDefaults.standard.string(forKey: "settings.trackpadSetting") ?? TrackpadGestureResolver.automatic {
         didSet {
             UserDefaults.standard.set(trackpadSetting, forKey: "settings.trackpadSetting")
             actions.applyInputSettings()
