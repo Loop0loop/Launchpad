@@ -102,4 +102,30 @@ final class GridDropGeometryTests: XCTestCase {
 
         XCTAssertEqual(result.onIconID, "c")
     }
+
+    func testIconRowBetweenIconsCreatesInsertionGap() {
+        let result = GridDropGeometry.resolve(
+            itemIDs: ["a", "b"],
+            page: 0,
+            pageSize: 35,
+            pointerX: 100,
+            pointerY: 40,
+            columns: 7,
+            rows: 5,
+            horizontalPadding: 0,
+            columnWidth: 128,
+            rowHeight: 170,
+            iconSize: 80,
+            labelHeight: 34,
+            iconLabelSpacing: 8,
+            dragMergeZoneScale: 0.4,
+            dragFolderMergeZoneScale: 0.52,
+            dragInsertionBandRatio: 0.42,
+            dragHoldZoneScale: 0.8,
+            folderIDs: []
+        )
+
+        XCTAssertNil(result.onIconID)
+        XCTAssertEqual(result.targetIndex, 1)
+    }
 }

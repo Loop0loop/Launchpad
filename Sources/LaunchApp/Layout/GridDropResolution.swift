@@ -244,9 +244,7 @@ extension AppState {
 
     /// Maps the dragged icon center (in the `"launcherGrid"` coordinate space) to the item under it.
     func dropResolution(at iconCenter: CGPoint, layout: LaunchpadLayoutMetrics) -> GridDropResolution {
-        let items = draggingItemID.map { dragging in
-            visibleItems.filter { $0.id != dragging }
-        } ?? visibleItems
+        let items = isDraggingLauncherItem ? dragRenderItems : visibleItems
         let pageItems = Array(items.dropFirst(currentPage * gridLayout.pageSize).prefix(gridLayout.pageSize))
         let biasedIconCenter = CGPoint(
             x: iconCenter.x,
