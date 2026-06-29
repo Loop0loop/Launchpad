@@ -290,12 +290,18 @@ struct LauncherDragModifier: ViewModifier {
                         dragActiveState = true
                     }
                     .onChanged { value in
-                        if state.draggingItemID == nil { state.beginItemDrag(id) }
-                        let resolved = state.dropResolution(at: value.location, layout: layout)
-                        state.updateItemDrag(location: value.location, translation: value.translation, resolution: resolved)
+                        let startLocation = pageLocal(value.startLocation)
+                        let location = pageLocal(value.location)
+                        if state.draggingItemID == nil {
+                            state.beginItemDrag(id, at: startLocation, layout: layout)
+                        }
+                        let iconCenter = state.drag.iconCenter(for: location)
+                        let resolved = state.dropResolution(at: iconCenter, layout: layout)
+                        state.updateItemDrag(pointerLocation: location, translation: value.translation, resolution: resolved)
                     }
                     .onEnded { value in
-                        let resolved = state.dropResolution(at: value.location, layout: layout)
+                        let iconCenter = state.drag.iconCenter(for: pageLocal(value.location))
+                        let resolved = state.dropResolution(at: iconCenter, layout: layout)
                         state.endItemDrag(onIconID: resolved.onIconID, slotID: resolved.slotID, targetIndex: resolved.targetIndex)
                     }
             )
@@ -307,6 +313,10 @@ struct LauncherDragModifier: ViewModifier {
                     }
                 }
             }
+    }
+
+    private func pageLocal(_ point: CGPoint) -> CGPoint {
+        CGPoint(x: point.x - pageOffset, y: point.y)
     }
 }
 

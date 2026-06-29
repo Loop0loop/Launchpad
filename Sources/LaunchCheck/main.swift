@@ -63,6 +63,7 @@ assert(LayoutOrder.move("c", before: "b", in: ["a", "b", "c"]) == ["a", "c", "b"
 assert(LayoutOrder.move("a", toIndex: 2, in: ["a", "b", "c"]) == ["b", "c", "a"])
 assert(LayoutOrder.move("c", toIndex: 0, in: ["a", "b", "c"]) == ["c", "a", "b"])
 assert(LayoutOrder.move("b", toIndex: 99, in: ["a", "b", "c"]) == ["a", "c", "b"])
+assert(LayoutOrder.move("a", toIndex: 1, in: ["a", "b", "c", "d"]) == ["b", "a", "c", "d"])
 assert(AppSearch.rankedApps(searchApps, matching: "ca").map(\.name) == ["Café", "Camera"])
 assert(AppSearch.rankedApps(searchApps, matching: "notes").map(\.name) == ["Notes"])
 assert(AppSearch.rankedApps(searchApps, matching: "example.camera").map(\.name) == ["Camera"])

@@ -50,20 +50,26 @@ extension AppState {
         return visibleItems.first { $0.id == draggingItemID }
     }
 
-    func beginItemDrag(_ id: String) {
+    func beginItemDrag(_ id: String, at pointerLocation: CGPoint, layout: LaunchpadLayoutMetrics) {
         guard query.isEmpty, openFolder == nil else { return }
         stopEditingLayout()
         draggingItemID = id
         dragTranslation = .zero
         resetDragIntent()
         dragInsertionIndex = nil
+        let iconCenter = draggedCellCenter(layout: layout) ?? pointerLocation
+        drag.pointerToIconCenterOffset = CGSize(
+            width: iconCenter.x - pointerLocation.x,
+            height: iconCenter.y - pointerLocation.y
+        )
+        drag.location = iconCenter
     }
 
-    func updateItemDrag(location: CGPoint, translation: CGSize, resolution: GridDropResolution) {
+    func updateItemDrag(pointerLocation: CGPoint, translation: CGSize, resolution: GridDropResolution) {
         guard let dragging = draggingItemID else { return }
-        drag.location = location
+        drag.location = drag.iconCenter(for: pointerLocation)
         dragTranslation = translation
-        // 폴더가 열린 상태(spring-loaded 드롭 중)에는 포인터만 추적한다. 그리드 reflow 불필요.
+        // 폴더가 열린 상태(spring-loaded 드롭 중)에는 아이콘 중심만 추적한다. 그리드 reflow 불필요.
         if openFolder != nil { return }
         let canMerge = appByID(dragging) != nil
         let candidate = canMerge && resolution.onIconID != dragging ? resolution.onIconID : nil
@@ -133,7 +139,7 @@ extension AppState {
         let row = idx / layout.columns
         let pitchX = layout.columnWidth + layout.gridColumnSpacing
         let x = layout.horizontalPadding + CGFloat(col) * pitchX + layout.columnWidth / 2
-        let y = CGFloat(row) * layout.rowHeight + layout.rowHeight / 2
+        let y = CGFloat(row) * layout.gridRowPitch + layout.iconSize / 2
         return CGPoint(x: x, y: y)
     }
 
@@ -159,7 +165,7 @@ extension AppState {
         }
     }
 
-    /// 현재 드래그 포인터가 열린 폴더 그리드의 어느 슬롯을 가리키는지. 폴더 밖이면 nil.
+    /// 현재 드래그 아이콘 중심이 열린 폴더 그리드의 어느 슬롯을 가리키는지. 폴더 밖이면 nil.
     func folderDropSlot(forCount count: Int) -> Int? {
         let loc = drag.location
         return FolderDropGeometry.slot(
@@ -181,7 +187,7 @@ extension AppState {
         defer { cancelDrag() }
         guard let dragged = draggingItemID, query.isEmpty else { return }
 
-        // Spring-loaded: 폴더가 열린 상태로 드롭 — 포인터가 폴더 안이면 해당 슬롯에 추가, 밖이면 취소.
+        // Spring-loaded: 폴더가 열린 상태로 드롭 — 아이콘 중심이 폴더 안이면 해당 슬롯에 추가, 밖이면 취소.
         if let folder = openFolder {
             if appByID(dragged) != nil, !folder.appIDs.contains(dragged) {
                 if let slot = folderDropSlot(forCount: folder.appIDs.count) {
@@ -197,7 +203,7 @@ extension AppState {
         }
 
         let draggedIsApp = appByID(dragged) != nil
-        let mergeTarget = dragIntent.confirmedMergeTargetID
+        let mergeTarget = dragIntent.confirmedMergeTargetID ?? onIconID
         if draggedIsApp, let target = mergeTarget, target != dragged {
             if appByID(target) != nil {
                 createFolder(draggedID: dragged, targetID: target)
@@ -230,56 +236,43 @@ extension AppState {
         dragInsertionIndex = nil
         pageDragOffset = 0
         drag.location = .zero
+        drag.pointerToIconCenterOffset = .zero
         folderDragPullingOut = false
         folderPullOutAppID = nil
         endFolderReorder()
     }
 
-    /// Maps a pointer location (in the `"launcherGrid"` coordinate space) to the item under it.
-    func dropResolution(at location: CGPoint, layout: LaunchpadLayoutMetrics) -> GridDropResolution {
-        let items = items(forPage: currentPage)
-        guard location.y >= 0 else { return GridDropResolution(onIconID: nil, slotID: nil, targetIndex: nil) }
-        let pitchX = layout.columnWidth + layout.gridColumnSpacing
-        let x = location.x - layout.horizontalPadding
-        guard x >= 0 else { return GridDropResolution(onIconID: nil, slotID: nil, targetIndex: nil) }
-        let col = Int(x / pitchX)
-        let row = Int(location.y / layout.rowHeight)
-        guard col >= 0, col < layout.columns, row >= 0, row < layout.rows else {
-            return GridDropResolution(onIconID: nil, slotID: nil, targetIndex: nil)
-        }
-        let index = row * layout.columns + col
-        let targetIndex = currentPage * gridLayout.pageSize + index
-
-        if index < items.count {
-            let id = items[index].id
-            let cellMinX = layout.horizontalPadding + CGFloat(col) * pitchX
-            let cellCenterX = layout.horizontalPadding + CGFloat(col) * pitchX + layout.columnWidth / 2
-            let cellCenterY = CGFloat(row) * layout.rowHeight + layout.rowHeight / 2
-            let dx = abs(location.x - cellCenterX)
-            let dy = abs(location.y - cellCenterY)
-            let mergeScale = folders.contains { $0.id == id }
-                ? LaunchConstants.Launcher.dragFolderMergeZoneScale
-                : LaunchConstants.Launcher.dragMergeZoneScale
-            let localX = location.x - cellMinX
-            let insertionBand = layout.columnWidth * LaunchConstants.Launcher.dragInsertionBandRatio
-            let onIcon = dx < layout.iconSize * mergeScale && dy < layout.iconSize * mergeScale
-            let insertionIndex: Int? = if !onIcon && localX < insertionBand {
-                targetIndex
-            } else if !onIcon && localX > layout.columnWidth - insertionBand {
-                targetIndex + 1
-            } else {
-                nil
-            }
-            // In the icon row, keep the occupied cell stable so a direct app->app/folder
-            // drag can reach the merge zone instead of pushing the target away.
-            let holdsIconInPlace = insertionIndex == nil && dy < layout.iconSize * LaunchConstants.Launcher.dragHoldZoneScale
-            return GridDropResolution(
-                onIconID: onIcon ? id : nil,
-                slotID: holdsIconInPlace ? nil : id,
-                targetIndex: holdsIconInPlace ? nil : insertionIndex ?? targetIndex
-            )
-        } else {
-            return GridDropResolution(onIconID: nil, slotID: nil, targetIndex: targetIndex)
-        }
+    /// Maps the dragged icon center (in the `"launcherGrid"` coordinate space) to the item under it.
+    func dropResolution(at iconCenter: CGPoint, layout: LaunchpadLayoutMetrics) -> GridDropResolution {
+        let items = draggingItemID.map { dragging in
+            visibleItems.filter { $0.id != dragging }
+        } ?? visibleItems
+        let pageItems = Array(items.dropFirst(currentPage * gridLayout.pageSize).prefix(gridLayout.pageSize))
+        let biasedIconCenter = CGPoint(
+            x: iconCenter.x,
+            y: iconCenter.y - LaunchConstants.Launcher.dragDropLowerBias
+        )
+        let target = GridDropGeometry.resolve(
+            itemIDs: pageItems.map(\.id),
+            page: currentPage,
+            pageSize: gridLayout.pageSize,
+            pointerX: Double(biasedIconCenter.x),
+            pointerY: Double(biasedIconCenter.y),
+            columns: layout.columns,
+            rows: layout.rows,
+            horizontalPadding: Double(layout.horizontalPadding),
+            columnWidth: Double(layout.columnWidth),
+            rowHeight: Double(layout.gridRowPitch),
+            iconSize: Double(layout.iconSize),
+            labelHeight: Double(LaunchConstants.Icon.labelHeight),
+            iconLabelSpacing: Double(LaunchConstants.Icon.spacing),
+            gridColumnSpacing: Double(layout.gridColumnSpacing),
+            dragMergeZoneScale: Double(LaunchConstants.Launcher.dragMergeZoneScale),
+            dragFolderMergeZoneScale: Double(LaunchConstants.Launcher.dragFolderMergeZoneScale),
+            dragInsertionBandRatio: Double(LaunchConstants.Launcher.dragInsertionBandRatio),
+            dragHoldZoneScale: Double(LaunchConstants.Launcher.dragHoldZoneScale),
+            folderIDs: Set(folders.map(\.id))
+        )
+        return GridDropResolution(onIconID: target.onIconID, slotID: target.slotID, targetIndex: target.targetIndex)
     }
 }

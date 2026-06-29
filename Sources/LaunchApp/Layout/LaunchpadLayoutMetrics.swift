@@ -77,6 +77,10 @@ struct LaunchpadLayoutMetrics {
         max(LaunchConstants.Launcher.minGridRowSpacing, rowHeight - iconSize - LaunchConstants.Icon.labelHeight - LaunchConstants.Icon.spacing)
     }
 
+    var gridRowPitch: CGFloat {
+        iconSize + LaunchConstants.Icon.spacing + LaunchConstants.Icon.labelHeight + gridRowSpacing
+    }
+
     var labelWidth: CGFloat {
         min(columnWidth - 4, LaunchConstants.Icon.maxLabelWidth)
     }

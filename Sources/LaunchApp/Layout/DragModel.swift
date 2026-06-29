@@ -9,8 +9,17 @@ import CoreGraphics
 final class DragModel: ObservableObject {
     @Published var translation: CGSize = .zero
     @Published var hoverTargetID: String?
-    /// Pointer location in the "launcherGrid" space; the lifted copy tracks this each frame.
+    /// Icon-center location in the "launcherGrid" space; the lifted copy tracks this each frame.
     @Published var location: CGPoint = .zero
+    /// Offset from the pointer to the dragged icon center, captured at drag start.
+    var pointerToIconCenterOffset: CGSize = .zero
     /// Horizontal page-swipe offset; changes every drag tick.
     @Published var pageOffset: CGFloat = 0
+
+    func iconCenter(for pointerLocation: CGPoint) -> CGPoint {
+        CGPoint(
+            x: pointerLocation.x + pointerToIconCenterOffset.width,
+            y: pointerLocation.y + pointerToIconCenterOffset.height
+        )
+    }
 }
