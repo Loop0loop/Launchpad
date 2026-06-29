@@ -237,15 +237,15 @@ Manual check with trackpad: left/right movement should feel like Apple's Launchp
 - Modify: `Sources/LaunchApp/Launcher/LauncherItemViews.swift`
 - Modify: `Sources/LaunchCheck/main.swift`
 
-- [ ] **Step 1: Separate drag states**
+- [x] **Step 1: Separate drag states**
 
 Keep app drag, folder drag, folder creation, folder add/remove, page drag, and click launch as separate transient states.
 
-- [ ] **Step 2: Clear visual ghost state**
+- [x] **Step 2: Clear visual ghost state**
 
 Clear faded/hidden icon state on cancel, failed drop, successful drop, launcher hide, and any new non-drag mouse down.
 
-- [ ] **Step 3: Verify folder operations**
+- [x] **Step 3: Verify folder operations**
 
 Manual checks:
 

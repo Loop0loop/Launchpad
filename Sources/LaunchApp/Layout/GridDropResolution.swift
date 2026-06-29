@@ -228,6 +228,7 @@ extension AppState {
         resetDragIntent()
         dragTranslation = .zero
         dragInsertionIndex = nil
+        pageDragOffset = 0
         drag.location = .zero
         folderDragPullingOut = false
         folderPullOutAppID = nil

@@ -72,7 +72,7 @@ final class LauncherMouseMonitor {
     }
 
     private func down(_ event: NSEvent, _ state: AppState) -> NSEvent? {
-        if state.isDraggingLauncherItem {
+        if state.isHandlingLauncherDrag {
             LaunchLog.line("LauncherMouseMonitor down: cancelling active/stale drag")
             state.cancelDrag()
         }

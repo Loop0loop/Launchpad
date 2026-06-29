@@ -284,6 +284,9 @@ struct FolderOverlayAppIcon: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
                     state.launch(app)
                 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                    isLaunching = false
+                }
             }
             .simultaneousGesture(
                 LongPressGesture(minimumDuration: 0.18, maximumDistance: 18)
