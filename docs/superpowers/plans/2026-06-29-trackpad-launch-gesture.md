@@ -37,7 +37,7 @@
 - Modify: `docs/superpowers/plans/2026-06-29-trackpad-launch-gesture.md`
 - Inspect only: `Sources/LaunchApp/App/AppState.swift`, `Sources/LaunchApp/Input/SystemInputMonitors.swift`, `Sources/LaunchApp/Input/TrackpadGestureMonitor.swift`, `Sources/LaunchApp/AppDelegate/AppDelegate+Input.swift`
 
-- [ ] **Step 1: Document activation priorities**
+- [x] **Step 1: Document activation priorities**
 
 Use this product contract:
 
@@ -46,7 +46,7 @@ Use this product contract:
 3. Trackpad gesture is enabled when available, but 4/5-finger native pinch is allowed only if Apple's Launchpad/Show Desktop gesture has been reserved or disabled.
 4. 3-finger pinch is the supported fallback when macOS refuses to release 4/5-finger pinch.
 
-- [ ] **Step 2: Keep scope narrow**
+- [x] **Step 2: Keep scope narrow**
 
 Do not redesign folders, grid layout, or visuals in the same change as trackpad activation. Those are separate quality phases below.
 
