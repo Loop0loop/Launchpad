@@ -14,7 +14,7 @@ Launchpad is a native macOS app launcher for macOS 26. It aims to bring back the
 - Drop app onto app to create folders
 - Add, remove, reorder, and rename apps inside folders
 - Page dots, mouse drag paging, and trackpad swipe paging
-- 4/5-finger trackpad pinch/spread open and close
+- Automatic or 3/4/5-finger trackpad pinch/spread open and close
 - F4 key, global hotkey, menu bar item, and hot corner support
 - Native Launchpad layout import
 - Grid, appearance, and app source settings

@@ -36,13 +36,17 @@ LaunchOS 느낌의 macOS Launchpad 대체 앱. Pro/결제/라이선스 없음.
 - [x] Glass folder overlay
 - [x] Launch apps inside folder
 
-## Phase 5 - Trackpad
+## Phase 5 - Trackpad And Activation
 
-- [x] 4-finger pinch open via MultitouchSupport-gated macOS pinch event
+- [x] Automatic plus 3/4/5-finger pinch open via MultitouchSupport-gated macOS pinch event
 - [x] Spread close
 - [x] Horizontal swipe page navigation
+- [x] F4/global hotkey and hot corner fallbacks
 
-Note: exact 4-finger gating uses private MultitouchSupport contact counts, with a public `NSEvent` pinch fallback when unavailable.
+Note: exact finger-count gating uses private MultitouchSupport contact counts,
+with a public `NSEvent` pinch fallback when unavailable. 4/5-finger modes try
+to reserve Apple's native Launchpad pinch; 3-finger mode remains the supported
+fallback when macOS keeps those gestures.
 
 ## Phase 6 - Polish
 
@@ -66,7 +70,7 @@ Run: `Scripts/build-app.sh`, then open `.build/Launchpad.app`.
 - [x] Quick right-click menu
 - [x] Custom app sources
 - [x] Customizable grid layout
-- [x] Hot corners (top-left MVP)
+- [x] Hot corners
 - [x] Drag apps to Dock
 - [x] Import native Launchpad layout
 - [x] Vertical scroll view

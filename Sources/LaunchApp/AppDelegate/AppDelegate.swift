@@ -48,10 +48,6 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         state.refreshLoginItemStatus()
     }
 
-    public func applicationWillTerminate(_ notification: Notification) {
-        SystemTrackpadSettings.restoreNativeLaunchpadPinch()
-    }
-
     public func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         SystemTrackpadSettings.restoreNativeLaunchpadPinch()
         return .terminateNow

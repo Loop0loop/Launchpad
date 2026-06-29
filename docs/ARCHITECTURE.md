@@ -199,6 +199,7 @@ Input is split by source:
 
 - `GlobalHotKeyAdapter`: Carbon global hot keys.
 - `HotCornerMonitor`: pointer polling.
+- `TrackpadGestureResolver`: resolves Automatic, 3/4/5-finger, and Disabled modes against system gesture conflicts.
 - `TrackpadGestureMonitor`: local/global AppKit gesture monitors plus optional private multitouch contact counts.
 - `LauncherMouseMonitor`: launcher-only empty-space page drag. Icon drag is SwiftUI gesture state.
 - `AppDelegate.handleLauncherKey`: keyboard navigation and type-to-search.
