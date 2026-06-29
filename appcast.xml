@@ -5,11 +5,11 @@
     <link>https://github.com/Loop0loop/Launchpad</link>
     <description>Launchpad app updates.</description>
     <item>
-      <title>Launchpad 0.3.2</title>
-      <sparkle:version>23</sparkle:version>
-      <sparkle:shortVersionString>0.3.2</sparkle:shortVersionString>
-      <pubDate>Mon, 29 Jun 2026 04:18:41 +0000</pubDate>
-      <enclosure url="https://github.com/Loop0loop/Launchpad/releases/download/v0.3.2/Launchpad-0.3.2.dmg" sparkle:edSignature="Zq2LwGYW4d3uH1RCJta/CtfyAdKrEWvFs6LEPFoTPXhfk6e8qoZEps0bqcVrLJ+DsbkirtNcLsF2Sv8Cci4CAg==" length="3778856" type="application/octet-stream" />
+      <title>Launchpad 0.3.5</title>
+      <sparkle:version>26</sparkle:version>
+      <sparkle:shortVersionString>0.3.5</sparkle:shortVersionString>
+      <pubDate>Mon, 29 Jun 2026 09:02:32 +0000</pubDate>
+      <enclosure url="https://github.com/Loop0loop/Launchpad/releases/download/v0.3.5/Launchpad-0.3.5.dmg" sparkle:edSignature="XtNkT12U1PPsT5IRbWmSA72UZ+uWx6iOzrgoih/gYEBPpFltiSKnUME4Pxkcu/4JMj2AyilFWBiOvkSOwX4eBw==" length="3782056" type="application/octet-stream" />
     </item>
   </channel>
 </rss>
