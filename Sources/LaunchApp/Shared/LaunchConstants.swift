@@ -169,7 +169,7 @@ enum LaunchConstants {
         static let dragFolderMergeZoneScale: CGFloat = 0.52
         static let dragHoldZoneScale: CGFloat = 0.80
         static let dragInsertionBandRatio: CGFloat = 0.42
-        static let dragDropLowerBias: CGFloat = 0
+        static let dragDropLowerBias: CGFloat = 18
         static let dragMergeDwell: TimeInterval = 0.28
         static let editModeLongPress: TimeInterval = 0.35
         static let folderCreationOpenDelay: TimeInterval = 0.24
@@ -239,10 +239,16 @@ enum LaunchConstants {
         static let signature: OSType = 0x4C6E6368
         static let toggleID: UInt32 = 1
         static let f4ID: UInt32 = 2
-        static let toggleKeyCode: UInt32 = UInt32(kVK_Space)
-        static let toggleModifiers: UInt32 = UInt32(controlKey | optionKey)
+        static let toggleKeyCode: UInt32 = UInt32(kVK_ANSI_2)
+        static let toggleModifiers: UInt32 = UInt32(cmdKey)
         static let f4KeyCode: UInt32 = UInt32(kVK_F4)
         static let f4Modifiers: UInt32 = 0
+        static let cgSystemDefinedEventType: UInt32 = 14
+        static let systemDefinedKeySubtype = 8
+        static let systemKeyDownState = 10
+        static let launchPanelSystemKeyType = 13
+        static let menuSystemKeyType = 25
+        static let f4SystemKeyTypes = [launchPanelSystemKeyType, menuSystemKeyType]
     }
 
     enum HotCorner {

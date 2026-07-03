@@ -101,9 +101,13 @@ extension AppDelegate {
             LaunchLog.line("f4 hotkey toggle")
             self?.launcherLifecycle?.toggle()
         }
-        LaunchLog.line("global hotkey status toggle=\(status.toggle) f4=\(status.f4)")
+        let f4TapActive = f4KeyTap.start(enabled: state.systemF4KeyEnabled) { [weak self] in
+            LaunchLog.line("f4 tap toggle")
+            self?.launcherLifecycle?.toggle()
+        }
+        LaunchLog.line("global hotkey status toggle=\(status.toggle) f4=\(status.f4) f4Tap=\(f4TapActive)")
         state.setGlobalHotKeyActive(status.toggle)
-        state.setF4KeyActive(status.f4)
+        state.setF4KeyActive(status.f4 || f4TapActive)
     }
 
     func startHotCornerMonitor() {

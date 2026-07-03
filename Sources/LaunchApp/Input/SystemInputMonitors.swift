@@ -110,6 +110,87 @@ final class GlobalHotKeyAdapter {
     }
 }
 
+final class F4KeyTapMonitor {
+    private var tap: CFMachPort?
+    private var source: CFRunLoopSource?
+    private var action: (@MainActor () -> Void)?
+
+    func start(enabled: Bool, action: @escaping @MainActor () -> Void) -> Bool {
+        stop()
+        guard enabled else { return false }
+        self.action = action
+        let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
+            | CGEventMask(1 << CGEventType.keyUp.rawValue)
+            | CGEventMask(1 << LaunchConstants.HotKey.cgSystemDefinedEventType)
+        let userData = Unmanaged.passUnretained(self).toOpaque()
+        guard let tap = CGEvent.tapCreate(
+            tap: .cghidEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: mask,
+            callback: F4KeyTapMonitor.handleEvent,
+            userInfo: userData
+        ) else {
+            self.action = nil
+            return false
+        }
+        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+        self.tap = tap
+        self.source = source
+        return true
+    }
+
+    func stop() {
+        if let source {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+        }
+        if let tap {
+            CFMachPortInvalidate(tap)
+        }
+        source = nil
+        tap = nil
+        action = nil
+    }
+
+    private func f4Event(_ type: CGEventType, event: CGEvent) -> (isF4: Bool, isDown: Bool) {
+        if type == .keyDown || type == .keyUp {
+            return (
+                event.getIntegerValueField(.keyboardEventKeycode) == Int64(LaunchConstants.HotKey.f4KeyCode),
+                type == .keyDown
+            )
+        }
+        guard type.rawValue == LaunchConstants.HotKey.cgSystemDefinedEventType,
+              let nsEvent = NSEvent(cgEvent: event),
+              nsEvent.subtype.rawValue == LaunchConstants.HotKey.systemDefinedKeySubtype else { return (false, false) }
+        let keyCode = (nsEvent.data1 & 0xFFFF_0000) >> 16
+        let keyState = (nsEvent.data1 & 0x0000_FF00) >> 8
+        return (
+            LaunchConstants.HotKey.f4SystemKeyTypes.contains(keyCode),
+            keyState == LaunchConstants.HotKey.systemKeyDownState
+        )
+    }
+
+    private static let handleEvent: CGEventTapCallBack = { _, type, event, userInfo in
+        guard let userInfo else { return Unmanaged.passUnretained(event) }
+        let monitor = Unmanaged<F4KeyTapMonitor>.fromOpaque(userInfo).takeUnretainedValue()
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let tap = monitor.tap {
+                CGEvent.tapEnable(tap: tap, enable: true)
+            }
+            return Unmanaged.passUnretained(event)
+        }
+        let f4 = monitor.f4Event(type, event: event)
+        guard f4.isF4 else { return Unmanaged.passUnretained(event) }
+        if f4.isDown {
+            let action = monitor.action
+            Task { @MainActor in action?() }
+        }
+        return nil
+    }
+}
+
 @MainActor
 final class HotCornerMonitor {
     private var timer: Timer?

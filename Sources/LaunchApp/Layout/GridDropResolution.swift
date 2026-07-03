@@ -248,7 +248,7 @@ extension AppState {
         let pageItems = Array(items.dropFirst(currentPage * gridLayout.pageSize).prefix(gridLayout.pageSize))
         let biasedIconCenter = CGPoint(
             x: iconCenter.x,
-            y: iconCenter.y - LaunchConstants.Launcher.dragDropLowerBias
+            y: iconCenter.y + LaunchConstants.Launcher.dragDropLowerBias
         )
         let target = GridDropGeometry.resolve(
             itemIDs: pageItems.map(\.id),

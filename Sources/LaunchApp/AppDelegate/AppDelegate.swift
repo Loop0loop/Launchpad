@@ -7,6 +7,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     let iconCache = IconCache()
     let trackpadMonitor = TrackpadGestureMonitor()
     let globalHotKey = GlobalHotKeyAdapter()
+    let f4KeyTap = F4KeyTapMonitor()
     let hotCornerMonitor = HotCornerMonitor()
     let launcherMouseMonitor = LauncherMouseMonitor()
     let updater = AppUpdater()
