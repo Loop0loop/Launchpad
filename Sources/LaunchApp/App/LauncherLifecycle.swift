@@ -150,7 +150,7 @@ final class LauncherLifecycle {
             context.duration = reduceMotion
                 ? LaunchConstants.Lifecycle.reduceMotionDuration
                 : (toVisible ? LaunchConstants.Lifecycle.windowShowDuration : LaunchConstants.Lifecycle.windowHideDuration)
-            context.timingFunction = CAMediaTimingFunction(name: toVisible ? .easeOut : .easeIn)
+            context.timingFunction = CAMediaTimingFunction(name: toVisible ? .easeInEaseOut : .easeIn)
             context.allowsImplicitAnimation = true
             window.animator().alphaValue = endAlpha
             setPresentationScale(endScale)

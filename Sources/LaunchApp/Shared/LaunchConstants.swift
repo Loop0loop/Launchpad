@@ -168,7 +168,7 @@ enum LaunchConstants {
         static let pageRubberBandRatio: CGFloat = 0.25
         static let pageDragUpdateStep: CGFloat = 2
         static let pageChangeCooldown: TimeInterval = 0.35
-        static let folderEntranceScale: CGFloat = 0.85
+        static let folderEntranceScale: CGFloat = 0.90
         static let dragEdgeWidth: CGFloat = 60
         static let dragMergeZoneScale: CGFloat = 0.40
         static let dragFolderMergeZoneScale: CGFloat = 0.52
@@ -185,11 +185,11 @@ enum LaunchConstants {
     }
 
     enum Animation {
-        static let pageSnap = SwiftUI.Animation.interactiveSpring(response: 0.22, dampingFraction: 0.99, blendDuration: 0.02)
-        static let folder = SwiftUI.Animation.spring(response: 0.28, dampingFraction: 0.88, blendDuration: 0.04)
-        static let iconLift = SwiftUI.Animation.interactiveSpring(response: 0.22, dampingFraction: 0.78, blendDuration: 0.03)
-        static let fade = SwiftUI.Animation.easeInOut(duration: 0.18)
-        static let quick = SwiftUI.Animation.easeOut(duration: 0.14)
+        static let pageSnap = SwiftUI.Animation.interactiveSpring(response: 0.26, dampingFraction: 0.96, blendDuration: 0.02)
+        static let folder = SwiftUI.Animation.spring(response: 0.32, dampingFraction: 0.86, blendDuration: 0.04)
+        static let iconLift = SwiftUI.Animation.interactiveSpring(response: 0.26, dampingFraction: 0.82, blendDuration: 0.03)
+        static let fade = SwiftUI.Animation.easeInOut(duration: 0.20)
+        static let quick = SwiftUI.Animation.easeOut(duration: 0.16)
     }
 
     enum Icon {
@@ -227,10 +227,10 @@ enum LaunchConstants {
     }
 
     enum Lifecycle {
-        static let windowShowDuration: TimeInterval = 0.24
-        static let windowHideDuration: TimeInterval = 0.18
+        static let windowShowDuration: TimeInterval = 0.28
+        static let windowHideDuration: TimeInterval = 0.20
         static let reduceMotionDuration: TimeInterval = 0.12
-        static let hiddenScale: CGFloat = 0.965
+        static let hiddenScale: CGFloat = 0.94
     }
 
     enum WindowBrowsing {

@@ -119,10 +119,11 @@ git commit -m "feat: continuous trackpad pinch progress for open/close"
 - Touch lightly: `LauncherLifecycle.swift` only if needed for progress-aligned curves
 - Avoid growing `FolderOverlay.swift` unless trivial
 
-- [ ] **Step 1: Tune springs; verify drag opacity restore**
-- [ ] **Step 2: Final gate + commit**
+- [x] **Step 1: Tune springs; verify drag opacity restore**
+- [x] **Step 2: Final gate + commit**
 
 ```sh
+swift build && swift run LaunchpadCheck
 git commit -m "polish: tune launcher presentation and icon lift motion"
 ```
 
