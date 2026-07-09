@@ -60,6 +60,7 @@ final class LauncherLifecycle {
         // Focus (and the active search chrome) only when the user clicks the field.
         state.searchFocus.shouldFocusOnShow = false
         applyWindowBrowsingMode()
+        state.refreshAppsAsyncIfStale()
 
         preparePresentationLayer()
         setPresentationScale(LaunchConstants.Lifecycle.hiddenScale)

@@ -121,6 +121,11 @@ enum LaunchConstants {
         static let catalogAppsKey = "catalogApps"
     }
 
+    enum Catalog {
+        /// Minimum gap between automatic show-time catalog rescans.
+        static let showRefreshMinInterval: TimeInterval = 3
+    }
+
     enum Launcher {
         static var searchPlaceholder: String { Localized.t("App 검색", "Search Applications") }
         static let columns = 7

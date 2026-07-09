@@ -24,8 +24,19 @@ extension AppState {
                 }
             }.value
             guard !Task.isCancelled else { return }
+            lastCatalogRefreshAt = Date()
             applyScannedApps(scanned)
         }
+    }
+
+    /// Show-time / background entry: skip if a scan finished recently.
+    func refreshAppsAsyncIfStale(
+        minInterval: TimeInterval = LaunchConstants.Catalog.showRefreshMinInterval,
+        priority: TaskPriority = .utility,
+        delay: TimeInterval = 0.25
+    ) {
+        guard Date().timeIntervalSince(lastCatalogRefreshAt) >= minInterval else { return }
+        refreshAppsAsync(priority: priority, delay: delay)
     }
 
     private func applyScannedApps(_ scannedApps: [LaunchApp]) {
