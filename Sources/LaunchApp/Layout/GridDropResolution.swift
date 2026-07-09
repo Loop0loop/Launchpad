@@ -246,16 +246,12 @@ extension AppState {
     func dropResolution(at iconCenter: CGPoint, layout: LaunchpadLayoutMetrics) -> GridDropResolution {
         let items = isDraggingLauncherItem ? dragRenderItems : visibleItems
         let pageItems = Array(items.dropFirst(currentPage * gridLayout.pageSize).prefix(gridLayout.pageSize))
-        let biasedIconCenter = CGPoint(
-            x: iconCenter.x,
-            y: iconCenter.y + LaunchConstants.Launcher.dragDropLowerBias
-        )
         let target = GridDropGeometry.resolve(
             itemIDs: pageItems.map(\.id),
             page: currentPage,
             pageSize: gridLayout.pageSize,
-            pointerX: Double(biasedIconCenter.x),
-            pointerY: Double(biasedIconCenter.y),
+            pointerX: Double(iconCenter.x),
+            pointerY: Double(iconCenter.y),
             columns: layout.columns,
             rows: layout.rows,
             horizontalPadding: Double(layout.horizontalPadding),
