@@ -45,4 +45,34 @@ public enum TrackpadIntent: Equatable, Sendable {
         if ratio >= pinchOutThreshold { return .close }
         return nil
     }
+
+    /// 0...1 progress toward opening as radius shrinks past `start` down to `full`.
+    public static func pinchOpenProgress(
+        ratio: Double,
+        start: Double = 0.9,
+        full: Double = 0.82
+    ) -> Double {
+        guard start > full else { return ratio <= full ? 1 : 0 }
+        if ratio >= start { return 0 }
+        if ratio <= full { return 1 }
+        return (start - ratio) / (start - full)
+    }
+
+    /// 0...1 progress toward closing as radius grows past `start` up to `full`.
+    public static func pinchCloseProgress(
+        ratio: Double,
+        start: Double = 1.1,
+        full: Double = 1.18
+    ) -> Double {
+        guard full > start else { return ratio >= full ? 1 : 0 }
+        if ratio <= start { return 0 }
+        if ratio >= full { return 1 }
+        return (ratio - start) / (full - start)
+    }
+}
+
+public enum TrackpadPinchUpdate: Equatable, Sendable {
+    case tracking(intent: TrackpadIntent, progress: Double)
+    case commit(TrackpadIntent)
+    case cancel
 }

@@ -153,6 +153,35 @@ assert(!TrackpadIntent.shouldAcceptScrollIntent(eventTime: 1.1, lastIntentTime: 
 assert(TrackpadIntent.pinchRadius(ratio: 0.89) == .open)
 assert(TrackpadIntent.pinchRadius(ratio: 1.11) == .close)
 assert(TrackpadIntent.pinchRadius(ratio: 1.0) == nil)
+assert(TrackpadIntent.pinchOpenProgress(ratio: 1.0) == 0)
+assert(abs(TrackpadIntent.pinchOpenProgress(ratio: 0.86) - 0.5) < 0.001)
+assert(TrackpadIntent.pinchOpenProgress(ratio: 0.82) == 1)
+assert(TrackpadIntent.pinchCloseProgress(ratio: 1.0) == 0)
+assert(abs(TrackpadIntent.pinchCloseProgress(ratio: 1.14) - 0.5) < 0.001)
+assert(TrackpadIntent.pinchCloseProgress(ratio: 1.18) == 1)
+
+var continuousPinch = TrackpadGestureSession()
+assert(continuousPinch.trackPinch(radius: 1.0, timestamp: 10.0) == nil)
+assert(continuousPinch.trackPinch(radius: 0.95, timestamp: 10.01) == nil)
+if case .tracking(let openIntent, let openProgress)? = continuousPinch.trackPinch(radius: 0.86, timestamp: 10.02) {
+    assert(openIntent == .open)
+    assert(abs(openProgress - 0.5) < 0.001)
+} else {
+    assertionFailure("expected open tracking progress")
+}
+if case .commit(let committed)? = continuousPinch.trackPinch(radius: nil, timestamp: 10.03) {
+    assert(committed == .open)
+} else {
+    assertionFailure("expected open commit")
+}
+
+var cancelPinch = TrackpadGestureSession()
+assert(cancelPinch.trackPinch(radius: 1.0, timestamp: 11.0) == nil)
+_ = cancelPinch.trackPinch(radius: 0.88, timestamp: 11.01)
+if case .cancel? = cancelPinch.trackPinch(radius: nil, timestamp: 11.02) {
+} else {
+    assertionFailure("expected pinch cancel below commit threshold")
+}
 
 let fingerTouches = [
     TrackpadTouchSample(id: 3, x: 0.1, y: 0.1, majorAxis: 0.12, minorAxis: 0.08),

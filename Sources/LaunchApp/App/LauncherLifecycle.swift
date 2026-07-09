@@ -3,19 +3,27 @@ import LaunchpadCore
 
 @MainActor
 final class LauncherLifecycle {
-    private let state: AppState
-    private let window: NSWindow
-    private weak var mouseMonitor: LauncherMouseMonitor?
+    let state: AppState
+    let window: NSWindow
+    weak var mouseMonitor: LauncherMouseMonitor?
     private var previousApp: NSRunningApplication?
-    private var phase: Phase = .hidden
-    private var transitionToken = UUID()
+    var phase: Phase = .hidden
+    var transitionToken = UUID()
+    var pinchTracking: PinchTracking?
 
-    private enum Phase {
+    enum Phase {
         case hidden
         case showing
         case shown
         case hiding
     }
+
+    enum PinchTracking {
+        case opening
+        case closing
+    }
+
+    var isPinchTracking: Bool { pinchTracking != nil }
 
     init(state: AppState, window: NSWindow, mouseMonitor: LauncherMouseMonitor? = nil) {
         self.state = state
@@ -40,35 +48,13 @@ final class LauncherLifecycle {
     }
 
     func show() {
+        guard pinchTracking == nil else { return }
         guard phase != .showing, phase != .shown else { return }
 
         let token = UUID()
         transitionToken = token
         phase = .showing
-        rememberPreviousApp()
-        state.query = ""
-        state.clearFolderTransientAnimations()
-        state.openFolder = nil
-        state.clearSelection()
-        state.stopEditingLayout()
-        state.cancelDrag()
-        state.actions.restoreLauncherRoot()
-
-        state.launcherVisible = true
-        state.pageDragOffset = 0
-        state.backgroundDismissLockedUntil = Date().addingTimeInterval(0.35)
-        // Focus (and the active search chrome) only when the user clicks the field.
-        state.searchFocus.shouldFocusOnShow = false
-        applyWindowBrowsingMode()
-        state.refreshAppsAsyncIfStale()
-
-        preparePresentationLayer()
-        setPresentationScale(LaunchConstants.Lifecycle.hiddenScale)
-        window.alphaValue = 0
-        window.makeKeyAndOrderFront(nil)
-        window.makeFirstResponder(nil)
-        NSApp.activate(ignoringOtherApps: true)
-        mouseMonitor?.setEnabled(true)
+        prepareShowPresentation()
 
         runPresentationAnimation(toVisible: true) { [weak self] in
             guard let self, self.transitionToken == token else { return }
@@ -78,6 +64,7 @@ final class LauncherLifecycle {
     }
 
     func hide() {
+        guard pinchTracking == nil else { return }
         guard phase != .hidden, phase != .hiding, window.isVisible else { return }
         LaunchLog.line("lifecycle hide requested visible=\(state.launcherVisible)")
         if let delegate = NSApp.delegate as? AppDelegate {
@@ -102,6 +89,7 @@ final class LauncherLifecycle {
         if let delegate = NSApp.delegate as? AppDelegate {
             delegate.settingsWindow?.orderOut(nil)
         }
+        pinchTracking = nil
         transitionToken = UUID()
         phase = .hidden
         mouseMonitor?.setEnabled(false)
@@ -152,7 +140,7 @@ final class LauncherLifecycle {
 
     /// Apple AppKit pattern: `NSAnimationContext.runAnimationGroup` + `animator()` proxies.
     /// https://developer.apple.com/documentation/appkit/nsanimationcontext
-    private func runPresentationAnimation(toVisible: Bool, completion: @escaping @MainActor () -> Void) {
+    func runPresentationAnimation(toVisible: Bool, completion: @escaping @MainActor () -> Void) {
         preparePresentationLayer()
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         let endScale = reduceMotion ? CGFloat(1) : (toVisible ? CGFloat(1) : LaunchConstants.Lifecycle.hiddenScale)
@@ -173,13 +161,13 @@ final class LauncherLifecycle {
         }
     }
 
-    private func preparePresentationLayer() {
+    func preparePresentationLayer() {
         guard let container = window.contentView as? LauncherPresentationContainer else { return }
         container.wantsLayer = true
         container.updateLayerPosition()
     }
 
-    private func setPresentationScale(_ scale: CGFloat) {
+    func setPresentationScale(_ scale: CGFloat) {
         guard let container = window.contentView as? LauncherPresentationContainer else { return }
         container.layer?.transform = CATransform3DMakeScale(scale, scale, 1)
     }
@@ -195,7 +183,8 @@ final class LauncherLifecycle {
         container.wantsLayer = false
     }
 
-    private func completeHide(activatePrevious: Bool) {
+    func completeHide(activatePrevious: Bool) {
+        pinchTracking = nil
         phase = .hidden
         state.launcherVisible = false
         state.actions.clearIconCache()
@@ -250,7 +239,7 @@ final class LauncherLifecycle {
         return frame
     }
 
-    private func rememberPreviousApp() {
+    func rememberPreviousApp() {
         let frontmost = NSWorkspace.shared.frontmostApplication
         if frontmost?.processIdentifier != NSRunningApplication.current.processIdentifier {
             previousApp = frontmost

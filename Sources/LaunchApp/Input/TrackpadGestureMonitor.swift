@@ -12,7 +12,8 @@ final class TrackpadGestureMonitor {
     func start(
         requiredFingerCounts: [Int],
         onGateStatus: @escaping @MainActor (Bool) -> Void,
-        onIntent: @escaping @MainActor (TrackpadIntent) -> Void
+        onIntent: @escaping @MainActor (TrackpadIntent) -> Void,
+        onPinchUpdate: (@MainActor (TrackpadPinchUpdate) -> Void)? = nil
     ) {
         guard monitors.isEmpty else {
             pinchMonitor.requiredFingerCounts = requiredFingerCounts
@@ -21,11 +22,17 @@ final class TrackpadGestureMonitor {
         }
         LaunchLog.line("trackpad monitor start")
         pinchMonitor.requiredFingerCounts = requiredFingerCounts
-        pinchMonitor.start { intent in
-            let now = Date().timeIntervalSinceReferenceDate
-            guard now - self.lastPinchIntentTime >= LaunchConstants.Multitouch.lifecycleBounceCooldown else { return }
-            self.lastPinchIntentTime = now
-            onIntent(intent)
+        pinchMonitor.start { update in
+            if let onPinchUpdate {
+                onPinchUpdate(update)
+                return
+            }
+            if case .commit(let intent) = update {
+                let now = Date().timeIntervalSinceReferenceDate
+                guard now - self.lastPinchIntentTime >= LaunchConstants.Multitouch.lifecycleBounceCooldown else { return }
+                self.lastPinchIntentTime = now
+                onIntent(intent)
+            }
         }
         onGateStatus(pinchMonitor.isReady)
         LaunchLog.line("private pinch ready=\(pinchMonitor.isReady)")
@@ -126,7 +133,7 @@ final class PinchContactMonitor {
     private var devices: [MTDeviceRef] = []
     private var gestureSession = TrackpadGestureSession()
     private var lastQualifiedTouchTime: TimeInterval = 0
-    private var onPinch: (@MainActor (TrackpadIntent) -> Void)?
+    private var onPinchUpdate: (@MainActor (TrackpadPinchUpdate) -> Void)?
     nonisolated(unsafe) fileprivate static var current: PinchContactMonitor?
     var requiredFingerCounts = [LaunchConstants.Multitouch.defaultGestureFingerCount]
 
@@ -137,10 +144,10 @@ final class PinchContactMonitor {
         return _isReady
     }
 
-    func start(onPinch: @escaping @MainActor (TrackpadIntent) -> Void) {
+    func start(onPinchUpdate: @escaping @MainActor (TrackpadPinchUpdate) -> Void) {
         lock.lock()
         defer { lock.unlock() }
-        self.onPinch = onPinch
+        self.onPinchUpdate = onPinchUpdate
         guard !_isReady else { return }
         handle = dlopen(LaunchConstants.Multitouch.frameworkPath, RTLD_NOW)
         guard let handle,
@@ -172,7 +179,7 @@ final class PinchContactMonitor {
     func stop() {
         lock.lock()
         defer { lock.unlock() }
-        onPinch = nil
+        onPinchUpdate = nil
         gestureSession = TrackpadGestureSession()
         lastQualifiedTouchTime = 0
     }
@@ -191,7 +198,11 @@ final class PinchContactMonitor {
             .sorted(by: >)
             .compactMap({ TrackpadContactQuality.qualifiedPinchTouches(touches, requiredCount: $0) })
             .first else {
-            _ = gestureSession.updatePinch(radius: nil, timestamp: timestamp)
+            guard let update = gestureSession.trackPinch(radius: nil, timestamp: timestamp) else { return }
+            let callback = onPinchUpdate
+            Task { @MainActor in
+                callback?(update)
+            }
             return
         }
         lastQualifiedTouchTime = Date().timeIntervalSinceReferenceDate
@@ -202,7 +213,7 @@ final class PinchContactMonitor {
             total + hypot(touch.x - centerX, touch.y - centerY)
         } / Double(selected.count)
 
-        guard let intent = gestureSession.updatePinch(
+        guard let update = gestureSession.trackPinch(
             radius: radius,
             centerX: centerX,
             centerY: centerY,
@@ -211,9 +222,9 @@ final class PinchContactMonitor {
             pinchOutThreshold: LaunchConstants.Multitouch.pinchOutRatio
         ) else { return }
 
-        let callback = onPinch
+        let callback = onPinchUpdate
         Task { @MainActor in
-            callback?(intent)
+            callback?(update)
         }
     }
 }

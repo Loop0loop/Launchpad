@@ -41,6 +41,10 @@ extension AppDelegate {
                 LaunchLog.line("trackpad intent=\(intent) ignored during drag")
                 return
             }
+            guard launcherLifecycle?.isPinchTracking != true else {
+                LaunchLog.line("trackpad intent=\(intent) ignored during pinch tracking")
+                return
+            }
             switch intent {
             case .open:
                 guard launcherLifecycle?.isVisible != true else { return }
@@ -62,6 +66,23 @@ extension AppDelegate {
             case .nextPage:
                 changePageFromTrackpad(1, intent: intent, ignoredLog: "trackpad nextPage ignored during drag")
             }
+        } onPinchUpdate: { [weak self] update in
+            guard let self else { return }
+            guard TrackpadGestureResolver.resolve(
+                preferred: state.trackpadSetting,
+                system: SystemTrackpadSettings.load()
+            ).fingerCounts.isEmpty == false else { return }
+            guard !state.isHandlingLauncherDrag else { return }
+            if case .commit(let intent) = update {
+                let now = Date()
+                guard now >= trackpadIntentLockedUntil else { return }
+                trackpadIntentLockedUntil = now.addingTimeInterval(LaunchConstants.Multitouch.lifecycleBounceCooldown)
+                if intent == .close, state.openFolder != nil {
+                    state.closeFolder()
+                    return
+                }
+            }
+            launcherLifecycle?.handlePinchUpdate(update)
         }
     }
 
