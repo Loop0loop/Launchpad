@@ -127,7 +127,6 @@ extension LauncherLifecycle {
         state.refreshAppsAsyncIfStale()
 
         preparePresentationLayer()
-        setPresentationScale(LaunchConstants.Lifecycle.hiddenScale)
         window.alphaValue = 0
         window.makeKeyAndOrderFront(nil)
         window.makeFirstResponder(nil)
@@ -137,11 +136,6 @@ extension LauncherLifecycle {
 
     func applyPinchPresentation(progress: Double, opening: Bool) {
         let t = opening ? progress : (1 - progress)
-        let hidden = LaunchConstants.Lifecycle.hiddenScale
-        let scale = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-            ? CGFloat(1)
-            : hidden + (1 - hidden) * CGFloat(t)
         window.alphaValue = CGFloat(t)
-        setPresentationScale(scale)
     }
 }

@@ -10,6 +10,7 @@ struct LauncherActions {
     var moveToTrash: (LaunchApp) -> Void = { _ in }
     var addToDock: (LaunchApp) -> Void = { _ in }
     var chooseAppSource: () -> Void = {}
+    var appSourcesChanged: () -> Void = {}
     var applyWindowBrowsingMode: () -> Void = {}
     var applyMenuBarVisibility: () -> Void = {}
     var applyAppIcon: () -> Void = {}

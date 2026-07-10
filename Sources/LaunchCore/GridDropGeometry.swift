@@ -63,14 +63,18 @@ public enum GridDropGeometry {
             let insertionBand = columnWidth * dragInsertionBandRatio
             let onIcon = dx < iconSize * mergeScale && dy < iconSize * mergeScale
             let insertionIndex: Int?
-            if !onIcon && localX < insertionBand {
+            if onIcon {
+                // Reordering remains live while an icon is only a merge candidate.
+                // The UI switches to merge only after its dwell timer confirms.
+                insertionIndex = pointerX <= cellCenterX ? targetIndex : targetIndex + 1
+            } else if localX < insertionBand {
                 insertionIndex = targetIndex
-            } else if !onIcon && localX > columnWidth - insertionBand {
+            } else if localX > columnWidth - insertionBand {
                 insertionIndex = targetIndex + 1
             } else {
                 insertionIndex = nil
             }
-            let holdsIconInPlace = insertionIndex == nil && dy < iconSize * dragHoldZoneScale
+            let holdsIconInPlace = !onIcon && insertionIndex == nil && dy < iconSize * dragHoldZoneScale
             return GridDropTarget(
                 onIconID: onIcon ? id : nil,
                 slotID: holdsIconInPlace ? nil : id,

@@ -211,6 +211,11 @@ final class LauncherMouseMonitor {
     }
 
     private func up(_ event: NSEvent, _ state: AppState) -> NSEvent? {
+        if state.dragAwaitingMouseUp {
+            state.finishCommittedMergeDrag()
+            reset()
+            return event
+        }
         guard tracking, !state.isDraggingLauncherItem else {
             reset()
             return event

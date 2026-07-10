@@ -298,14 +298,18 @@ struct LauncherDragModifier: ViewModifier {
                         state.updateItemDrag(pointerLocation: value.location, translation: value.translation, resolution: resolved)
                     }
                     .onEnded { value in
+                        if state.dragAwaitingMouseUp {
+                            state.finishCommittedMergeDrag()
+                            return
+                        }
                         let iconCenter = state.drag.iconCenter(for: value.location)
                         let resolved = state.dropResolution(at: iconCenter, layout: layout)
-                        state.endItemDrag(onIconID: resolved.onIconID, slotID: resolved.slotID, targetIndex: resolved.targetIndex)
+                        state.endItemDrag(slotID: resolved.slotID, targetIndex: resolved.targetIndex)
                     }
             )
             .onChange(of: isDragActive) { oldValue, newValue in
                 if oldValue && !newValue {
-                    if state.draggingItemID == id {
+                    if state.draggingItemID == id, !state.dragAwaitingMouseUp {
                         LaunchLog.line("Drag gesture cancelled/interrupted for \(id)")
                         state.cancelDrag()
                     }

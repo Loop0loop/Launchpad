@@ -35,8 +35,14 @@ extension AppState {
         priority: TaskPriority = .utility,
         delay: TimeInterval = 0.25
     ) {
+        removeMissingApps()
         guard Date().timeIntervalSince(lastCatalogRefreshAt) >= minInterval else { return }
         refreshAppsAsync(priority: priority, delay: delay)
+    }
+
+    func removeMissingApps() {
+        let existing = apps.filter { $0.existingBundleURL != nil }
+        if existing != apps { applyScannedApps(existing) }
     }
 
     private func applyScannedApps(_ scannedApps: [LaunchApp]) {
@@ -69,12 +75,14 @@ extension AppState {
         guard !appSourcePaths.contains(standardized) else { return }
         appSourcePaths.append(standardized)
         AppSourceStore.save(appSourcePaths)
+        actions.appSourcesChanged()
         refreshAppsAsync()
     }
 
     func removeAppSource(_ path: String) {
         appSourcePaths.removeAll { $0 == path }
         AppSourceStore.save(appSourcePaths)
+        actions.appSourcesChanged()
         refreshAppsAsync()
     }
 

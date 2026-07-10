@@ -1,0 +1,7 @@
+[mcp_servers.code-review-graph]
+command = "/Users/user/.pyenv/versions/3.12.13/bin/python3.12"
+args = [
+    "-m",
+    "code_review_graph",
+    "serve",
+]

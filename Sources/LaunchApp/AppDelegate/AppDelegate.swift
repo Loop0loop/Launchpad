@@ -1,10 +1,12 @@
 import AppKit
+import LaunchpadCore
 import SwiftUI
 
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let state = AppState()
     let iconCache = IconCache()
+    let appCatalogMonitor = AppCatalogMonitor()
     let trackpadMonitor = TrackpadGestureMonitor()
     let globalHotKey = GlobalHotKeyAdapter()
     let f4KeyTap = F4KeyTapMonitor()
@@ -37,6 +39,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             priority: state.apps.isEmpty ? .userInitiated : .utility,
             delay: state.apps.isEmpty ? 0.15 : 1.5
         )
+        startAppCatalogMonitor()
         applyAppIcon()
         applyMenuBarVisibility()
         startGlobalHotKey()
@@ -85,6 +88,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             moveToTrash: { [weak self] app in self?.confirmMoveToTrash(app) },
             addToDock: { app in AppSystemAdapter.addToDock(app) },
             chooseAppSource: { [weak self] in self?.chooseAppSource() },
+            appSourcesChanged: { [weak self] in self?.startAppCatalogMonitor() },
             applyWindowBrowsingMode: { [weak self] in self?.launcherLifecycle?.applyWindowBrowsingMode() },
             applyMenuBarVisibility: { [weak self] in self?.applyMenuBarVisibility() },
             applyAppIcon: { [weak self] in self?.applyAppIcon() },
@@ -93,6 +97,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             restoreLauncherRoot: { [weak self] in self?.setLauncherRoot(active: true) },
             releaseLauncherRoot: { [weak self] in self?.setLauncherRoot(active: false) }
         )
+    }
+
+    private func startAppCatalogMonitor() {
+        let paths = AppCatalog.defaultRoots().map(\.path) + state.appSourcePaths
+        appCatalogMonitor.start(paths: paths) { [weak self] in
+            self?.state.refreshAppsAsync(priority: .utility, delay: 0.2)
+        }
     }
 
     private func setLauncherRoot(active: Bool) {

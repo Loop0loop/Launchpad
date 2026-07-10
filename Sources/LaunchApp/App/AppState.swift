@@ -40,6 +40,8 @@ final class AppState: ObservableObject {
     @Published var keyboardSelectionActive = false
     @Published var isEditingLayout = false
     @Published var draggingItemID: String?
+    /// A dwell merge already committed; keep the physical mouse session alive until mouse-up.
+    var dragAwaitingMouseUp = false
     /// 매 프레임 갱신되는 드래그 위치/머지 대상은 DragModel로 격리(그리드 전체 리렌더 방지).
     /// 로직 코드는 기존 이름 그대로 쓰도록 forwarder를 둔다. begin/end에만 바뀌는
     /// draggingItemID는 renderedPages가 의존하므로 AppState에 남겨 그리드를 갱신한다.

@@ -25,7 +25,90 @@ final class GridDropGeometryTests: XCTestCase {
         )
 
         XCTAssertEqual(result.onIconID, "a")
-        XCTAssertNil(result.targetIndex)
+        XCTAssertEqual(result.targetIndex, 0)
+    }
+
+    func testIconCenterKeepsReorderPreviewUntilMergeDwellConfirms() {
+        let result = GridDropGeometry.resolve(
+            itemIDs: ["a", "b", "c"],
+            page: 0,
+            pageSize: 35,
+            pointerX: 128 + 64,
+            pointerY: 40,
+            columns: 7,
+            rows: 5,
+            horizontalPadding: 0,
+            columnWidth: 128,
+            rowHeight: 170,
+            iconSize: 80,
+            labelHeight: 34,
+            iconLabelSpacing: 8,
+            dragMergeZoneScale: 0.4,
+            dragFolderMergeZoneScale: 0.52,
+            dragInsertionBandRatio: 0.42,
+            dragHoldZoneScale: 0.8,
+            folderIDs: []
+        )
+
+        XCTAssertEqual(result.onIconID, "b")
+        XCTAssertEqual(result.targetIndex, 1)
+        XCTAssertEqual(LayoutOrder.move("c", toIndex: result.targetIndex!, in: ["a", "b", "c"]), ["a", "c", "b"])
+    }
+
+    func testCenterAndLowerDropResolveToSameReorderSlot() {
+        func resolve(y: Double) -> GridDropTarget {
+            GridDropGeometry.resolve(
+                itemIDs: ["a", "b", "c"],
+                page: 0,
+                pageSize: 35,
+                pointerX: 128 + 64,
+                pointerY: y,
+                columns: 7,
+                rows: 5,
+                horizontalPadding: 0,
+                columnWidth: 128,
+                rowHeight: 170,
+                iconSize: 80,
+                labelHeight: 34,
+                iconLabelSpacing: 8,
+                dragMergeZoneScale: 0.4,
+                dragFolderMergeZoneScale: 0.52,
+                dragInsertionBandRatio: 0.42,
+                dragHoldZoneScale: 0.8,
+                folderIDs: []
+            )
+        }
+
+        XCTAssertEqual(resolve(y: 40).targetIndex, 1)
+        XCTAssertEqual(resolve(y: 110).targetIndex, 1)
+    }
+
+    func testIconCenterReordersAcrossRows() {
+        let order = ["a", "b", "c", "d", "e", "f"]
+        let result = GridDropGeometry.resolve(
+            itemIDs: order,
+            page: 0,
+            pageSize: 6,
+            pointerX: 128 + 64,
+            pointerY: 170 + 40,
+            columns: 3,
+            rows: 2,
+            horizontalPadding: 0,
+            columnWidth: 128,
+            rowHeight: 170,
+            iconSize: 80,
+            labelHeight: 34,
+            iconLabelSpacing: 8,
+            dragMergeZoneScale: 0.4,
+            dragFolderMergeZoneScale: 0.52,
+            dragInsertionBandRatio: 0.42,
+            dragHoldZoneScale: 0.8,
+            folderIDs: []
+        )
+
+        XCTAssertEqual(result.onIconID, "e")
+        XCTAssertEqual(result.targetIndex, 4)
+        XCTAssertEqual(LayoutOrder.move("c", toIndex: result.targetIndex!, in: order), ["a", "b", "d", "e", "c", "f"])
     }
 
     func testIconHitIsCenteredOnIconImageNotLabelBlock() {

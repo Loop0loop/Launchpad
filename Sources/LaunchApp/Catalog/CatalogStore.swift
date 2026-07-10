@@ -1,3 +1,5 @@
+import Darwin
+import Dispatch
 import Foundation
 import LaunchpadCore
 
@@ -20,5 +22,40 @@ enum CatalogStore {
     static func saveCachedApps(_ apps: [LaunchApp]) {
         guard let data = try? JSONEncoder().encode(apps) else { return }
         UserDefaults.standard.set(data, forKey: LaunchConstants.Storage.catalogAppsKey)
+    }
+}
+
+@MainActor
+final class AppCatalogMonitor {
+    private var sources: [DispatchSourceFileSystemObject] = []
+    private var onChange: (@MainActor () -> Void)?
+
+    func start(paths: [String], onChange: @escaping @MainActor () -> Void) {
+        stop()
+        self.onChange = onChange
+        for path in Set(paths) {
+            let descriptor = open(path, O_EVTONLY)
+            guard descriptor >= 0 else { continue }
+            let source = DispatchSource.makeFileSystemObjectSource(
+                fileDescriptor: descriptor,
+                eventMask: [.write, .rename, .delete],
+                queue: .main
+            )
+            // Do not bridge a global-actor closure directly to a dispatch block.
+            source.setEventHandler { [weak self] in
+                MainActor.assumeIsolated {
+                    self?.onChange?()
+                }
+            }
+            source.setCancelHandler { close(descriptor) }
+            source.activate()
+            sources.append(source)
+        }
+    }
+
+    func stop() {
+        sources.forEach { $0.cancel() }
+        sources.removeAll()
+        onChange = nil
     }
 }

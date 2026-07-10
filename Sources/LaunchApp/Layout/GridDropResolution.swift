@@ -23,7 +23,7 @@ struct GridDropResolution {
 
 enum DragIntent {
     case placing
-    case mergeCandidate(targetID: String, since: Date)
+    case mergeCandidate(targetID: String, since: Date, anchor: CGPoint)
     case mergeConfirmed(targetID: String)
 
     var confirmedMergeTargetID: String? {
@@ -54,6 +54,7 @@ extension AppState {
         guard query.isEmpty, openFolder == nil else { return }
         stopEditingLayout()
         draggingItemID = id
+        dragAwaitingMouseUp = false
         dragTranslation = .zero
         resetDragIntent()
         dragInsertionIndex = nil
@@ -73,14 +74,26 @@ extension AppState {
         if openFolder != nil { return }
         let canMerge = appByID(dragging) != nil
         let candidate = canMerge && resolution.onIconID != dragging ? resolution.onIconID : nil
-        updateDragIntent(candidate)
+        updateDragIntent(candidate, at: drag.location)
+        guard draggingItemID != nil, !dragAwaitingMouseUp else { return }
         maybeOpenFolderOnHover(targetID: candidate.flatMap { id in folders.contains(where: { $0.id == id }) ? id : nil })
         dragHoverTargetID = dragIntent.confirmedMergeTargetID
-        let nextIndex = candidate == nil ? resolution.targetIndex : nil
+        let nextIndex = dragIntent.confirmedMergeTargetID == nil ? resolution.targetIndex : nil
         if nextIndex != dragInsertionIndex { dragInsertionIndex = nextIndex }
     }
 
-    func updateDragIntent(_ candidate: String?) {
+    func updateDragIntent(_ candidate: String?, at location: CGPoint) {
+        if case .mergeCandidate(let targetID, let since, let anchor) = dragIntent {
+            let movement = hypot(location.x - anchor.x, location.y - anchor.y)
+            if movement <= LaunchConstants.Launcher.dragMergeReleaseDistance {
+                if Date().timeIntervalSince(since) >= LaunchConstants.Launcher.dragMergeDwell {
+                    dragIntent = .mergeConfirmed(targetID: targetID)
+                    dragHoverTargetID = targetID
+                    completeDragMerge(targetID: targetID)
+                }
+                return
+            }
+        }
         guard let candidate else {
             resetDragIntent()
             return
@@ -88,24 +101,36 @@ extension AppState {
         switch dragIntent {
         case .mergeConfirmed(let targetID) where targetID == candidate:
             return
-        case .mergeCandidate(let targetID, let since) where targetID == candidate:
-            if Date().timeIntervalSince(since) >= LaunchConstants.Launcher.dragMergeDwell {
-                dragIntent = .mergeConfirmed(targetID: candidate)
-                dragHoverTargetID = candidate
-            }
         default:
-            dragIntent = .mergeCandidate(targetID: candidate, since: Date())
+            dragIntent = .mergeCandidate(targetID: candidate, since: Date(), anchor: location)
             dragMergeConfirmTask?.cancel()
             dragMergeConfirmTask = Task { [weak self] in
                 try? await Task.sleep(nanoseconds: UInt64(LaunchConstants.Launcher.dragMergeDwell * 1_000_000_000))
                 guard let self, !Task.isCancelled else { return }
                 guard self.draggingItemID != nil, self.openFolder == nil else { return }
-                if case .mergeCandidate(let targetID, _) = self.dragIntent, targetID == candidate {
+                if case .mergeCandidate(let targetID, _, _) = self.dragIntent, targetID == candidate {
                     self.dragIntent = .mergeConfirmed(targetID: candidate)
                     self.dragHoverTargetID = candidate
+                    self.completeDragMerge(targetID: candidate)
                 }
             }
         }
+    }
+
+    private func completeDragMerge(targetID: String) {
+        guard let dragged = draggingItemID,
+              dragged != targetID,
+              appByID(dragged) != nil else { return }
+        if appByID(targetID) != nil {
+            createFolder(draggedID: dragged, targetID: targetID)
+        } else if folders.contains(where: { $0.id == targetID }) {
+            addApp(dragged, toFolder: targetID)
+        } else {
+            return
+        }
+        dragAwaitingMouseUp = true
+        dragInsertionIndex = nil
+        resetDragIntent()
     }
 
     func resetDragIntent() {
@@ -183,7 +208,7 @@ extension AppState {
         )
     }
 
-    func endItemDrag(onIconID: String?, slotID: String?, targetIndex: Int?) {
+    func endItemDrag(slotID: String?, targetIndex: Int?) {
         defer { cancelDrag() }
         guard let dragged = draggingItemID, query.isEmpty else { return }
 
@@ -203,7 +228,7 @@ extension AppState {
         }
 
         let draggedIsApp = appByID(dragged) != nil
-        let mergeTarget = dragIntent.confirmedMergeTargetID ?? onIconID
+        let mergeTarget = dragIntent.confirmedMergeTargetID
         if draggedIsApp, let target = mergeTarget, target != dragged {
             if appByID(target) != nil {
                 createFolder(draggedID: dragged, targetID: target)
@@ -231,6 +256,7 @@ extension AppState {
 
     func cancelDrag() {
         draggingItemID = nil
+        dragAwaitingMouseUp = false
         resetDragIntent()
         dragTranslation = .zero
         dragInsertionIndex = nil
@@ -240,6 +266,11 @@ extension AppState {
         folderDragPullingOut = false
         folderPullOutAppID = nil
         endFolderReorder()
+    }
+
+    func finishCommittedMergeDrag() {
+        guard dragAwaitingMouseUp else { return }
+        cancelDrag()
     }
 
     /// Maps the dragged icon center (in the `"launcherGrid"` coordinate space) to the item under it.

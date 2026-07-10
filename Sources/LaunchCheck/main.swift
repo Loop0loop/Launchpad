@@ -192,7 +192,7 @@ let fingerTouches = [
 assert(TrackpadContactQuality.qualifiedPinchTouches(fingerTouches)?.map(\.id) == [1, 2, 3, 4])
 assert(TrackpadContactQuality.qualifiedPinchTouches(fingerTouches + [
     TrackpadTouchSample(id: 5, x: 0.3, y: 0.2, majorAxis: 0.11, minorAxis: 0.08)
-]) != nil)
+]) == nil)
 assert(TrackpadContactQuality.qualifiedPinchTouches(fingerTouches + [
     TrackpadTouchSample(id: 5, x: 0.3, y: 0.2),
     TrackpadTouchSample(id: 6, x: 0.4, y: 0.2)

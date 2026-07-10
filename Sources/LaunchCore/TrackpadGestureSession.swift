@@ -18,6 +18,12 @@ public struct TrackpadGestureSession {
 
     public init() {}
 
+    public mutating func cancelPinch() -> TrackpadPinchUpdate? {
+        defer { pinchState = .idle }
+        guard case .tracking = pinchState else { return nil }
+        return .cancel
+    }
+
     /// Continuous pinch: emit progress while fingers move; commit/cancel only when `radius` becomes nil.
     public mutating func trackPinch(
         radius: Double?,

@@ -174,7 +174,8 @@ enum LaunchConstants {
         static let dragFolderMergeZoneScale: CGFloat = 0.52
         static let dragHoldZoneScale: CGFloat = 0.80
         static let dragInsertionBandRatio: CGFloat = 0.42
-        static let dragMergeDwell: TimeInterval = 0.28
+        static let dragMergeDwell: TimeInterval = 1.0
+        static let dragMergeReleaseDistance: CGFloat = 44
         static let editModeLongPress: TimeInterval = 0.35
         static let folderCreationOpenDelay: TimeInterval = 0.24
         static let folderCreationScale: CGFloat = 1.04
@@ -230,7 +231,6 @@ enum LaunchConstants {
         static let windowShowDuration: TimeInterval = 0.28
         static let windowHideDuration: TimeInterval = 0.20
         static let reduceMotionDuration: TimeInterval = 0.12
-        static let hiddenScale: CGFloat = 0.94
     }
 
     enum WindowBrowsing {

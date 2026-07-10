@@ -138,22 +138,18 @@ final class LauncherLifecycle {
         }
     }
 
-    /// Apple AppKit pattern: `NSAnimationContext.runAnimationGroup` + `animator()` proxies.
-    /// https://developer.apple.com/documentation/appkit/nsanimationcontext
     func runPresentationAnimation(toVisible: Bool, completion: @escaping @MainActor () -> Void) {
         preparePresentationLayer()
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        let endScale = reduceMotion ? CGFloat(1) : (toVisible ? CGFloat(1) : LaunchConstants.Lifecycle.hiddenScale)
         let endAlpha = toVisible ? CGFloat(1) : CGFloat(0)
+        let duration = reduceMotion
+            ? LaunchConstants.Lifecycle.reduceMotionDuration
+            : (toVisible ? LaunchConstants.Lifecycle.windowShowDuration : LaunchConstants.Lifecycle.windowHideDuration)
 
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = reduceMotion
-                ? LaunchConstants.Lifecycle.reduceMotionDuration
-                : (toVisible ? LaunchConstants.Lifecycle.windowShowDuration : LaunchConstants.Lifecycle.windowHideDuration)
-            context.timingFunction = CAMediaTimingFunction(name: toVisible ? .easeInEaseOut : .easeIn)
-            context.allowsImplicitAnimation = true
+            context.duration = duration
+            context.timingFunction = CAMediaTimingFunction(name: toVisible ? .easeOut : .easeIn)
             window.animator().alphaValue = endAlpha
-            setPresentationScale(endScale)
         } completionHandler: {
             Task { @MainActor in
                 completion()
@@ -164,18 +160,12 @@ final class LauncherLifecycle {
     func preparePresentationLayer() {
         guard let container = window.contentView as? LauncherPresentationContainer else { return }
         container.wantsLayer = true
-        container.updateLayerPosition()
-    }
-
-    func setPresentationScale(_ scale: CGFloat) {
-        guard let container = window.contentView as? LauncherPresentationContainer else { return }
-        container.layer?.transform = CATransform3DMakeScale(scale, scale, 1)
+        container.layoutSubtreeIfNeeded()
     }
 
     private func resetPresentation() {
         window.alphaValue = 1
         window.contentView?.alphaValue = 1
-        setPresentationScale(1)
     }
 
     private func releasePresentationLayer() {

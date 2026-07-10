@@ -17,12 +17,5 @@ final class LauncherPresentationContainer: NSView {
         for subview in subviews {
             subview.frame = bounds
         }
-        updateLayerPosition()
-    }
-
-    func updateLayerPosition() {
-        guard wantsLayer, let layer else { return }
-        layer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-        layer.position = CGPoint(x: bounds.midX, y: bounds.midY)
     }
 }

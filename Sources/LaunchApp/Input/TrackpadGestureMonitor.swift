@@ -132,6 +132,7 @@ final class PinchContactMonitor {
     private var handle: UnsafeMutableRawPointer?
     private var devices: [MTDeviceRef] = []
     private var gestureSession = TrackpadGestureSession()
+    private var contactGate = TrackpadContactGate()
     private var lastQualifiedTouchTime: TimeInterval = 0
     private var onPinchUpdate: (@MainActor (TrackpadPinchUpdate) -> Void)?
     nonisolated(unsafe) fileprivate static var current: PinchContactMonitor?
@@ -181,6 +182,7 @@ final class PinchContactMonitor {
         defer { lock.unlock() }
         onPinchUpdate = nil
         gestureSession = TrackpadGestureSession()
+        contactGate = TrackpadContactGate()
         lastQualifiedTouchTime = 0
     }
 
@@ -194,15 +196,27 @@ final class PinchContactMonitor {
         lock.lock()
         defer { lock.unlock() }
 
-        guard let selected = requiredFingerCounts
-            .sorted(by: >)
-            .compactMap({ TrackpadContactQuality.qualifiedPinchTouches(touches, requiredCount: $0) })
-            .first else {
+        let selected: [TrackpadTouchSample]
+        switch contactGate.update(
+            touches: touches,
+            requiredFingerCounts: requiredFingerCounts,
+            timestamp: timestamp
+        ) {
+        case .qualified(let touches):
+            selected = touches
+        case .ended:
             guard let update = gestureSession.trackPinch(radius: nil, timestamp: timestamp) else { return }
             let callback = onPinchUpdate
             Task { @MainActor in
                 callback?(update)
             }
+            return
+        case .rejected:
+            guard let update = gestureSession.cancelPinch() else { return }
+            let callback = onPinchUpdate
+            Task { @MainActor in callback?(update) }
+            return
+        case .waiting:
             return
         }
         lastQualifiedTouchTime = Date().timeIntervalSinceReferenceDate
@@ -243,7 +257,8 @@ private let contactCallback: PinchContactMonitor.ContactCallback = { _, touchesR
             y: Double(touch.normalizedVector.position.y),
             majorAxis: Double(touch.majorAxis),
             minorAxis: Double(touch.minorAxis),
-            zTotal: Double(touch.zTotal)
+            zTotal: Double(touch.zTotal),
+            state: touch.state
         )
     }
 
