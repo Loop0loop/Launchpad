@@ -93,6 +93,11 @@ final class TrackpadGestureMonitor {
 }
 
 final class PinchContactMonitor {
+    private struct DeviceGestureState {
+        var gestureSession = TrackpadGestureSession()
+        var contactGate = TrackpadContactGate()
+    }
+
     fileprivate struct MTPoint {
         var x: Float
         var y: Float
@@ -125,14 +130,20 @@ final class PinchContactMonitor {
     typealias MTDeviceRef = OpaquePointer
     typealias MTDeviceCreateList = @convention(c) () -> Unmanaged<CFArray>
     typealias MTRegisterContactFrameCallback = @convention(c) (MTDeviceRef, ContactCallback) -> Void
-    typealias MTDeviceStart = @convention(c) (MTDeviceRef, Int32) -> Void
-    typealias ContactCallback = @convention(c) (Int32, UnsafeMutableRawPointer?, Int32, Double, Int32) -> Int32
+    typealias MTDeviceStart = @convention(c) (MTDeviceRef, Int32) -> Int32
+    typealias ContactCallback = @convention(c) (
+        MTDeviceRef,
+        UnsafeMutableRawPointer?,
+        Int32,
+        Double,
+        Int32
+    ) -> Void
 
     private let lock = NSLock()
     private var handle: UnsafeMutableRawPointer?
     private var devices: [MTDeviceRef] = []
-    private var gestureSession = TrackpadGestureSession()
-    private var contactGate = TrackpadContactGate()
+    private var deviceStates: [UInt: DeviceGestureState] = [:]
+    private var activeDeviceID: UInt?
     private var lastQualifiedTouchTime: TimeInterval = 0
     private var onPinchUpdate: (@MainActor (TrackpadPinchUpdate) -> Void)?
     nonisolated(unsafe) fileprivate static var current: PinchContactMonitor?
@@ -170,7 +181,7 @@ final class PinchContactMonitor {
             let device = OpaquePointer(rawDevice)
             devices.append(device)
             register(device, contactCallback)
-            startDevice(device, 0)
+            _ = startDevice(device, 0)
         }
 
         _isReady = !devices.isEmpty
@@ -181,8 +192,8 @@ final class PinchContactMonitor {
         lock.lock()
         defer { lock.unlock() }
         onPinchUpdate = nil
-        gestureSession = TrackpadGestureSession()
-        contactGate = TrackpadContactGate()
+        deviceStates = [:]
+        activeDeviceID = nil
         lastQualifiedTouchTime = 0
     }
 
@@ -192,31 +203,53 @@ final class PinchContactMonitor {
         return Date().timeIntervalSinceReferenceDate - lastQualifiedTouchTime < 0.45
     }
 
-    fileprivate func process(touches: [TrackpadTouchSample], timestamp: Double) {
+    fileprivate func process(
+        device: MTDeviceRef,
+        touches: [TrackpadTouchSample],
+        timestamp: Double
+    ) {
         lock.lock()
         defer { lock.unlock() }
 
+        let deviceID = UInt(bitPattern: device)
+        var deviceState = deviceStates[deviceID] ?? DeviceGestureState()
         let selected: [TrackpadTouchSample]
-        switch contactGate.update(
+        switch deviceState.contactGate.update(
             touches: touches,
             requiredFingerCounts: requiredFingerCounts,
             timestamp: timestamp
         ) {
         case .qualified(let touches):
+            guard activeDeviceID == nil || activeDeviceID == deviceID else {
+                deviceStates[deviceID] = deviceState
+                return
+            }
+            activeDeviceID = deviceID
             selected = touches
         case .ended:
-            guard let update = gestureSession.trackPinch(radius: nil, timestamp: timestamp) else { return }
+            let update = activeDeviceID == deviceID
+                ? deviceState.gestureSession.trackPinch(radius: nil, timestamp: timestamp)
+                : nil
+            if activeDeviceID == deviceID { activeDeviceID = nil }
+            deviceStates[deviceID] = DeviceGestureState()
+            guard let update else { return }
             let callback = onPinchUpdate
             Task { @MainActor in
                 callback?(update)
             }
             return
         case .rejected:
-            guard let update = gestureSession.cancelPinch() else { return }
+            let update = activeDeviceID == deviceID
+                ? deviceState.gestureSession.cancelPinch()
+                : nil
+            if activeDeviceID == deviceID { activeDeviceID = nil }
+            deviceStates[deviceID] = deviceState
+            guard let update else { return }
             let callback = onPinchUpdate
             Task { @MainActor in callback?(update) }
             return
         case .waiting:
+            deviceStates[deviceID] = deviceState
             return
         }
         lastQualifiedTouchTime = Date().timeIntervalSinceReferenceDate
@@ -227,14 +260,16 @@ final class PinchContactMonitor {
             total + hypot(touch.x - centerX, touch.y - centerY)
         } / Double(selected.count)
 
-        guard let update = gestureSession.trackPinch(
+        let update = deviceState.gestureSession.trackPinch(
             radius: radius,
             centerX: centerX,
             centerY: centerY,
             timestamp: timestamp,
             pinchInThreshold: LaunchConstants.Multitouch.pinchInRatio,
             pinchOutThreshold: LaunchConstants.Multitouch.pinchOutRatio
-        ) else { return }
+        )
+        deviceStates[deviceID] = deviceState
+        guard let update else { return }
 
         let callback = onPinchUpdate
         Task { @MainActor in
@@ -243,13 +278,16 @@ final class PinchContactMonitor {
     }
 }
 
-private let contactCallback: PinchContactMonitor.ContactCallback = { _, touchesRawPointer, contactCount, timestamp, _ in
+private let contactCallback: PinchContactMonitor.ContactCallback = { device, touchesRawPointer, contactCount, timestamp, _ in
     guard let touchesRawPointer, contactCount > 0 else {
-        PinchContactMonitor.current?.process(touches: [], timestamp: timestamp)
-        return 0
+        PinchContactMonitor.current?.process(device: device, touches: [], timestamp: timestamp)
+        return
     }
 
-    let touchesPointer = UnsafePointer(touchesRawPointer.bindMemory(to: PinchContactMonitor.MTTouch.self, capacity: Int(contactCount)))
+    let touchesPointer = touchesRawPointer.bindMemory(
+        to: PinchContactMonitor.MTTouch.self,
+        capacity: Int(contactCount)
+    )
     let touches = UnsafeBufferPointer(start: touchesPointer, count: Int(contactCount)).map { touch in
         TrackpadTouchSample(
             id: touch.fingerID,
@@ -262,6 +300,5 @@ private let contactCallback: PinchContactMonitor.ContactCallback = { _, touchesR
         )
     }
 
-    PinchContactMonitor.current?.process(touches: touches, timestamp: timestamp)
-    return 0
+    PinchContactMonitor.current?.process(device: device, touches: touches, timestamp: timestamp)
 }

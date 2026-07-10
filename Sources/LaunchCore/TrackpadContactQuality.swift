@@ -25,7 +25,8 @@ public struct TrackpadTouchSample: Equatable, Sendable {
         self.state = state
     }
 
-    public var isActivelyTouching: Bool { state == 3 || state == 4 }
+    /// MultitouchSupport keeps a contact alive across its start/touch/release lifecycle.
+    public var isGestureContact: Bool { [1, 3, 4, 5, 6].contains(state) }
 }
 
 public enum TrackpadContactQuality {
@@ -33,7 +34,7 @@ public enum TrackpadContactQuality {
         _ touches: [TrackpadTouchSample],
         requiredCount: Int = 4
     ) -> [TrackpadTouchSample]? {
-        let activeTouches = touches.filter(\.isActivelyTouching)
+        let activeTouches = touches.filter(\.isGestureContact)
         guard activeTouches.count == requiredCount else { return nil }
         return activeTouches.sorted { $0.id < $1.id }
     }
@@ -52,7 +53,6 @@ public struct TrackpadContactGate: Sendable {
     private var stableSince = 0.0
     private var stableFrames = 0
     private var wasQualified = false
-    private var blockedUntilLift = false
 
     public init() {}
 
@@ -63,24 +63,19 @@ public struct TrackpadContactGate: Sendable {
         minimumStableFrames: Int = 4,
         minimumStableDuration: Double = 0.025
     ) -> TrackpadContactGateUpdate {
-        let activeTouches = touches.filter(\.isActivelyTouching)
+        let activeTouches = touches.filter(\.isGestureContact)
         guard !activeTouches.isEmpty else {
             let result: TrackpadContactGateUpdate = wasQualified ? .ended : .waiting
             self = TrackpadContactGate()
             return result
         }
-        guard !blockedUntilLift else { return .rejected }
-        if wasQualified, let stableIDs, activeTouches.count < stableIDs.count {
-            wasQualified = false
-            blockedUntilLift = true
-            return .ended
-        }
         guard let selected = requiredFingerCounts
             .sorted(by: >)
             .compactMap({ TrackpadContactQuality.qualifiedPinchTouches(activeTouches, requiredCount: $0) })
             .first else {
-            blockedUntilLift = true
-            return .rejected
+            let result: TrackpadContactGateUpdate = wasQualified ? .ended : .rejected
+            self = TrackpadContactGate()
+            return result
         }
 
         let ids = selected.map(\.id)
@@ -91,8 +86,12 @@ public struct TrackpadContactGate: Sendable {
             return .waiting
         }
         guard stableIDs == ids else {
-            blockedUntilLift = true
-            return .rejected
+            let result: TrackpadContactGateUpdate = wasQualified ? .ended : .waiting
+            stableIDs = ids
+            stableSince = timestamp
+            stableFrames = 1
+            wasQualified = false
+            return result
         }
 
         stableFrames += 1

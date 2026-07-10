@@ -33,13 +33,14 @@ final class TrackpadIntentTests: XCTestCase {
         )
     }
 
-    func testContactGateRejectsExtraContactUntilLift() {
+    func testContactGateRearmsAfterSequentialFingerLanding() {
         var gate = TrackpadContactGate()
-        let wipe = threeTouches + [TrackpadTouchSample(id: 4, x: 0.3, y: 0.2)]
-        XCTAssertEqual(gate.update(touches: wipe, requiredFingerCounts: [3], timestamp: 0), .rejected)
-        XCTAssertEqual(gate.update(touches: threeTouches, requiredFingerCounts: [3], timestamp: 0.1), .rejected)
-        XCTAssertEqual(gate.update(touches: [], requiredFingerCounts: [3], timestamp: 0.2), .waiting)
-        XCTAssertEqual(gate.update(touches: threeTouches, requiredFingerCounts: [3], timestamp: 0.3), .waiting)
+        XCTAssertEqual(gate.update(touches: Array(threeTouches.prefix(1)), requiredFingerCounts: [3], timestamp: 0), .rejected)
+        XCTAssertEqual(gate.update(touches: Array(threeTouches.prefix(2)), requiredFingerCounts: [3], timestamp: 0.01), .rejected)
+        XCTAssertEqual(gate.update(touches: threeTouches, requiredFingerCounts: [3], timestamp: 0.02), .waiting)
+        XCTAssertEqual(gate.update(touches: threeTouches, requiredFingerCounts: [3], timestamp: 0.03), .waiting)
+        XCTAssertEqual(gate.update(touches: threeTouches, requiredFingerCounts: [3], timestamp: 0.04), .waiting)
+        XCTAssertEqual(gate.update(touches: threeTouches, requiredFingerCounts: [3], timestamp: 0.05), .qualified(threeTouches))
     }
 
     func testContactGateEndsWhenQualifiedFingersLiftOneAtATime() {
@@ -55,15 +56,14 @@ final class TrackpadIntentTests: XCTestCase {
             gate.update(touches: Array(threeTouches.prefix(2)), requiredFingerCounts: [3], timestamp: 0.04),
             .ended
         )
-        XCTAssertEqual(gate.update(touches: threeTouches, requiredFingerCounts: [3], timestamp: 0.05), .rejected)
-        XCTAssertEqual(gate.update(touches: [], requiredFingerCounts: [3], timestamp: 0.06), .waiting)
+        XCTAssertEqual(gate.update(touches: threeTouches, requiredFingerCounts: [3], timestamp: 0.05), .waiting)
     }
 
-    func testContactGateIgnoresHoverAndLingeringContacts() {
+    func testContactGateIgnoresHoverAndTracksReleaseLifecycle() {
         var gate = TrackpadContactGate()
         let inactive = [
             TrackpadTouchSample(id: 8, x: 0.4, y: 0.4, state: 2),
-            TrackpadTouchSample(id: 9, x: 0.5, y: 0.5, state: 6)
+            TrackpadTouchSample(id: 9, x: 0.5, y: 0.5, state: 2)
         ]
         for frame in 0..<3 {
             XCTAssertEqual(
@@ -78,6 +78,14 @@ final class TrackpadIntentTests: XCTestCase {
         XCTAssertEqual(
             gate.update(touches: threeTouches + inactive, requiredFingerCounts: [3], timestamp: 0.03),
             .qualified(threeTouches)
+        )
+
+        let releasing = threeTouches.map {
+            TrackpadTouchSample(id: $0.id, x: $0.x, y: $0.y, state: 5)
+        }
+        XCTAssertEqual(
+            gate.update(touches: releasing + inactive, requiredFingerCounts: [3], timestamp: 0.04),
+            .qualified(releasing)
         )
     }
 }
