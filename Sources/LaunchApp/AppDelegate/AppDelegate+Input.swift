@@ -3,6 +3,24 @@ import LaunchpadCore
 import SwiftUI
 
 extension AppDelegate {
+    func prepareExclusiveTrackpadGestures() {
+        // Recover a snapshot left by a previous abnormal exit before taking ownership again.
+        SystemTrackpadSettings.restoreNativeLaunchpadPinch()
+        guard showDesktopController.prepare(), SystemTrackpadSettings.reserveNativeLaunchpadPinch() else {
+            SystemTrackpadSettings.restoreNativeLaunchpadPinch()
+            LaunchLog.line("exclusive trackpad ownership unavailable; using passive system gestures")
+            return
+        }
+        ownsNativePinchGestures = true
+        showDesktopController.start { [weak self] active in
+            guard let self else { return }
+            trackpadMonitor.setSystemShowDesktopActive(active)
+            if active { launcherLifecycle?.dismissForSystemGesture() }
+        }
+        trackpadMonitor.setSystemShowDesktopActive(showDesktopController.isActive)
+        LaunchLog.line("exclusive trackpad ownership ready")
+    }
+
     func startTrackpadMonitor() {
         LaunchLog.line("start trackpad monitor")
         let resolvedGesture = TrackpadGestureResolver.resolve(
@@ -10,19 +28,19 @@ extension AppDelegate {
             system: SystemTrackpadSettings.load()
         )
         LaunchLog.line(
-            "trackpad resolved setting=\(resolvedGesture.setting) fingers=\(resolvedGesture.fingerCounts.map(String.init).joined(separator: ",")) conflicted=\(resolvedGesture.conflicted) reserveNativePinch=\(resolvedGesture.shouldReserveNativePinch)"
+            "trackpad resolved setting=\(resolvedGesture.setting) fingers=\(resolvedGesture.fingerCounts.map(String.init).joined(separator: ",")) conflicted=\(resolvedGesture.conflicted)"
         )
-        if resolvedGesture.shouldReserveNativePinch {
-            SystemTrackpadSettings.reserveNativeLaunchpadPinch()
-            LaunchLog.line("trackpad reserved native Launchpad pinch")
-        }
         state.applyResolvedTrackpadGesture(resolvedGesture)
         guard !resolvedGesture.fingerCounts.isEmpty else {
             trackpadMonitor.stop()
             state.setTrackpadGateActive(false)
             return
         }
-        trackpadMonitor.start(requiredFingerCounts: resolvedGesture.fingerCounts) { [weak self] isActive in
+        trackpadMonitor.start(
+            requiredFingerCounts: resolvedGesture.fingerCounts,
+            preservesSystemShowDesktop: SystemTrackpadSettings.isShowDesktopGestureEnabled,
+            controlsSystemShowDesktop: ownsNativePinchGestures
+        ) { [weak self] isActive in
             LaunchLog.line("trackpad gate active=\(isActive)")
             self?.state.setTrackpadGateActive(isActive, conflicted: resolvedGesture.conflicted)
         } onIntent: { [weak self] intent in
@@ -73,16 +91,37 @@ extension AppDelegate {
                 system: SystemTrackpadSettings.load()
             ).fingerCounts.isEmpty == false else { return }
             guard !state.isHandlingLauncherDrag else { return }
+            if case .tracking(let intent, _, _) = update {
+                if intent == .close, launcherLifecycle?.isVisible != true {
+                    trackpadMonitor.yieldCurrentGestureToSystem()
+                    return
+                }
+                if intent == .open,
+                   launcherLifecycle?.isVisible == true,
+                   launcherLifecycle?.isPinchTracking != true {
+                    trackpadMonitor.yieldCurrentGestureToSystem()
+                    return
+                }
+            }
             if case .commit(let intent) = update {
-                let now = Date()
-                guard now >= trackpadIntentLockedUntil else { return }
-                trackpadIntentLockedUntil = now.addingTimeInterval(LaunchConstants.Multitouch.lifecycleBounceCooldown)
                 if intent == .close, state.openFolder != nil {
                     state.closeFolder()
                     return
                 }
             }
             launcherLifecycle?.handlePinchUpdate(update)
+        } onSystemShowDesktop: { [weak self] action in
+            guard let self else { return }
+            LaunchLog.line("trackpad control system show desktop action=\(action)")
+            if action == .show, launcherLifecycle?.isVisible == true {
+                LaunchLog.line("trackpad show desktop blocked while launcher visible")
+                launcherLifecycle?.hide()
+                return
+            }
+            launcherLifecycle?.dismissForSystemGesture()
+            if ownsNativePinchGestures {
+                _ = showDesktopController.toggle()
+            }
         }
     }
 

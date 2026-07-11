@@ -32,7 +32,12 @@ enum SystemTrackpadSettings {
         )
     }
 
-    static func reserveNativeLaunchpadPinch() {
+    static var isShowDesktopGestureEnabled: Bool {
+        int(showDesktopGestureKey, domain: dockDomain) > 0
+    }
+
+    @discardableResult
+    static func reserveNativeLaunchpadPinch() -> Bool {
         saveSnapshot()
         for domain in domains {
             for (key, value) in TrackpadGesturePreferenceSnapshot(values: appValues(domain: domain)).reserveWrites {
@@ -49,11 +54,19 @@ enum SystemTrackpadSettings {
             kCFPreferencesCurrentHost
         )
         applySystemSettings()
+        refreshNativeGestureRegistrations(showDesktopOriginalValue: nil)
+        let settings = load()
+        let reserved = !settings.fourFingerPinchEnabled && !settings.fiveFingerPinchEnabled
+        LaunchLog.line("reserve native apps pinch success=\(reserved)")
+        return reserved
     }
 
-    static func restoreNativeLaunchpadPinch() {
+    static func restoreNativeLaunchpadPinch(refreshRegistrationsIfNeeded: Bool = false) {
         guard let snapshot = loadSnapshot() else {
-            refreshNativeGestureRegistrations(showDesktopOriginalValue: optionalInt(showDesktopGestureKey, domain: dockDomain))
+            guard refreshRegistrationsIfNeeded else { return }
+            let showDesktopValue = optionalInt(showDesktopGestureKey, domain: dockDomain)
+            LaunchLog.line("refresh native trackpad registrations showDesktop=\(showDesktopValue ?? -1)")
+            refreshNativeGestureRegistrations(showDesktopOriginalValue: showDesktopValue)
             return
         }
         var notificationNames: [String] = []

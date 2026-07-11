@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import LaunchpadCore
 import SwiftUI
 
@@ -8,6 +9,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     let iconCache = IconCache()
     let appCatalogMonitor = AppCatalogMonitor()
     let trackpadMonitor = TrackpadGestureMonitor()
+    let showDesktopController = SystemShowDesktopController()
     let globalHotKey = GlobalHotKeyAdapter()
     let f4KeyTap = F4KeyTapMonitor()
     let hotCornerMonitor = HotCornerMonitor()
@@ -23,6 +25,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     var modifierKeyMonitor: Any?
     var statusRightClickMonitor: Any?
     var trackpadIntentLockedUntil = Date.distantPast
+    var ownsNativePinchGestures = false
+    var terminationSignalSources: [DispatchSourceSignal] = []
     lazy var statusMenu: NSMenu = makeStatusMenu()
 
     public override init() {
@@ -33,6 +37,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         LaunchLog.app.info("applicationDidFinishLaunching")
         LaunchLog.line("app did finish launching")
         NSApp.setActivationPolicy(.accessory)
+        installTerminationSignalHandlers()
         installMainMenu()
         makeWindow()
         state.refreshAppsAsync(
@@ -42,10 +47,17 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         startAppCatalogMonitor()
         applyAppIcon()
         applyMenuBarVisibility()
+        prepareExclusiveTrackpadGestures()
         startGlobalHotKey()
         startHotCornerMonitor()
         startTrackpadMonitorDeferred()
         startKeyMonitor()
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(activeSpaceDidChange(_:)),
+            name: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil
+        )
     }
 
     public func applicationDidBecomeActive(_ notification: Notification) {
@@ -53,8 +65,27 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     }
 
     public func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+        terminationSignalSources.forEach { $0.cancel() }
+        terminationSignalSources.removeAll()
+        showDesktopController.stop()
         SystemTrackpadSettings.restoreNativeLaunchpadPinch()
+        ownsNativePinchGestures = false
         return .terminateNow
+    }
+
+    private func installTerminationSignalHandlers() {
+        for signalNumber in [SIGINT, SIGTERM] {
+            signal(signalNumber, SIG_IGN)
+            let source = DispatchSource.makeSignalSource(signal: signalNumber, queue: .main)
+            source.setEventHandler { NSApp.terminate(nil) }
+            source.resume()
+            terminationSignalSources.append(source)
+        }
+    }
+
+    @objc private func activeSpaceDidChange(_ notification: Notification) {
+        launcherLifecycle?.dismissForSystemGesture()
     }
 
     func makeWindow() {
@@ -70,7 +101,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         window.isFloatingPanel = false
         window.contentView = makeLauncherContainer()
         window.acceptsMouseMovedEvents = true
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        window.collectionBehavior = [.canJoinAllSpaces, .transient, .fullScreenAuxiliary, .ignoresCycle]
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = false

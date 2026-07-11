@@ -12,24 +12,21 @@ public struct ResolvedTrackpadGesture: Equatable, Sendable {
     public let setting: String
     public let fingerCounts: [Int]
     public let conflicted: Bool
-    public let shouldReserveNativePinch: Bool
 
     public var fingerCount: Int? { fingerCounts.first }
 
-    public init(setting: String, fingerCount: Int?, conflicted: Bool = false, shouldReserveNativePinch: Bool = false) {
+    public init(setting: String, fingerCount: Int?, conflicted: Bool = false) {
         self.init(
             setting: setting,
             fingerCounts: fingerCount.map { [$0] } ?? [],
-            conflicted: conflicted,
-            shouldReserveNativePinch: shouldReserveNativePinch
+            conflicted: conflicted
         )
     }
 
-    public init(setting: String, fingerCounts: [Int], conflicted: Bool = false, shouldReserveNativePinch: Bool = false) {
+    public init(setting: String, fingerCounts: [Int], conflicted: Bool = false) {
         self.setting = setting
         self.fingerCounts = fingerCounts
         self.conflicted = conflicted
-        self.shouldReserveNativePinch = shouldReserveNativePinch
     }
 }
 
@@ -38,6 +35,7 @@ public enum TrackpadGestureResolver {
     public static let pinch3 = "Pinch with 3 fingers"
     public static let pinch4 = "Pinch with 4 fingers"
     public static let pinch5 = "Pinch with 5 fingers"
+    public static let anyPinch = "Pinch with 3, 4, or 5 fingers (Experimental)"
     public static let legacyPinch = "Pinch with 4 or 5 fingers"
     public static let disabled = "Disabled"
 
@@ -51,15 +49,19 @@ public enum TrackpadGestureResolver {
             return ResolvedTrackpadGesture(
                 setting: pinch4,
                 fingerCount: 4,
-                conflicted: system.fourFingerPinchEnabled || system.fiveFingerPinchEnabled,
-                shouldReserveNativePinch: system.fourFingerPinchEnabled || system.fiveFingerPinchEnabled
+                conflicted: system.fourFingerPinchEnabled || system.fiveFingerPinchEnabled
             )
         case pinch5:
             return ResolvedTrackpadGesture(
                 setting: pinch5,
                 fingerCount: 5,
-                conflicted: system.fiveFingerPinchEnabled,
-                shouldReserveNativePinch: system.fiveFingerPinchEnabled
+                conflicted: system.fiveFingerPinchEnabled
+            )
+        case anyPinch:
+            return ResolvedTrackpadGesture(
+                setting: anyPinch,
+                fingerCounts: [3, 4, 5],
+                conflicted: system.fourFingerPinchEnabled || system.fiveFingerPinchEnabled
             )
         default:
             return automaticResolution(system: system)
@@ -69,9 +71,8 @@ public enum TrackpadGestureResolver {
     private static func automaticResolution(system: SystemTrackpadGestureSettings) -> ResolvedTrackpadGesture {
         ResolvedTrackpadGesture(
             setting: automatic,
-            fingerCounts: [3, 4],
-            conflicted: system.fourFingerPinchEnabled || system.fiveFingerPinchEnabled,
-            shouldReserveNativePinch: system.fourFingerPinchEnabled || system.fiveFingerPinchEnabled
+            fingerCount: 4,
+            conflicted: system.fourFingerPinchEnabled || system.fiveFingerPinchEnabled
         )
     }
 }

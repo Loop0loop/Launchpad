@@ -228,9 +228,18 @@ enum LaunchConstants {
     }
 
     enum Lifecycle {
-        static let windowShowDuration: TimeInterval = 0.28
-        static let windowHideDuration: TimeInterval = 0.20
-        static let reduceMotionDuration: TimeInterval = 0.12
+        static let interactiveStartScale: CGFloat = 1.035
+        static let largeJumpThreshold: CGFloat = 0.14
+        static let fastInputVelocityThreshold: CGFloat = 2.0
+        static let largeJumpFirstFrameRatio: CGFloat = 0.72
+        static let stationaryVelocityThreshold: CGFloat = 0.12
+        static let stationaryDeltaThreshold: CGFloat = 0.002
+        static let stationaryTimeout = 0.010
+        static let openSpringResponse = 0.36
+        static let closeSpringResponse = 0.40
+        static let decisionProjectionTime = 0.08
+        static let maximumDecisionVelocity: CGFloat = 2.5
+        static let maximumSpringVelocity: CGFloat = 4.0
     }
 
     enum WindowBrowsing {
@@ -267,8 +276,7 @@ enum LaunchConstants {
         static let registerContactFrameCallbackSymbol = "MTRegisterContactFrameCallback"
         static let deviceStartSymbol = "MTDeviceStart"
         static let defaultGestureFingerCount = 4
-        static let pinchInRatio = 0.9
-        static let pinchOutRatio = 1.1
+        static let scaleFilterResponse = 0.018
         static let triggerCooldown: Double = 0.65
         static let lifecycleBounceCooldown: Double = 0.18
     }

@@ -8,7 +8,7 @@ final class LauncherPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
-/// Hosts SwiftUI content and receives open/close scale animation without breaking hit testing inside `NSHostingView`.
+/// Hosts SwiftUI content without breaking hit testing inside `NSHostingView`.
 final class LauncherPresentationContainer: NSView {
     override var isFlipped: Bool { true }
 

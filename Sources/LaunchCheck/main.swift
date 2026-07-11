@@ -162,14 +162,21 @@ assert(TrackpadIntent.pinchCloseProgress(ratio: 1.18) == 1)
 
 var continuousPinch = TrackpadGestureSession()
 assert(continuousPinch.trackPinch(radius: 1.0, timestamp: 10.0) == nil)
-assert(continuousPinch.trackPinch(radius: 0.95, timestamp: 10.01) == nil)
-if case .tracking(let openIntent, let openProgress)? = continuousPinch.trackPinch(radius: 0.86, timestamp: 10.02) {
+if case .tracking(let openIntent, let openProgress, let timestamp)? = continuousPinch.trackPinch(radius: 0.8665, timestamp: 10.01) {
     assert(openIntent == .open)
     assert(abs(openProgress - 0.5) < 0.001)
+    assert(timestamp == 10.01)
 } else {
     assertionFailure("expected open tracking progress")
 }
-if case .commit(let committed)? = continuousPinch.trackPinch(radius: nil, timestamp: 10.03) {
+if case .tracking(let openIntent, let reversedProgress, _)? = continuousPinch.trackPinch(radius: 0.9705, timestamp: 10.02) {
+    assert(openIntent == .open)
+    assert(abs(reversedProgress - 0.1) < 0.001)
+} else {
+    assertionFailure("expected reversible open tracking progress")
+}
+_ = continuousPinch.trackPinch(radius: 0.86, timestamp: 10.03)
+if case .commit(let committed)? = continuousPinch.trackPinch(radius: nil, timestamp: 10.04) {
     assert(committed == .open)
 } else {
     assertionFailure("expected open commit")
@@ -177,7 +184,7 @@ if case .commit(let committed)? = continuousPinch.trackPinch(radius: nil, timest
 
 var cancelPinch = TrackpadGestureSession()
 assert(cancelPinch.trackPinch(radius: 1.0, timestamp: 11.0) == nil)
-_ = cancelPinch.trackPinch(radius: 0.88, timestamp: 11.01)
+_ = cancelPinch.trackPinch(radius: 0.95, timestamp: 11.01)
 if case .cancel? = cancelPinch.trackPinch(radius: nil, timestamp: 11.02) {
 } else {
     assertionFailure("expected pinch cancel below commit threshold")
@@ -190,12 +197,48 @@ let fingerTouches = [
     TrackpadTouchSample(id: 2, x: 0.2, y: 0.2, majorAxis: 0.13, minorAxis: 0.09)
 ]
 assert(TrackpadContactQuality.qualifiedPinchTouches(fingerTouches)?.map(\.id) == [1, 2, 3, 4])
+let scaleBaseline = [
+    TrackpadTouchSample(id: 1, x: 0, y: 0),
+    TrackpadTouchSample(id: 2, x: 1, y: 0),
+    TrackpadTouchSample(id: 3, x: 0, y: 1)
+]
+let scaleCurrent = scaleBaseline.map {
+    TrackpadTouchSample(id: $0.id, x: $0.x * 2, y: $0.y * 2)
+}
+assert(abs(TrackpadContactQuality.medianPairScaleRatio(
+    baseline: scaleBaseline,
+    current: scaleCurrent
+)! - 2) < 0.001)
+let filteredScale = TrackpadContactQuality.lowPassScaleRatio(
+    previous: 1,
+    current: 1.2,
+    elapsed: 0.018,
+    responseTime: 0.018
+)
+assert(abs(filteredScale - 1.126424) < 0.000_001)
+assert(TrackpadContactQuality.lowPassScaleRatio(
+    previous: filteredScale,
+    current: 1.4,
+    elapsed: 0,
+    responseTime: 0.018
+) == filteredScale)
+var intentArbiter = TrackpadGestureIntentArbiter(baseline: scaleBaseline, timestamp: 0)
+let translatedTouches = scaleBaseline.map {
+    TrackpadTouchSample(id: $0.id, x: $0.x + 0.03, y: $0.y)
+}
+assert(intentArbiter.update(current: translatedTouches, timestamp: 0.01) == .undecided)
 assert(TrackpadContactQuality.qualifiedPinchTouches(fingerTouches + [
     TrackpadTouchSample(id: 5, x: 0.3, y: 0.2, majorAxis: 0.11, minorAxis: 0.08)
 ]) == nil)
 assert(TrackpadContactQuality.qualifiedPinchTouches(fingerTouches + [
     TrackpadTouchSample(id: 5, x: 0.3, y: 0.2),
     TrackpadTouchSample(id: 6, x: 0.4, y: 0.2)
+]) == nil)
+assert(TrackpadContactQuality.qualifiedPinchTouches([
+    TrackpadTouchSample(id: 1, x: .nan, y: 0.1),
+    TrackpadTouchSample(id: 2, x: 0.2, y: 0.1),
+    TrackpadTouchSample(id: 3, x: 0.1, y: 0.2),
+    TrackpadTouchSample(id: 4, x: 0.2, y: 0.2)
 ]) == nil)
 assert(TrackpadContactQuality.qualifiedPinchTouches([
     TrackpadTouchSample(id: 1, x: 0.1, y: 0.1, majorAxis: 0.45, minorAxis: 0.28),
@@ -213,19 +256,17 @@ assert(TrackpadContactQuality.qualifiedPinchTouches([
 let noSystemPinch = SystemTrackpadGestureSettings(fourFingerPinchEnabled: false, fiveFingerPinchEnabled: false)
 let systemFourPinch = SystemTrackpadGestureSettings(fourFingerPinchEnabled: true, fiveFingerPinchEnabled: false)
 let systemFourAndFivePinch = SystemTrackpadGestureSettings(fourFingerPinchEnabled: true, fiveFingerPinchEnabled: true)
-assert(TrackpadGestureResolver.resolve(preferred: TrackpadGestureResolver.automatic, system: noSystemPinch).fingerCounts == [3, 4])
-assert(TrackpadGestureResolver.resolve(preferred: TrackpadGestureResolver.automatic, system: systemFourPinch).fingerCounts == [3, 4])
-assert(TrackpadGestureResolver.resolve(preferred: TrackpadGestureResolver.automatic, system: systemFourPinch).shouldReserveNativePinch)
+assert(TrackpadGestureResolver.resolve(preferred: TrackpadGestureResolver.automatic, system: noSystemPinch).fingerCounts == [4])
+assert(TrackpadGestureResolver.resolve(preferred: TrackpadGestureResolver.automatic, system: systemFourPinch).fingerCounts == [4])
 assert(TrackpadGestureResolver.resolve(preferred: TrackpadGestureResolver.pinch4, system: systemFourPinch).fingerCount == 4)
 assert(TrackpadGestureResolver.resolve(preferred: TrackpadGestureResolver.pinch3, system: systemFourPinch).fingerCount == 3)
 assert(!TrackpadGestureResolver.resolve(preferred: TrackpadGestureResolver.pinch3, system: systemFourPinch).conflicted)
 assert(TrackpadGestureResolver.resolve(preferred: TrackpadGestureResolver.pinch5, system: systemFourPinch).fingerCount == 5)
 assert(!TrackpadGestureResolver.resolve(preferred: TrackpadGestureResolver.pinch5, system: systemFourPinch).conflicted)
-assert(TrackpadGestureResolver.resolve(preferred: TrackpadGestureResolver.automatic, system: systemFourAndFivePinch).fingerCounts == [3, 4])
+assert(TrackpadGestureResolver.resolve(preferred: TrackpadGestureResolver.automatic, system: systemFourAndFivePinch).fingerCounts == [4])
 assert(TrackpadGestureResolver.resolve(preferred: TrackpadGestureResolver.automatic, system: systemFourAndFivePinch).conflicted)
-assert(TrackpadGestureResolver.resolve(preferred: TrackpadGestureResolver.automatic, system: systemFourAndFivePinch).shouldReserveNativePinch)
+assert(TrackpadGestureResolver.resolve(preferred: TrackpadGestureResolver.anyPinch, system: systemFourAndFivePinch).fingerCounts == [3, 4, 5])
 assert(TrackpadGestureResolver.resolve(preferred: TrackpadGestureResolver.pinch5, system: systemFourAndFivePinch).conflicted)
-assert(TrackpadGestureResolver.resolve(preferred: TrackpadGestureResolver.pinch5, system: systemFourAndFivePinch).shouldReserveNativePinch)
 assert(TrackpadGestureResolver.resolve(preferred: TrackpadGestureResolver.disabled, system: systemFourAndFivePinch).fingerCount == nil)
 
 var pinchSession = TrackpadGestureSession()

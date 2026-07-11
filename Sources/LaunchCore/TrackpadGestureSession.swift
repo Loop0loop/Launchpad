@@ -29,14 +29,14 @@ public struct TrackpadGestureSession {
         radius: Double?,
         centerX: Double? = nil,
         centerY: Double? = nil,
-        timestamp _: Double,
-        pinchInThreshold: Double = 0.9,
-        pinchOutThreshold: Double = 1.1,
-        immediatePinchInThreshold: Double = 0.82,
-        immediatePinchOutThreshold: Double = 1.18,
+        timestamp: Double,
+        openGestureRange: Double = 0.26,
+        closeGestureRange: Double = 0.30,
+        deadZone: Double = 0.0035,
+        lockedIntent: TrackpadIntent? = nil,
         minimumPinchCenterTolerance: Double = 0.035,
         pinchCenterTravelRatio: Double = 1.0,
-        commitProgress: Double = 0.45
+        commitProgress: Double = 0.5
     ) -> TrackpadPinchUpdate? {
         guard let radius, radius > 0 else {
             defer { pinchState = .idle }
@@ -97,20 +97,24 @@ public struct TrackpadGestureSession {
             }
 
             let ratio = radius / initialRadius
-            let openProgress = TrackpadIntent.pinchOpenProgress(
-                ratio: ratio,
-                start: pinchInThreshold,
-                full: immediatePinchInThreshold
-            )
-            let closeProgress = TrackpadIntent.pinchCloseProgress(
-                ratio: ratio,
-                start: pinchOutThreshold,
-                full: immediatePinchOutThreshold
-            )
+            let rawSpreadDelta = 1 - ratio
+            let effectiveMagnitude = max(abs(rawSpreadDelta) - deadZone, 0)
+            let effectiveDelta = rawSpreadDelta < 0 ? -effectiveMagnitude : effectiveMagnitude
+            let openProgress = min(max(effectiveDelta / openGestureRange, 0), 1)
+            let closeProgress = min(max(-effectiveDelta / closeGestureRange, 0), 1)
 
             let intent: TrackpadIntent?
             let progress: Double
-            if openProgress > 0 && openProgress >= closeProgress {
+            if lockedIntent == .open {
+                intent = openProgress > 0 ? .open : nil
+                progress = openProgress
+            } else if lockedIntent == .close {
+                intent = closeProgress > 0 ? .close : nil
+                progress = closeProgress
+            } else if effectiveDelta == 0 {
+                intent = nil
+                progress = 0
+            } else if openProgress > 0 && openProgress >= closeProgress {
                 intent = .open
                 progress = openProgress
             } else if closeProgress > 0 {
@@ -127,17 +131,17 @@ public struct TrackpadGestureSession {
                 initialCenterY: initialCenterY,
                 pendingIntent: nil,
                 lastIntent: lastIntent,
-                lastProgressIntent: intent,
+                lastProgressIntent: intent ?? lastProgressIntent,
                 lastProgress: progress
             )
 
             guard let intent else {
                 if lastProgress > 0 {
-                    return .tracking(intent: lastProgressIntent ?? .open, progress: 0)
+                    return .tracking(intent: lastProgressIntent ?? .open, progress: 0, timestamp: timestamp)
                 }
                 return nil
             }
-            return .tracking(intent: intent, progress: progress)
+            return .tracking(intent: intent, progress: progress, timestamp: timestamp)
         }
     }
 

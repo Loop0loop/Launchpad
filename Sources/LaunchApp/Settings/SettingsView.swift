@@ -81,6 +81,7 @@ struct SettingsView: View {
                         Text(Localized.t("손가락 3개로 핀치", "Pinch with 3 fingers")).tag(TrackpadGestureResolver.pinch3)
                         Text(Localized.t("손가락 4개로 핀치", "Pinch with 4 fingers")).tag(TrackpadGestureResolver.pinch4)
                         Text(Localized.t("손가락 5개로 핀치", "Pinch with 5 fingers")).tag(TrackpadGestureResolver.pinch5)
+                        Text(Localized.t("손가락 3·4·5개 모두 (실험적)", "Any 3, 4, or 5 fingers (Experimental)")).tag(TrackpadGestureResolver.anyPinch)
                         Text(Localized.t("비활성화", "Disabled")).tag(TrackpadGestureResolver.disabled)
                     }
                     .labelsHidden()

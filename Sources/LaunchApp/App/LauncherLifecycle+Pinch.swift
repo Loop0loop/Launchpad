@@ -4,8 +4,8 @@ import LaunchpadCore
 extension LauncherLifecycle {
     func handlePinchUpdate(_ update: TrackpadPinchUpdate) {
         switch update {
-        case .tracking(let intent, let progress):
-            trackPinch(intent: intent, progress: progress)
+        case .tracking(let intent, let progress, let timestamp):
+            trackPinch(intent: intent, progress: progress, timestamp: timestamp)
         case .commit(let intent):
             commitPinch(intent)
         case .cancel:
@@ -13,95 +13,134 @@ extension LauncherLifecycle {
         }
     }
 
-    func trackPinch(intent: TrackpadIntent, progress: Double) {
+    func dismissForSystemGesture() {
+        pinchTracking = nil
+        stopPresentationAnimation()
+        interactionVelocity = 0
+        presentationVelocity = 0
+        guard window.isVisible || state.launcherVisible else { return }
+        dismiss()
+    }
+
+    func trackPinch(intent: TrackpadIntent, progress: Double, timestamp: TimeInterval) {
         let clamped = min(max(progress, 0), 1)
+        let sampleTimestamp = timestamp.isFinite ? timestamp : 0
         switch intent {
         case .open:
             guard state.openFolder == nil else { return }
-            if phase == .shown || phase == .showing, pinchTracking == nil { return }
+            if phase == .shown, pinchTracking == nil { return }
             if pinchTracking == nil {
-                guard phase == .hidden || !window.isVisible else { return }
-                pinchTracking = .opening
+                guard phase == .hidden || !window.isVisible || presentationDisplayLink != nil else { return }
                 transitionToken = UUID()
+                let needsPreparation = phase == .hidden || !window.isVisible
                 phase = .showing
-                prepareShowPresentation()
+                if needsPreparation {
+                    prepareShowPresentation()
+                } else {
+                    stopPresentationAnimation()
+                }
+                beginPinch(intent: .open, timestamp: sampleTimestamp)
             }
-            guard pinchTracking == .opening else { return }
-            applyPinchPresentation(progress: clamped, opening: true)
+            guard pinchTracking?.intent == .open else { return }
+            applyPinchPresentation(progress: clamped, timestamp: sampleTimestamp)
         case .close:
             guard state.openFolder == nil else { return }
-            guard phase == .shown || phase == .showing || pinchTracking == .closing else { return }
+            guard phase != .hidden || pinchTracking?.intent == .close else { return }
             if pinchTracking == nil {
-                pinchTracking = .closing
                 transitionToken = UUID()
+                stopPresentationAnimation()
                 phase = .hiding
                 mouseMonitor?.setEnabled(false)
                 state.clearFolderTransientAnimations()
                 state.stopEditingLayout()
                 state.cancelDrag()
                 preparePresentationLayer()
+                beginPinch(intent: .close, timestamp: sampleTimestamp)
             }
-            guard pinchTracking == .closing else { return }
-            applyPinchPresentation(progress: clamped, opening: false)
+            guard pinchTracking?.intent == .close else { return }
+            applyPinchPresentation(progress: clamped, timestamp: sampleTimestamp)
         case .previousPage, .nextPage:
             break
         }
     }
 
     func commitPinch(_ intent: TrackpadIntent) {
+        if pinchTracking != nil {
+            finishPinch(committed: true)
+            return
+        }
         switch intent {
         case .open:
-            guard pinchTracking == .opening else {
-                if phase != .shown { show() }
-                return
-            }
-            pinchTracking = nil
-            let token = UUID()
-            transitionToken = token
-            runPresentationAnimation(toVisible: true) { [weak self] in
-                guard let self, self.transitionToken == token else { return }
-                self.phase = .shown
-            }
+            if phase != .shown { show() }
         case .close:
             if state.openFolder != nil {
-                pinchTracking = nil
                 state.closeFolder()
                 return
             }
-            guard pinchTracking == .closing else {
-                if isVisible { hide() }
-                return
-            }
-            pinchTracking = nil
-            let token = UUID()
-            transitionToken = token
-            phase = .hiding
-            runPresentationAnimation(toVisible: false) { [weak self] in
-                guard let self, self.transitionToken == token else { return }
-                self.completeHide(activatePrevious: true)
-            }
+            if isVisible { hide() }
         case .previousPage, .nextPage:
             pinchTracking = nil
         }
     }
 
     func cancelPinch() {
+        guard pinchTracking != nil else { return }
+        finishPinch(committed: false)
+    }
+
+    private func beginPinch(intent: TrackpadIntent, timestamp: TimeInterval) {
+        pinchTracking = PinchTracking(intent: intent, startProgress: presentationProgress)
+        interactionProgress = presentationProgress
+        interactionVelocity = 0
+        presentationVelocity = 0
+        pinchPreviousProgress = interactionProgress
+        pinchPreviousTimestamp = timestamp
+        latestInteractionDelta = 0
+        previousInteractionDelta = 0
+        lastSignificantChangeTimestamp = CACurrentMediaTime()
+        hasPendingInteractionSample = false
+        jumpTarget = nil
+        jumpFramesRemaining = 0
+        startPresentationFollower()
+    }
+
+    private func finishPinch(committed: Bool) {
         guard let tracking = pinchTracking else { return }
         pinchTracking = nil
         let token = UUID()
         transitionToken = token
-        switch tracking {
-        case .opening:
+        let target: CGFloat
+        if committed {
+            target = tracking.intent == .open ? 1 : 0
+        } else {
+            let decisionVelocity = min(
+                max(interactionVelocity, -LaunchConstants.Lifecycle.maximumDecisionVelocity),
+                LaunchConstants.Lifecycle.maximumDecisionVelocity
+            )
+            target = CGFloat(TrackpadIntent.projectedTransitionTarget(
+                progress: Double(interactionProgress),
+                velocity: Double(decisionVelocity),
+                projectionTime: LaunchConstants.Lifecycle.decisionProjectionTime
+            ))
+        }
+        LaunchLog.line(
+            "trackpad settle intent=\(tracking.intent) committed=\(committed) progress=\(interactionProgress) velocity=\(interactionVelocity) target=\(target)"
+        )
+        let springVelocity = min(
+            max(presentationVelocity, -LaunchConstants.Lifecycle.maximumSpringVelocity),
+            LaunchConstants.Lifecycle.maximumSpringVelocity
+        )
+        if target == 0 {
             phase = .hiding
             mouseMonitor?.setEnabled(false)
-            runPresentationAnimation(toVisible: false) { [weak self] in
+            settlePresentation(to: 0, initialVelocity: springVelocity) { [weak self] in
                 guard let self, self.transitionToken == token else { return }
-                self.completeHide(activatePrevious: false)
+                self.completeHide(activatePrevious: tracking.intent == .close)
             }
-        case .closing:
+        } else {
             phase = .showing
             mouseMonitor?.setEnabled(true)
-            runPresentationAnimation(toVisible: true) { [weak self] in
+            settlePresentation(to: 1, initialVelocity: springVelocity) { [weak self] in
                 guard let self, self.transitionToken == token else { return }
                 self.phase = .shown
             }
@@ -109,6 +148,7 @@ extension LauncherLifecycle {
     }
 
     func prepareShowPresentation() {
+        let wasVisible = window.isVisible
         rememberPreviousApp()
         state.query = ""
         state.clearFolderTransientAnimations()
@@ -119,6 +159,7 @@ extension LauncherLifecycle {
         state.actions.restoreLauncherRoot()
 
         state.launcherVisible = true
+        (NSApp.delegate as? AppDelegate)?.trackpadMonitor.setLauncherVisible(true)
         state.pageDragOffset = 0
         state.backgroundDismissLockedUntil = Date().addingTimeInterval(0.35)
         // Focus (and the active search chrome) only when the user clicks the field.
@@ -127,15 +168,36 @@ extension LauncherLifecycle {
         state.refreshAppsAsyncIfStale()
 
         preparePresentationLayer()
-        window.alphaValue = 0
+        if !wasVisible { applyPresentationProgress(0) }
         window.makeKeyAndOrderFront(nil)
         window.makeFirstResponder(nil)
         NSApp.activate(ignoringOtherApps: true)
         mouseMonitor?.setEnabled(true)
     }
 
-    func applyPinchPresentation(progress: Double, opening: Bool) {
-        let t = opening ? progress : (1 - progress)
-        window.alphaValue = CGFloat(t)
+    func applyPinchPresentation(progress: Double, timestamp: TimeInterval) {
+        guard let tracking = pinchTracking else { return }
+        let clampedProgress = CGFloat(TrackpadIntent.additiveTransitionProgress(
+            start: Double(tracking.startProgress),
+            gestureProgress: progress,
+            intent: tracking.intent
+        ))
+        let dt = timestamp - pinchPreviousTimestamp
+        let inputDelta = clampedProgress - interactionProgress
+        if dt >= 1.0 / 240.0, dt <= 0.25 {
+            let rawVelocity = (clampedProgress - pinchPreviousProgress) / dt
+            interactionVelocity = interactionVelocity * 0.55 + rawVelocity * 0.45
+        }
+        previousInteractionDelta = latestInteractionDelta
+        latestInteractionDelta = inputDelta
+        interactionProgress = clampedProgress
+        if abs(inputDelta) >= LaunchConstants.Lifecycle.stationaryDeltaThreshold {
+            lastSignificantChangeTimestamp = CACurrentMediaTime()
+        }
+        hasPendingInteractionSample = true
+        pinchPreviousProgress = clampedProgress
+        if timestamp > pinchPreviousTimestamp {
+            pinchPreviousTimestamp = timestamp
+        }
     }
 }
