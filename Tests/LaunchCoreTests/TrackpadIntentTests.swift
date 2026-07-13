@@ -61,6 +61,27 @@ final class TrackpadIntentTests: XCTestCase {
         XCTAssertEqual(session.trackPinch(radius: nil, timestamp: 0.03), .commit(.close))
     }
 
+    func testClaimedPinchToleratesCenterDrift() {
+        var session = TrackpadGestureSession()
+        XCTAssertNil(session.trackPinch(
+            radius: 1,
+            centerX: 0.5,
+            centerY: 0.5,
+            timestamp: 0,
+            lockedIntent: .open
+        ))
+        guard case .tracking(.open, let progress, _)? = session.trackPinch(
+            radius: 0.86,
+            centerX: 0.65,
+            centerY: 0.5,
+            timestamp: 0.01,
+            lockedIntent: .open
+        ) else {
+            return XCTFail("expected a claimed pinch to tolerate center drift")
+        }
+        XCTAssertGreaterThan(progress, 0.5)
+    }
+
     func testTransitionTargetProjectsReleaseVelocity() {
         XCTAssertEqual(TrackpadIntent.projectedTransitionTarget(progress: 0.55, velocity: 0), 1)
         XCTAssertEqual(TrackpadIntent.projectedTransitionTarget(progress: 0.35, velocity: 0), 0)
@@ -288,6 +309,16 @@ final class TrackpadIntentTests: XCTestCase {
         }
         XCTAssertEqual(swipeArbiter.update(current: translated, timestamp: 0.01), .undecided)
 
+        let irregular = [
+            TrackpadTouchSample(id: 1, x: 0.34, y: 0.34),
+            TrackpadTouchSample(id: 2, x: 0.74, y: 0.26),
+            TrackpadTouchSample(id: 3, x: 0.34, y: 0.66),
+            TrackpadTouchSample(id: 4, x: 0.74, y: 0.74)
+        ]
+        var irregularArbiter = TrackpadGestureIntentArbiter(baseline: baseline, timestamp: 0)
+        XCTAssertEqual(irregularArbiter.update(current: irregular, timestamp: 0.01), .undecided)
+        XCTAssertEqual(irregularArbiter.update(current: irregular, timestamp: 0.02), .undecided)
+
         let pinched = baseline.map {
             TrackpadTouchSample(
                 id: $0.id,
@@ -295,11 +326,48 @@ final class TrackpadIntentTests: XCTestCase {
                 y: 0.5 + ($0.y - 0.5) * 0.9
             )
         }
+        let gradualPinch = baseline.map {
+            TrackpadTouchSample(
+                id: $0.id,
+                x: 0.5 + ($0.x - 0.5) * 0.98,
+                y: 0.5 + ($0.y - 0.5) * 0.98
+            )
+        }
         swipeArbiter.ignoreUntilLift()
         XCTAssertEqual(swipeArbiter.update(current: pinched, timestamp: 0.02), .ignoredUntilLift)
 
         var pinchArbiter = TrackpadGestureIntentArbiter(baseline: baseline, timestamp: 0)
-        XCTAssertEqual(pinchArbiter.update(current: pinched, timestamp: 0.01), .launcherRadialIn)
+        XCTAssertEqual(pinchArbiter.update(current: gradualPinch, timestamp: 0.01), .undecided)
+        XCTAssertEqual(pinchArbiter.update(current: gradualPinch, timestamp: 0.02), .launcherRadialIn)
+        var immediatePinchArbiter = TrackpadGestureIntentArbiter(baseline: baseline, timestamp: 0)
+        XCTAssertEqual(immediatePinchArbiter.update(current: pinched, timestamp: 0.01), .launcherRadialIn)
+
+        let spread = baseline.map {
+            TrackpadTouchSample(
+                id: $0.id,
+                x: 0.5 + ($0.x - 0.5) * 1.1,
+                y: 0.5 + ($0.y - 0.5) * 1.1
+            )
+        }
+        let gradualSpread = baseline.map {
+            TrackpadTouchSample(
+                id: $0.id,
+                x: 0.5 + ($0.x - 0.5) * 1.02,
+                y: 0.5 + ($0.y - 0.5) * 1.02
+            )
+        }
+        var immediateSpreadArbiter = TrackpadGestureIntentArbiter(baseline: baseline, timestamp: 0)
+        XCTAssertEqual(immediateSpreadArbiter.update(current: spread, timestamp: 0.01), .launcherRadialOut)
+        var reversingArbiter = TrackpadGestureIntentArbiter(baseline: baseline, timestamp: 0)
+        XCTAssertEqual(reversingArbiter.update(current: gradualPinch, timestamp: 0.01), .undecided)
+        XCTAssertEqual(reversingArbiter.update(current: gradualSpread, timestamp: 0.02), .undecided)
+        XCTAssertEqual(reversingArbiter.update(current: gradualSpread, timestamp: 0.03), .launcherRadialOut)
+
+        var interruptedArbiter = TrackpadGestureIntentArbiter(baseline: baseline, timestamp: 0)
+        XCTAssertEqual(interruptedArbiter.update(current: gradualPinch, timestamp: 0.01), .undecided)
+        XCTAssertEqual(interruptedArbiter.update(current: baseline, timestamp: 0.02), .undecided)
+        XCTAssertEqual(interruptedArbiter.update(current: gradualPinch, timestamp: 0.03), .undecided)
+        XCTAssertEqual(interruptedArbiter.update(current: gradualPinch, timestamp: 0.04), .launcherRadialIn)
     }
 
     func testContactGateRequiresExactStableFingerCount() {
@@ -325,6 +393,23 @@ final class TrackpadIntentTests: XCTestCase {
             .provisional(threeTouches)
         )
         XCTAssertEqual(gate.update(touches: threeTouches, requiredFingerCounts: [3], timestamp: 0.04), .qualified(threeTouches))
+    }
+
+    func testSingleCountGateWaitsForLandingContact() {
+        let fourthTouch = TrackpadTouchSample(id: 4, x: 0.25, y: 0.2)
+        let landingFourth = TrackpadTouchSample(id: 4, x: 0.25, y: 0.2, state: 1)
+        let fourTouches = threeTouches + [fourthTouch]
+        var gate = TrackpadContactGate()
+
+        XCTAssertEqual(
+            gate.update(touches: threeTouches + [landingFourth], requiredFingerCounts: [4], timestamp: 0),
+            .waiting
+        )
+        XCTAssertEqual(gate.update(touches: fourTouches, requiredFingerCounts: [4], timestamp: 0.01), .waiting)
+        XCTAssertEqual(
+            gate.update(touches: fourTouches, requiredFingerCounts: [4], timestamp: 0.02),
+            .provisional(fourTouches)
+        )
     }
 
     func testMultiCountGateWaitsForFinalSequentialFingerCount() {

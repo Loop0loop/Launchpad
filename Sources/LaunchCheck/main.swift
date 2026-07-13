@@ -190,6 +190,26 @@ if case .cancel? = cancelPinch.trackPinch(radius: nil, timestamp: 11.02) {
     assertionFailure("expected pinch cancel below commit threshold")
 }
 
+var driftingClaimedPinch = TrackpadGestureSession()
+assert(driftingClaimedPinch.trackPinch(
+    radius: 1,
+    centerX: 0.5,
+    centerY: 0.5,
+    timestamp: 12,
+    lockedIntent: .open
+) == nil)
+if case .tracking(.open, let progress, _)? = driftingClaimedPinch.trackPinch(
+    radius: 0.86,
+    centerX: 0.65,
+    centerY: 0.5,
+    timestamp: 12.01,
+    lockedIntent: .open
+) {
+    assert(progress > 0.5)
+} else {
+    assertionFailure("expected claimed pinch to tolerate center drift")
+}
+
 let fingerTouches = [
     TrackpadTouchSample(id: 3, x: 0.1, y: 0.1, majorAxis: 0.12, minorAxis: 0.08),
     TrackpadTouchSample(id: 1, x: 0.2, y: 0.1, majorAxis: 0.13, minorAxis: 0.08),
@@ -197,6 +217,19 @@ let fingerTouches = [
     TrackpadTouchSample(id: 2, x: 0.2, y: 0.2, majorAxis: 0.13, minorAxis: 0.09)
 ]
 assert(TrackpadContactQuality.qualifiedPinchTouches(fingerTouches)?.map(\.id) == [1, 2, 3, 4])
+var singleCountLandingGate = TrackpadContactGate()
+let landingFourthTouch = TrackpadTouchSample(id: 4, x: 0.1, y: 0.2, state: 1)
+assert(singleCountLandingGate.update(
+    touches: fingerTouches.filter { $0.id != 4 } + [landingFourthTouch],
+    requiredFingerCounts: [4],
+    timestamp: 0
+) == .waiting)
+assert(singleCountLandingGate.update(touches: fingerTouches, requiredFingerCounts: [4], timestamp: 0.01) == .waiting)
+assert(singleCountLandingGate.update(touches: fingerTouches, requiredFingerCounts: [4], timestamp: 0.02) == .provisional(fingerTouches.sorted { $0.id < $1.id }))
+let threeFingerFlicker = fingerTouches.filter { $0.id != 4 }
+assert(singleCountLandingGate.update(touches: threeFingerFlicker, requiredFingerCounts: [4], timestamp: 0.04) == .waiting)
+assert(singleCountLandingGate.update(touches: threeFingerFlicker, requiredFingerCounts: [4], timestamp: 0.07) == .waiting)
+assert(singleCountLandingGate.update(touches: fingerTouches, requiredFingerCounts: [4], timestamp: 0.08) == .qualified(fingerTouches.sorted { $0.id < $1.id }))
 let scaleBaseline = [
     TrackpadTouchSample(id: 1, x: 0, y: 0),
     TrackpadTouchSample(id: 2, x: 1, y: 0),
@@ -227,6 +260,63 @@ let translatedTouches = scaleBaseline.map {
     TrackpadTouchSample(id: $0.id, x: $0.x + 0.03, y: $0.y)
 }
 assert(intentArbiter.update(current: translatedTouches, timestamp: 0.01) == .undecided)
+let irregularBaseline = [
+    TrackpadTouchSample(id: 1, x: 0.3, y: 0.3),
+    TrackpadTouchSample(id: 2, x: 0.7, y: 0.3),
+    TrackpadTouchSample(id: 3, x: 0.3, y: 0.7),
+    TrackpadTouchSample(id: 4, x: 0.7, y: 0.7)
+]
+let irregularTouches = [
+    TrackpadTouchSample(id: 1, x: 0.34, y: 0.34),
+    TrackpadTouchSample(id: 2, x: 0.74, y: 0.26),
+    TrackpadTouchSample(id: 3, x: 0.34, y: 0.66),
+    TrackpadTouchSample(id: 4, x: 0.74, y: 0.74)
+]
+var irregularIntentArbiter = TrackpadGestureIntentArbiter(baseline: irregularBaseline, timestamp: 0)
+assert(irregularIntentArbiter.update(current: irregularTouches, timestamp: 0.01) == .undecided)
+assert(irregularIntentArbiter.update(current: irregularTouches, timestamp: 0.02) == .undecided)
+let pinchedTouches = scaleBaseline.map {
+    TrackpadTouchSample(
+        id: $0.id,
+        x: 0.5 + ($0.x - 0.5) * 0.9,
+        y: 0.5 + ($0.y - 0.5) * 0.9
+    )
+}
+let gradualPinchedTouches = scaleBaseline.map {
+    TrackpadTouchSample(
+        id: $0.id,
+        x: 0.5 + ($0.x - 0.5) * 0.98,
+        y: 0.5 + ($0.y - 0.5) * 0.98
+    )
+}
+assert(intentArbiter.update(current: gradualPinchedTouches, timestamp: 0.02) == .undecided)
+assert(intentArbiter.update(current: gradualPinchedTouches, timestamp: 0.03) == .launcherRadialIn)
+var immediatePinchArbiter = TrackpadGestureIntentArbiter(baseline: scaleBaseline, timestamp: 0)
+assert(immediatePinchArbiter.update(current: pinchedTouches, timestamp: 0.01) == .launcherRadialIn)
+let spreadTouches = scaleBaseline.map {
+    TrackpadTouchSample(
+        id: $0.id,
+        x: 0.5 + ($0.x - 0.5) * 1.1,
+        y: 0.5 + ($0.y - 0.5) * 1.1
+    )
+}
+let gradualSpreadTouches = scaleBaseline.map {
+    TrackpadTouchSample(
+        id: $0.id,
+        x: 0.5 + ($0.x - 0.5) * 1.02,
+        y: 0.5 + ($0.y - 0.5) * 1.02
+    )
+}
+var immediateSpreadArbiter = TrackpadGestureIntentArbiter(baseline: scaleBaseline, timestamp: 0)
+assert(immediateSpreadArbiter.update(current: spreadTouches, timestamp: 0.01) == .launcherRadialOut)
+var interruptedIntentArbiter = TrackpadGestureIntentArbiter(baseline: scaleBaseline, timestamp: 0)
+assert(interruptedIntentArbiter.update(current: gradualPinchedTouches, timestamp: 0.01) == .undecided)
+assert(interruptedIntentArbiter.update(current: scaleBaseline, timestamp: 0.02) == .undecided)
+assert(interruptedIntentArbiter.update(current: gradualSpreadTouches, timestamp: 0.03) == .undecided)
+assert(interruptedIntentArbiter.update(current: gradualSpreadTouches, timestamp: 0.04) == .launcherRadialOut)
+assert(TrackpadIntent.projectedTransitionTarget(progress: 0.49, velocity: 1) == 1)
+assert(TrackpadIntent.projectedTransitionTarget(progress: 0.51, velocity: -1) == 0)
+assert(TrackpadIntent.projectedTransitionTarget(progress: 0.702, velocity: -2.5, projectionTime: 0.10) == 0)
 assert(TrackpadContactQuality.qualifiedPinchTouches(fingerTouches + [
     TrackpadTouchSample(id: 5, x: 0.3, y: 0.2, majorAxis: 0.11, minorAxis: 0.08)
 ]) == nil)

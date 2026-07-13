@@ -97,7 +97,7 @@ extension AppDelegate {
                     return
                 }
                 if intent == .open,
-                   launcherLifecycle?.isVisible == true,
+                   launcherLifecycle?.phase == .shown,
                    launcherLifecycle?.isPinchTracking != true {
                     trackpadMonitor.yieldCurrentGestureToSystem()
                     return

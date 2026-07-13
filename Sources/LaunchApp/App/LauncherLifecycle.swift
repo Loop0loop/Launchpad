@@ -170,6 +170,7 @@ final class LauncherLifecycle {
     }
 
     func runPresentationAnimation(toVisible: Bool, completion: @escaping @MainActor () -> Void) {
+        (NSApp.delegate as? AppDelegate)?.trackpadMonitor.setLauncherVisible(toVisible)
         settlePresentation(to: toVisible ? 1 : 0, initialVelocity: presentationVelocity, completion: completion)
     }
 
@@ -316,6 +317,11 @@ final class LauncherLifecycle {
         guard let container = window.contentView as? LauncherPresentationContainer else { return }
         container.wantsLayer = true
         container.layoutSubtreeIfNeeded()
+        if let layer = container.layer, layer.anchorPoint != CGPoint(x: 0.5, y: 0.5) {
+            let frame = layer.frame
+            layer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+            layer.position = CGPoint(x: frame.midX, y: frame.midY)
+        }
     }
 
     private func resetPresentation() {

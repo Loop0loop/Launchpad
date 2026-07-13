@@ -116,7 +116,7 @@ public struct TrackpadContactGate: Sendable {
         provisionalStartDuration: Double = 0.008,
         minimumStableDuration: Double = 0.02,
         multipleCountStableDuration: Double = 0.06,
-        contactLossGrace: Double = 0.02
+        contactLossGrace: Double = 0.08
     ) -> TrackpadContactGateUpdate {
         let activeTouches = touches.filter(\.isGestureContact)
         if activeTouches.isEmpty {
@@ -138,20 +138,23 @@ public struct TrackpadContactGate: Sendable {
             self = TrackpadContactGate()
             return .ended
         }
-        if requiredFingerCounts.count > 1 {
-            let landingCount = touches.filter { $0.state < 4 }.count
-            if landingCount > 0,
-               requiredFingerCounts.contains(activeTouches.count + landingCount) {
-                return .waiting
-            }
+        let landingCount = touches.filter { $0.state < 4 }.count
+        if landingCount > 0,
+           requiredFingerCounts.contains(activeTouches.count + landingCount) {
+            return .waiting
         }
         guard let selected = requiredFingerCounts
             .sorted(by: >)
             .compactMap({ TrackpadContactQuality.qualifiedPinchTouches(activeTouches, requiredCount: $0) })
             .first else {
+            if wasProvisional {
+                if contactLossSince == nil { contactLossSince = timestamp }
+                if timestamp - (contactLossSince ?? timestamp) < contactLossGrace { return .waiting }
+            }
             self = TrackpadContactGate()
             return .rejected
         }
+        contactLossSince = nil
 
         let ids = selected.map(\.id)
         if stableIDs == nil {

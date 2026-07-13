@@ -109,20 +109,16 @@ extension LauncherLifecycle {
         pinchTracking = nil
         let token = UUID()
         transitionToken = token
-        let target: CGFloat
-        if committed {
-            target = tracking.intent == .open ? 1 : 0
-        } else {
-            let decisionVelocity = min(
-                max(interactionVelocity, -LaunchConstants.Lifecycle.maximumDecisionVelocity),
-                LaunchConstants.Lifecycle.maximumDecisionVelocity
-            )
-            target = CGFloat(TrackpadIntent.projectedTransitionTarget(
-                progress: Double(interactionProgress),
-                velocity: Double(decisionVelocity),
-                projectionTime: LaunchConstants.Lifecycle.decisionProjectionTime
-            ))
-        }
+        let decisionVelocity = min(
+            max(interactionVelocity, -LaunchConstants.Lifecycle.maximumDecisionVelocity),
+            LaunchConstants.Lifecycle.maximumDecisionVelocity
+        )
+        let target = CGFloat(TrackpadIntent.projectedTransitionTarget(
+            progress: Double(interactionProgress),
+            velocity: Double(decisionVelocity),
+            projectionTime: LaunchConstants.Lifecycle.decisionProjectionTime
+        ))
+        (NSApp.delegate as? AppDelegate)?.trackpadMonitor.setLauncherVisible(target == 1)
         LaunchLog.line(
             "trackpad settle intent=\(tracking.intent) committed=\(committed) progress=\(interactionProgress) velocity=\(interactionVelocity) target=\(target)"
         )

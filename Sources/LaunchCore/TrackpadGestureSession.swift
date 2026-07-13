@@ -86,7 +86,8 @@ public struct TrackpadGestureSession {
                 return nil
             }
 
-            if let initialCenterX, let initialCenterY, let centerX, let centerY {
+            if lockedIntent == nil,
+               let initialCenterX, let initialCenterY, let centerX, let centerY {
                 let radiusDelta = abs(radius - initialRadius)
                 let centerDeltaX = centerX - initialCenterX
                 let centerDeltaY = centerY - initialCenterY

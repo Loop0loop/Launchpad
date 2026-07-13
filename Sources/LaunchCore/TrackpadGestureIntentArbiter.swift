@@ -9,6 +9,8 @@ public enum TrackpadGestureOwnership: Equatable, Sendable {
 
 public struct TrackpadGestureIntentArbiter: Sendable {
     private let baseline: [TrackpadTouchSample]
+    private var pendingOwnership: TrackpadGestureOwnership = .undecided
+    private var pendingEvidenceFrames = 0
     public private(set) var ownership: TrackpadGestureOwnership = .undecided
 
     public init(baseline: [TrackpadTouchSample], timestamp _: Double) {
@@ -17,14 +19,21 @@ public struct TrackpadGestureIntentArbiter: Sendable {
 
     public mutating func update(
         current: [TrackpadTouchSample],
-        timestamp _: Double
+        timestamp _: Double,
+        minimumScaleChange: Double = 0.01,
+        immediateScaleChange: Double = 0.04,
+        requiredEvidenceFrames: Int = 2
     ) -> TrackpadGestureOwnership {
         guard ownership == .undecided else { return ownership }
 
         var currentByID: [Int32: TrackpadTouchSample] = [:]
         for touch in current { currentByID[touch.id] = touch }
         let matched = baseline.compactMap { base in currentByID[base.id].map { (base, $0) } }
-        guard matched.count == baseline.count, matched.count > 1 else { return ownership }
+        guard matched.count == baseline.count, matched.count > 1 else {
+            pendingOwnership = .undecided
+            pendingEvidenceFrames = 0
+            return ownership
+        }
 
         let dx = matched.map { $0.1.x - $0.0.x }
         let dy = matched.map { $0.1.y - $0.0.y }
@@ -56,14 +65,32 @@ public struct TrackpadGestureIntentArbiter: Sendable {
         ) ?? 1
         let logScale = log(scaleRatio)
 
-        guard totalMotion > 0.004 || abs(logScale) > 0.004 else { return ownership }
+        guard totalMotion > 0.004 || abs(logScale) > 0.004 else {
+            pendingOwnership = .undecided
+            pendingEvidenceFrames = 0
+            return ownership
+        }
 
         let combinedEnergy = translationMagnitude + radialMagnitude + 0.000_001
         let radialShare = radialMagnitude / combinedEnergy
-        if abs(logScale) > 0.006, radialShare > 0.45, radialCoherence > 0.58 {
-            ownership = logScale < 0 ? .launcherRadialIn : .launcherRadialOut
+        guard abs(logScale) > minimumScaleChange,
+              radialShare > 0.45,
+              radialCoherence > 0.58 else {
+            pendingOwnership = .undecided
+            pendingEvidenceFrames = 0
             return ownership
         }
+
+        let candidate: TrackpadGestureOwnership = logScale < 0 ? .launcherRadialIn : .launcherRadialOut
+        if pendingOwnership == candidate {
+            pendingEvidenceFrames += 1
+        } else {
+            pendingOwnership = candidate
+            pendingEvidenceFrames = 1
+        }
+        let evidenceFrames = abs(logScale) >= immediateScaleChange ? 1 : max(requiredEvidenceFrames, 1)
+        guard pendingEvidenceFrames >= evidenceFrames else { return ownership }
+        ownership = candidate
         return ownership
     }
 

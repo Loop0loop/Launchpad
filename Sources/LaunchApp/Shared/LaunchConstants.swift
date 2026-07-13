@@ -237,7 +237,7 @@ enum LaunchConstants {
         static let stationaryTimeout = 0.010
         static let openSpringResponse = 0.36
         static let closeSpringResponse = 0.40
-        static let decisionProjectionTime = 0.08
+        static let decisionProjectionTime = 0.10
         static let maximumDecisionVelocity: CGFloat = 2.5
         static let maximumSpringVelocity: CGFloat = 4.0
     }
