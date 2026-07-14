@@ -17,7 +17,7 @@ final class LauncherSearchBarView: NSView {
     var onShowSettings: (() -> Void)?
     var onQuit: (() -> Void)?
 
-    override var isFlipped: Bool { true }
+    nonisolated override var isFlipped: Bool { true }
 
     /// 중성 white — 글래스 캡슐 위 아이콘/텍스트.
     static let lavenderIcon = NSColor.white.withAlphaComponent(0.9)

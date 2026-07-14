@@ -10,7 +10,7 @@ final class LauncherPanel: NSPanel {
 
 /// Hosts SwiftUI content without breaking hit testing inside `NSHostingView`.
 final class LauncherPresentationContainer: NSView {
-    override var isFlipped: Bool { true }
+    nonisolated override var isFlipped: Bool { true }
 
     override func layout() {
         super.layout()
