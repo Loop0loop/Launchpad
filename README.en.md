@@ -26,7 +26,7 @@ Build the local app bundle:
 
 ```sh
 Scripts/build-app.sh
-open .build/Launchpad.app
+open .build/Launchpad-Dev.app
 ```
 
 You can also run through SwiftPM:
@@ -35,7 +35,7 @@ You can also run through SwiftPM:
 swift run Launchpad
 ```
 
-Use `.build/Launchpad.app` when testing features tied to the app bundle identity, such as login items, accessibility permission, and global hotkeys.
+Use `.build/Launchpad-Dev.app` when testing features tied to the development bundle identity. The production bundle uses a separate bundle ID at `.build/Launchpad.app`.
 
 ## Verification
 
@@ -50,7 +50,7 @@ For app bundle checks:
 
 ```sh
 Scripts/build-app.sh
-open .build/Launchpad.app
+open .build/Launchpad-Dev.app
 ```
 
 Manual checks:
@@ -83,16 +83,17 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
 
 ## Packaging
 
-Build an app bundle:
+Build the development app bundle:
 
 ```sh
-swift run LaunchpadPackager app
+pnpm app:dev
 ```
 
-Build a DMG:
+Build the production app or DMG:
 
 ```sh
-swift run LaunchpadPackager dmg
+pnpm app:prod
+pnpm dmg:prod
 ```
 
 Signing and notarization are documented in [docs/PACKAGING.md](docs/PACKAGING.md).

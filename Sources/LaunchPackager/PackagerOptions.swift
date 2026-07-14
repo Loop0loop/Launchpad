@@ -1,5 +1,23 @@
 import Foundation
 
+enum BuildVariant: String {
+    case development
+    case production
+
+    init?(argument: String) {
+        switch argument.lowercased() {
+        case "development", "dev", "debug": self = .development
+        case "production", "prod", "release": self = .production
+        default: return nil
+        }
+    }
+
+    var swiftConfiguration: String { self == .production ? "release" : "debug" }
+    var artifactName: String { self == .production ? "Launchpad" : "Launchpad-Dev" }
+    var bundleIdentifier: String { self == .production ? "app.launchpad.mvp" : "app.launchpad.mvp.dev" }
+    var bundleName: String { self == .production ? "Launchpad" : "Launchpad Dev" }
+}
+
 struct NotaryCredentials {
     let appleID: String
     let password: String
@@ -8,25 +26,46 @@ struct NotaryCredentials {
 
 struct PackagerOptions {
     let command: String
+    let variant: BuildVariant
     let signingIdentity: String?
     let notaryCredentials: NotaryCredentials?
     let notaryAppleID: String?
     let notaryPassword: String?
     let notaryTeamID: String?
 
-    init(arguments: [String]) {
+    init(arguments: [String]) throws {
         command = arguments.first ?? "dmg"
         let dotEnv = DotEnv.load(
             from: URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(".env")
         )
 
         var identity: String?
+        var requestedVariant: String?
         var iterator = arguments.dropFirst().makeIterator()
         while let argument = iterator.next() {
-            if argument == "--identity" {
+            switch argument {
+            case "--identity":
                 identity = iterator.next()
+            case "--variant":
+                requestedVariant = iterator.next()
+            default:
+                break
             }
         }
+
+        let productionOnly = command == "sign" || command == "notarize"
+        if let value = requestedVariant ?? Self.configValue("LAUNCH_BUILD_VARIANT", dotEnv: dotEnv) {
+            guard let parsed = BuildVariant(argument: value) else {
+                throw PackagerError.invalidBuildVariant(value)
+            }
+            variant = parsed
+        } else {
+            variant = productionOnly ? .production : .development
+        }
+        if productionOnly, variant != .production {
+            throw PackagerError.productionVariantRequired(command)
+        }
+
         signingIdentity = identity
             ?? Self.configValue("LAUNCH_SIGN_IDENTITY", dotEnv: dotEnv)
             ?? Self.discoverDeveloperIDApplicationIdentity()

@@ -381,7 +381,7 @@ final class LauncherLifecycle {
         var frame = screen.frame
         let visible = screen.visibleFrame
 
-        if state.showMenuBarInLauncher {
+        if state.showMenuBarInLauncher || state.showDockInLauncher {
             frame.size.height -= max(0, frame.maxY - visible.maxY)
         }
 
@@ -419,13 +419,16 @@ final class LauncherLifecycle {
     }
 
     private func setSystemHidden(hideMenuBar: Bool, hideDock: Bool) {
-        var options: NSApplication.PresentationOptions = [.disableProcessSwitching, .disableHideApplication]
-        if hideMenuBar { options.insert(.hideMenuBar) }
-        if hideDock { options.insert(.hideDock) }
+        let hidesMenuBar = hideMenuBar && hideDock
+        var options: NSApplication.PresentationOptions = []
+        if hidesMenuBar { options.insert(.hideMenuBar) }
+        if hideDock {
+            options.formUnion([.hideDock, .disableProcessSwitching, .disableHideApplication])
+        }
         if NSApp.presentationOptions != options {
             NSApp.presentationOptions = options
         }
-        window.level = hideMenuBar ? .statusBar : (state.windowBrowsingMode ? .normal : .mainMenu)
+        window.level = hidesMenuBar ? .statusBar : (state.windowBrowsingMode ? .normal : .mainMenu)
     }
 
     private func restoreSystemVisibility() {

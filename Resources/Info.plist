@@ -20,6 +20,8 @@
     <string>26.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>LaunchBuildVariant</key>
+    <string>production</string>
     <key>SUFeedURL</key>
     <string>https://raw.githubusercontent.com/Loop0loop/Finder/main/appcast.xml</string>
     <key>SUPublicEDKey</key>

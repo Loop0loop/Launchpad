@@ -1,0 +1,28 @@
+{
+  "name": "launchpad",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "dev": "swift run Launchpad",
+    "prod": "pkill -x Launchpad 2>/dev/null || true; pnpm app:prod && open -n .build/Launchpad.app",
+    "build": "pnpm run build:prod",
+    "build:dev": "swift build",
+    "build:prod": "swift build -c release",
+    "app:dev": "swift run LaunchpadPackager app --variant development",
+    "app:prod": "swift run LaunchpadPackager app --variant production",
+    "dmg:prod": "swift run LaunchpadPackager dmg --variant production",
+    "sign": "swift run LaunchpadPackager sign --variant production",
+    "notarize": "swift run LaunchpadPackager notarize --variant production"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.8.0",
+      "onFail": "ignore"
+    }
+  },
+  "type": "module"
+}

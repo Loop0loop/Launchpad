@@ -36,6 +36,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     public func applicationDidFinishLaunching(_ notification: Notification) {
         LaunchLog.app.info("applicationDidFinishLaunching")
         LaunchLog.line("app did finish launching")
+        #if DEBUG
+        let fallbackBuildVariant = "development"
+        #else
+        let fallbackBuildVariant = "production"
+        #endif
+        let buildVariant = Bundle.main.object(forInfoDictionaryKey: "LaunchBuildVariant") as? String
+            ?? fallbackBuildVariant
+        LaunchLog.line("build variant=\(buildVariant) bundle=\(Bundle.main.bundleIdentifier ?? "command-line")")
         NSApp.setActivationPolicy(.accessory)
         installTerminationSignalHandlers()
         installMainMenu()

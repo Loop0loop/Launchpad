@@ -26,7 +26,7 @@ macOS 26에서 빠진 기존 Launchpad의 사용감을 되살리는 네이티브
 
 ```sh
 Scripts/build-app.sh
-open .build/Launchpad.app
+open .build/Launchpad-Dev.app
 ```
 
 SwiftPM으로 직접 실행할 수도 있습니다.
@@ -35,7 +35,7 @@ SwiftPM으로 직접 실행할 수도 있습니다.
 swift run Launchpad
 ```
 
-로그인 항목, 접근성 권한, 전역 단축키처럼 앱 번들 identity가 필요한 기능은 `.build/Launchpad.app`으로 테스트하는 편이 정확합니다.
+로그인 항목, 접근성 권한, 전역 단축키처럼 앱 번들 identity가 필요한 기능은 `.build/Launchpad-Dev.app`으로 테스트하는 편이 정확합니다. 프로덕션 번들은 별도 bundle ID의 `.build/Launchpad.app`입니다.
 
 ## 검증
 
@@ -50,7 +50,7 @@ swift run LaunchpadCheck
 
 ```sh
 Scripts/build-app.sh
-open .build/Launchpad.app
+open .build/Launchpad-Dev.app
 ```
 
 수동 체크:
@@ -83,16 +83,17 @@ LaunchpadCheck LaunchCore 규칙 검증 실행 파일
 
 ## 패키징
 
-앱 번들:
+개발 앱 번들:
 
 ```sh
-swift run LaunchpadPackager app
+pnpm app:dev
 ```
 
-DMG:
+프로덕션 앱과 DMG:
 
 ```sh
-swift run LaunchpadPackager dmg
+pnpm app:prod
+pnpm dmg:prod
 ```
 
 서명과 notarization 흐름은 [docs/PACKAGING.md](docs/PACKAGING.md)에 정리되어 있습니다.

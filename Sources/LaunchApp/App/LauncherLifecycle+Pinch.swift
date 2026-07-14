@@ -165,9 +165,10 @@ extension LauncherLifecycle {
 
         preparePresentationLayer()
         if !wasVisible { applyPresentationProgress(0) }
-        window.makeKeyAndOrderFront(nil)
-        window.makeFirstResponder(nil)
         NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
+        window.makeFirstResponder(nil)
         mouseMonitor?.setEnabled(true)
     }
 

@@ -1,9 +1,8 @@
 import Foundation
 
-let options = PackagerOptions(arguments: Array(CommandLine.arguments.dropFirst()))
-
 do {
-    try LaunchpadPackager().run(options)
+    let options = try PackagerOptions(arguments: Array(CommandLine.arguments.dropFirst()))
+    try LaunchpadPackager(variant: options.variant).run(options)
 } catch {
     FileHandle.standardError.write(Data("\(error)\n".utf8))
     exit(1)

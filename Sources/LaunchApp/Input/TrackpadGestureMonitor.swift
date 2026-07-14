@@ -461,7 +461,9 @@ final class PinchContactMonitor: @unchecked Sendable {
                 deviceStates[deviceID] = deviceState
                 LaunchLog.line("trackpad direct system show desktop action=\(decision) fingers=4")
                 let callback = onSystemShowDesktop
-                Task { @MainActor in callback?(decision) }
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated { callback?(decision) }
+                }
                 return
             }
         } else if deviceState.showDesktopOwner != .launcher,
@@ -479,7 +481,9 @@ final class PinchContactMonitor: @unchecked Sendable {
             LaunchLog.line("trackpad system show desktop \(phase) fingers=4")
             let callback = onSystemShowDesktop
             let action: SystemShowDesktopGestureDecision = claimedIntent == .close ? .show : .restore
-            Task { @MainActor in callback?(action) }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { callback?(action) }
+            }
             return
         }
         if ownership != .undecided, !_requiredFingerCounts.contains(selected.count) {
@@ -570,8 +574,10 @@ final class PinchContactMonitor: @unchecked Sendable {
         }
         guard !deliveryScheduled else { return }
         deliveryScheduled = true
-        Task { @MainActor [weak self] in
-            self?.deliverLatestPinchUpdate()
+        DispatchQueue.main.async { [weak self] in
+            MainActor.assumeIsolated {
+                self?.deliverLatestPinchUpdate()
+            }
         }
     }
 

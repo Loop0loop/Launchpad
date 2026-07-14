@@ -3,8 +3,8 @@
 Use the local debug bundle for MVP testing:
 
 ```sh
-swift run LaunchpadPackager app
-open .build/Launchpad.app
+pnpm app:dev
+open .build/Launchpad-Dev.app
 ```
 
 Or:
@@ -13,32 +13,35 @@ Or:
 Scripts/run-app.sh
 ```
 
-Build a local DMG:
+Build the production app or DMG explicitly:
 
 ```sh
-swift run LaunchpadPackager dmg
-open .build/Launch.dmg
+pnpm app:prod
+pnpm dmg:prod
+open .build/Launchpad.dmg
 ```
+
+App and DMG builds use SwiftPM's native build system. Current macOS Command Line Tools are sufficient for building and packaging; install full Xcode to run the XCTest target when the selected Command Line Tools do not include XCTest.
 
 The DMG includes `.background/Launch.png` from `public/Launch.png`.
 
 Build and sign the app bundle and DMG:
 
 ```sh
-swift run LaunchpadPackager sign --identity "Developer ID Application: Your Name (TEAMID)"
+swift run LaunchpadPackager sign --variant production --identity "Developer ID Application: Your Name (TEAMID)"
 ```
 
 Or set the identity once:
 
 ```sh
 export LAUNCH_SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
-swift run LaunchpadPackager sign
+pnpm sign
 ```
 
 Notarize and staple the DMG:
 
 ```sh
-swift run LaunchpadPackager notarize --identity "Developer ID Application: Your Name (TEAMID)"
+swift run LaunchpadPackager notarize --variant production --identity "Developer ID Application: Your Name (TEAMID)"
 ```
 
 The notarization command reads these values from the process environment or `.env`:
@@ -53,7 +56,7 @@ LAUNCH_SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
 With `LAUNCH_SIGN_IDENTITY` set, this is enough:
 
 ```sh
-swift run LaunchpadPackager notarize
+pnpm notarize
 ```
 
 If `LAUNCH_SIGN_IDENTITY` is omitted, `LaunchpadPackager` tries to use the first valid `Developer ID Application` identity from the login keychain.
@@ -61,21 +64,21 @@ If `LAUNCH_SIGN_IDENTITY` is omitted, `LaunchpadPackager` tries to use the first
 For local command-path testing only, ad-hoc signing is available:
 
 ```sh
-swift run LaunchpadPackager sign --identity -
+swift run LaunchpadPackager sign --variant production --identity -
 ```
 
-Bundle metadata:
+Bundle variants:
 
-- bundle id: `app.launchpad.mvp`
-- name: `Launchpad`
+- development: `.build/Launchpad-Dev.app`, `app.launchpad.mvp.dev`, Debug, updater disabled
+- production: `.build/Launchpad.app`, `app.launchpad.mvp`, Release, updater enabled
 - version: `0.1.0`
 - build: `1`
-- minimum macOS: `14.0`
+- minimum macOS: `26.0`
 - activation style: `LSUIElement`
 
 Notes:
 
-- Login item testing must use `.build/Launchpad.app`, not `swift run Launchpad`.
+- Login item testing must use an app bundle, not `swift run Launchpad`.
 - Accessibility permission is per built app identity/path.
 - Notarization requires a Developer ID Application certificate. Ad-hoc signing is only for local command-path testing.
 

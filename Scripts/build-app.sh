@@ -1,44 +1,4 @@
 #!/bin/sh
 set -eu
 
-export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
-export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-$PWD/.build/clang-module-cache}"
-
-xcrun swift build \
-  --build-system xcode \
-  --disable-sandbox \
-  --cache-path .build/swiftpm-cache \
-  --config-path .build/swiftpm-config \
-  --security-path .build/swiftpm-security
-
-app=".build/Launchpad.app"
-binary=".build/apple/Products/Debug/Launchpad"
-
-test -x "$binary"
-
-rm -rf "$app"
-mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-cp Resources/Info.plist "$app/Contents/Info.plist"
-if [ -f .env ]; then
-  sparkle_feed_url="$(sed -n 's/^SPARKLE_FEED_URL=["'\'']\{0,1\}\([^"'\'']*\)["'\'']\{0,1\}$/\1/p' .env | head -n 1)"
-  sparkle_public_key="$(sed -n 's/^SPARKLE_PUBLIC_ED_KEY=["'\'']\{0,1\}\([^"'\'']*\)["'\'']\{0,1\}$/\1/p' .env | head -n 1)"
-  if [ -n "$sparkle_feed_url" ]; then
-    /usr/bin/plutil -replace SUFeedURL -string "$sparkle_feed_url" "$app/Contents/Info.plist"
-  fi
-  if [ -n "$sparkle_public_key" ]; then
-    /usr/bin/plutil -replace SUPublicEDKey -string "$sparkle_public_key" "$app/Contents/Info.plist"
-  fi
-fi
-cp Resources/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
-cp Resources/MenuBarIcon.png "$app/Contents/Resources/MenuBarIcon.png"
-cp public/Launch.png "$app/Contents/Resources/Launch.png"
-cp public/Launch_black.png "$app/Contents/Resources/Launch_black.png"
-if [ -d ".build/apple/Products/Debug/Frameworks" ]; then
-  cp -R ".build/apple/Products/Debug/Frameworks" "$app/Contents/Frameworks"
-fi
-cp "$binary" "$app/Contents/MacOS/Launchpad"
-/usr/bin/install_name_tool -delete_rpath "@executable_path/../lib" "$app/Contents/MacOS/Launchpad" 2>/dev/null || true
-/usr/bin/install_name_tool -add_rpath "@executable_path/../Frameworks" "$app/Contents/MacOS/Launchpad" 2>/dev/null || true
-chmod +x "$app/Contents/MacOS/Launchpad"
-
-echo "$app"
+exec swift run LaunchpadPackager app --variant development

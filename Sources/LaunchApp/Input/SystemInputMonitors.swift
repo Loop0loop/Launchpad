@@ -103,8 +103,10 @@ final class GlobalHotKeyAdapter {
         guard status == noErr,
               hotKeyID.signature == LaunchConstants.HotKey.signature else { return noErr }
 
-        Task { @MainActor in
-            adapter.actions[hotKeyID.id]?()
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                adapter.actions[hotKeyID.id]?()
+            }
         }
         return noErr
     }
@@ -185,7 +187,9 @@ final class F4KeyTapMonitor {
         guard f4.isF4 else { return Unmanaged.passUnretained(event) }
         if f4.isDown {
             let action = monitor.action
-            Task { @MainActor in action?() }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { action?() }
+            }
         }
         return nil
     }
@@ -202,7 +206,7 @@ final class HotCornerMonitor {
         guard corner != "Disabled" else { return }
         self.corner = corner
         timer = Timer.scheduledTimer(withTimeInterval: LaunchConstants.HotCorner.pollInterval, repeats: true) { [weak self] _ in
-            Task { @MainActor in
+            MainActor.assumeIsolated {
                 guard let self, self.isPointerInConfiguredCorner(), self.canTrigger else { return }
                 self.lastTrigger = Date()
                 action()

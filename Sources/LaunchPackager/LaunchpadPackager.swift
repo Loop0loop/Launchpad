@@ -2,21 +2,17 @@ import Foundation
 
 struct LaunchpadPackager {
     let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    let name = "Launchpad"
+    let variant: BuildVariant
+    let executableName = "Launchpad"
 
     var buildDir: URL { root.appendingPathComponent(".build") }
-    var appURL: URL { buildDir.appendingPathComponent("\(name).app") }
-    var buildConfiguration: String {
-        let rawValue = ProcessInfo.processInfo.environment["LAUNCH_BUILD_CONFIGURATION"] ?? "debug"
-        return rawValue.lowercased() == "release" ? "release" : "debug"
+    var appURL: URL { buildDir.appendingPathComponent("\(variant.artifactName).app") }
+    var buildProductsURL: URL {
+        buildDir.appendingPathComponent(variant.swiftConfiguration).resolvingSymlinksInPath()
     }
-    var xcodeBuildConfiguration: String {
-        buildConfiguration == "release" ? "Release" : "Debug"
-    }
-    var binaryURL: URL { root.appendingPathComponent(".build/apple/Products/\(xcodeBuildConfiguration)/Launchpad") }
-    var packageFrameworksURL: URL { root.appendingPathComponent(".build/apple/Products/\(xcodeBuildConfiguration)/Frameworks") }
-    var stagingURL: URL { buildDir.appendingPathComponent("dmg") }
-    var dmgURL: URL { buildDir.appendingPathComponent("\(name).dmg") }
+    var binaryURL: URL { buildProductsURL.appendingPathComponent(executableName) }
+    var stagingURL: URL { buildDir.appendingPathComponent("dmg-\(variant.rawValue)") }
+    var dmgURL: URL { buildDir.appendingPathComponent("\(variant.artifactName).dmg") }
     var backgroundURL: URL { root.appendingPathComponent("public/Launch.png") }
 
     func run(_ options: PackagerOptions) throws {
@@ -101,7 +97,7 @@ struct LaunchpadPackager {
             withIntermediateDirectories: true
         )
 
-        try fm.copyItem(at: appURL, to: stagingURL.appendingPathComponent("\(name).app"))
+        try fm.copyItem(at: appURL, to: stagingURL.appendingPathComponent("\(variant.artifactName).app"))
         try fm.createSymbolicLink(
             at: stagingURL.appendingPathComponent("Applications"),
             withDestinationURL: URL(fileURLWithPath: "/Applications")
@@ -115,7 +111,7 @@ struct LaunchpadPackager {
             "/usr/bin/hdiutil",
             [
                 "create",
-                "-volname", name,
+                "-volname", variant.bundleName,
                 "-srcfolder", stagingURL.path,
                 "-ov",
                 "-format", "UDZO",
@@ -134,16 +130,14 @@ struct LaunchpadPackager {
             "/usr/bin/xcrun",
             [
                 "swift", "build",
-                "--build-system", "xcode",
                 "--disable-sandbox",
                 "--cache-path", ".build/swiftpm-cache",
                 "--config-path", ".build/swiftpm-config",
                 "--security-path", ".build/swiftpm-security",
-                "-c", buildConfiguration,
-                "--product", name
+                "-c", variant.swiftConfiguration,
+                "--product", executableName
             ],
             environment: [
-                "DEVELOPER_DIR": environmentValue("DEVELOPER_DIR", default: "/Applications/Xcode.app/Contents/Developer"),
                 "CLANG_MODULE_CACHE_PATH": environmentValue("CLANG_MODULE_CACHE_PATH", default: root.appendingPathComponent(".build/clang-module-cache").path)
             ]
         )
@@ -163,13 +157,14 @@ struct LaunchpadPackager {
         try copy("Resources/MenuBarIcon.png", to: resourcesURL.appendingPathComponent("MenuBarIcon.png"))
         try copy("public/Launch.png", to: resourcesURL.appendingPathComponent("Launch.png"))
         try copy("public/Launch_black.png", to: resourcesURL.appendingPathComponent("Launch_black.png"))
-        try fm.copyItem(at: binaryURL, to: macOSURL.appendingPathComponent(name))
+        try fm.copyItem(at: binaryURL, to: macOSURL.appendingPathComponent(executableName))
         try copyPackageFrameworks(to: contentsURL.appendingPathComponent("Frameworks"))
-        try addFrameworksRPath(to: macOSURL.appendingPathComponent(name))
+        try addFrameworksRPath(to: macOSURL.appendingPathComponent(executableName))
         try fm.setAttributes(
             [.posixPermissions: 0o755],
-            ofItemAtPath: macOSURL.appendingPathComponent(name).path
+            ofItemAtPath: macOSURL.appendingPathComponent(executableName).path
         )
+        try signApp(identity: "-")
     }
 
     func signApp(identity: String) throws {
@@ -177,10 +172,10 @@ struct LaunchpadPackager {
         var arguments = [
             "--force",
             "--deep",
-            "--options", "runtime",
             "--sign", identity
         ]
         if identity != "-" {
+            arguments += ["--options", "runtime"]
             arguments.append("--timestamp")
         }
         arguments.append(appURL.path)
@@ -216,8 +211,28 @@ struct LaunchpadPackager {
 
     func copyInfoPlist(to destination: URL) throws {
         try copy("Resources/Info.plist", to: destination)
-        injectInfoValue("SPARKLE_FEED_URL", plistKey: "SUFeedURL", into: destination)
-        injectInfoValue("SPARKLE_PUBLIC_ED_KEY", plistKey: "SUPublicEDKey", into: destination)
+        try runProcess(
+            "/usr/bin/plutil",
+            ["-replace", "CFBundleIdentifier", "-string", variant.bundleIdentifier, destination.path],
+            quiet: true
+        )
+        try runProcess(
+            "/usr/bin/plutil",
+            ["-replace", "CFBundleName", "-string", variant.bundleName, destination.path],
+            quiet: true
+        )
+        try runProcess(
+            "/usr/bin/plutil",
+            ["-replace", "LaunchBuildVariant", "-string", variant.rawValue, destination.path],
+            quiet: true
+        )
+        if variant == .production {
+            injectInfoValue("SPARKLE_FEED_URL", plistKey: "SUFeedURL", into: destination)
+            injectInfoValue("SPARKLE_PUBLIC_ED_KEY", plistKey: "SUPublicEDKey", into: destination)
+        } else {
+            _ = try? runProcess("/usr/bin/plutil", ["-remove", "SUFeedURL", destination.path], quiet: true)
+            _ = try? runProcess("/usr/bin/plutil", ["-remove", "SUPublicEDKey", destination.path], quiet: true)
+        }
     }
 
     func injectInfoValue(_ envKey: String, plistKey: String, into plist: URL) {
@@ -231,16 +246,20 @@ struct LaunchpadPackager {
     }
 
     func copyPackageFrameworks(to destination: URL) throws {
-        guard FileManager.default.fileExists(atPath: packageFrameworksURL.path) else { return }
-        try FileManager.default.copyItem(at: packageFrameworksURL, to: destination)
+        let fm = FileManager.default
+        let frameworks = try fm.contentsOfDirectory(
+            at: buildProductsURL,
+            includingPropertiesForKeys: nil
+        ).filter { $0.pathExtension == "framework" }
+        guard !frameworks.isEmpty else { return }
+
+        try fm.createDirectory(at: destination, withIntermediateDirectories: true)
+        for framework in frameworks {
+            try fm.copyItem(at: framework, to: destination.appendingPathComponent(framework.lastPathComponent))
+        }
     }
 
     func addFrameworksRPath(to binary: URL) throws {
-        _ = try? runProcess(
-            "/usr/bin/install_name_tool",
-            ["-delete_rpath", "@executable_path/../lib", binary.path],
-            quiet: true
-        )
         try runProcess(
             "/usr/bin/install_name_tool",
             ["-add_rpath", "@executable_path/../Frameworks", binary.path],

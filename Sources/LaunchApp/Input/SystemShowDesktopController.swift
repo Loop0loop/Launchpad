@@ -10,8 +10,10 @@ final class SystemShowDesktopController {
     private static let notification = "com.apple.showdesktop.awake" as CFString
     nonisolated(unsafe) private static weak var current: SystemShowDesktopController?
     private static let callback: ShowDesktopCallback = { state, _ in
-        Task { @MainActor in
-            SystemShowDesktopController.current?.applyDockState(state)
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                SystemShowDesktopController.current?.applyDockState(state)
+            }
         }
     }
 

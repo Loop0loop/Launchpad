@@ -28,7 +28,6 @@ jobs:
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      LAUNCH_BUILD_CONFIGURATION: release
       SPARKLE_FEED_URL: https://raw.githubusercontent.com/Loop0loop/Finder/main/appcast.xml
       SPARKLE_PUBLIC_ED_KEY: ${{ secrets.SPARKLE_PUBLIC_ED_KEY }}
       SPARKLE_PRIVATE_ED_KEY: ${{ secrets.SPARKLE_PRIVATE_ED_KEY }}
@@ -106,7 +105,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          swift run LaunchpadPackager notarize
+          swift run LaunchpadPackager notarize --variant production
           test -f .build/Launchpad.app/Contents/Resources/Launch.png
           test -f .build/Launchpad.app/Contents/Resources/Launch_black.png
           mv .build/Launchpad.dmg ".build/Launchpad-${{ steps.version.outputs.version }}.dmg"

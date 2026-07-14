@@ -2,7 +2,6 @@
 .swiftpm/
 DerivedData/
 node_modules
-package.json
 pnpm-lock.yaml
 .omo
 .codegraph

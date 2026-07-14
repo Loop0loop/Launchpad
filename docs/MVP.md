@@ -55,7 +55,7 @@ fallback when macOS keeps those gestures.
 - [x] Login item
 - [x] Performance pass
 
-Run: `Scripts/build-app.sh`, then open `.build/Launchpad.app`.
+Run: `Scripts/build-app.sh`, then open `.build/Launchpad-Dev.app`.
 
 ## Phase 7 - Bugfix Pass
 
