@@ -84,8 +84,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         }
     }
 
-    @objc private func activeSpaceDidChange(_ notification: Notification) {
-        launcherLifecycle?.dismissForSystemGesture()
+    @objc nonisolated private func activeSpaceDidChange(_ notification: Notification) {
+        DispatchQueue.main.async { [weak self] in
+            self?.launcherLifecycle?.dismissForSystemGesture()
+        }
     }
 
     func makeWindow() {

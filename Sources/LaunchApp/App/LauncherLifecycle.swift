@@ -235,11 +235,19 @@ final class LauncherLifecycle {
         springStartTimestamp = 0
     }
 
-    @objc private func stepPresentation(_ displayLink: CADisplayLink) {
+    @objc nonisolated private func stepPresentation(_ displayLink: CADisplayLink) {
+        let timestamp = displayLink.timestamp
+        let duration = displayLink.duration
+        DispatchQueue.main.async { [weak self] in
+            self?.stepPresentation(timestamp: timestamp, duration: duration)
+        }
+    }
+
+    private func stepPresentation(timestamp: TimeInterval, duration: TimeInterval) {
         let dt = presentationLastTimestamp == 0
-            ? min(displayLink.duration, 1.0 / 60.0)
-            : min(displayLink.timestamp - presentationLastTimestamp, 1.0 / 30.0)
-        presentationLastTimestamp = displayLink.timestamp
+            ? min(duration, 1.0 / 60.0)
+            : min(timestamp - presentationLastTimestamp, 1.0 / 30.0)
+        presentationLastTimestamp = timestamp
 
         if pinchTracking != nil {
             if hasPendingInteractionSample {
@@ -280,7 +288,7 @@ final class LauncherLifecycle {
                 return
             }
 
-            if displayLink.timestamp - lastSignificantChangeTimestamp
+            if timestamp - lastSignificantChangeTimestamp
                 >= LaunchConstants.Lifecycle.stationaryTimeout,
                presentationProgress != interactionProgress {
                 applyPresentationProgress(interactionProgress)
@@ -293,7 +301,7 @@ final class LauncherLifecycle {
             ? LaunchConstants.Lifecycle.closeSpringResponse
             : LaunchConstants.Lifecycle.openSpringResponse
         let angularFrequency = 2 * Double.pi / response
-        let elapsed = max(displayLink.timestamp - springStartTimestamp, 0)
+        let elapsed = max(timestamp - springStartTimestamp, 0)
         let displacement = Double(springStartProgress - presentationTarget)
         let coefficient = Double(springStartVelocity) + angularFrequency * displacement
         let decay = exp(-angularFrequency * elapsed)

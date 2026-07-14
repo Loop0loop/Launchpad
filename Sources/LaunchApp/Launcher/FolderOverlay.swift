@@ -128,6 +128,7 @@ private struct FolderTitleNSField: NSViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
+    @MainActor
     final class Coordinator: NSObject, NSTextFieldDelegate {
         let parent: FolderTitleNSField
         init(_ parent: FolderTitleNSField) { self.parent = parent }
@@ -141,9 +142,12 @@ private struct FolderTitleNSField: NSViewRepresentable {
             parent.commit()
         }
 
-        @MainActor @objc func commitFromAction(_ sender: NSTextField) {
-            parent.name = sender.stringValue
-            parent.commit()
+        @objc nonisolated func commitFromAction(_ sender: NSTextField) {
+            DispatchQueue.main.async { [weak self, weak sender] in
+                guard let self, let sender else { return }
+                parent.name = sender.stringValue
+                parent.commit()
+            }
         }
     }
 }

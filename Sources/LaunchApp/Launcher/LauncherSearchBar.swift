@@ -158,7 +158,13 @@ final class LauncherSearchBarView: NSView {
         }
     }
 
-    @objc private func textDidChange() {
+    @objc nonisolated private func textDidChange() {
+        DispatchQueue.main.async { [weak self] in
+            self?.handleTextDidChange()
+        }
+    }
+
+    private func handleTextDidChange() {
         let wasHidden = clearButton.isHidden
         clearButton.isHidden = textField.stringValue.isEmpty
         if wasHidden != clearButton.isHidden {
@@ -167,7 +173,13 @@ final class LauncherSearchBarView: NSView {
         onTextChange?(textField.stringValue)
     }
 
-    @objc private func clearTapped() {
+    @objc nonisolated private func clearTapped() {
+        DispatchQueue.main.async { [weak self] in
+            self?.handleClearTapped()
+        }
+    }
+
+    private func handleClearTapped() {
         textField.stringValue = ""
         clearButton.isHidden = true
         needsLayout = true
@@ -176,7 +188,14 @@ final class LauncherSearchBarView: NSView {
         window?.makeFirstResponder(textField)
     }
 
-    @objc private func optionTapped(_ sender: NSButton) {
+    @objc nonisolated private func optionTapped(_ sender: NSButton) {
+        DispatchQueue.main.async { [weak self, weak sender] in
+            guard let self, let sender else { return }
+            showOptions(relativeTo: sender)
+        }
+    }
+
+    private func showOptions(relativeTo sender: NSButton) {
         let menu = NSMenu()
 
         let sortTitle = Localized.t("이름순 정렬", "Sort by Name")
@@ -207,20 +226,28 @@ final class LauncherSearchBarView: NSView {
         menu.popUp(positioning: nil, at: origin, in: sender)
     }
 
-    @objc private func menuSortByName() {
-        onSortByName?()
+    @objc nonisolated private func menuSortByName() {
+        DispatchQueue.main.async { [weak self] in
+            self?.onSortByName?()
+        }
     }
 
-    @objc private func menuRefreshApps() {
-        onRefreshApps?()
+    @objc nonisolated private func menuRefreshApps() {
+        DispatchQueue.main.async { [weak self] in
+            self?.onRefreshApps?()
+        }
     }
 
-    @objc private func menuShowSettings() {
-        onShowSettings?()
+    @objc nonisolated private func menuShowSettings() {
+        DispatchQueue.main.async { [weak self] in
+            self?.onShowSettings?()
+        }
     }
 
-    @objc private func menuQuit() {
-        onQuit?()
+    @objc nonisolated private func menuQuit() {
+        DispatchQueue.main.async { [weak self] in
+            self?.onQuit?()
+        }
     }
 
     override func mouseDown(with event: NSEvent) {
