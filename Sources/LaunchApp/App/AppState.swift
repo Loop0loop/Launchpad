@@ -74,8 +74,11 @@ final class AppState: ObservableObject {
     @Published var folderPullOutLandingID: String?
     var folderPullOutLandingTask: Task<Void, Never>?
     @Published var launchAtLogin = false
-    @Published var hotkeyDisplay = UserDefaults.standard.string(forKey: "settings.hotkeyDisplay") ?? "⌘2" {
-        didSet { UserDefaults.standard.set(hotkeyDisplay, forKey: "settings.hotkeyDisplay") }
+    @Published var globalHotKeyShortcut = GlobalHotKeyShortcut.load() {
+        didSet {
+            globalHotKeyShortcut.save()
+            actions.applyInputSettings()
+        }
     }
     @Published var systemF4KeyEnabled = (UserDefaults.standard.object(forKey: "settings.systemF4KeyEnabled") as? Bool) ?? true {
         didSet {

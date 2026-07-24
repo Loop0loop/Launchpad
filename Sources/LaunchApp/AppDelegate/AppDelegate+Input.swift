@@ -151,8 +151,11 @@ extension AppDelegate {
     }
 
     func startGlobalHotKey() {
-        LaunchLog.line("start global hotkey")
-        let status = globalHotKey.start(f4Enabled: state.systemF4KeyEnabled) {
+        LaunchLog.line("start global hotkey shortcut=\(state.globalHotKeyShortcut.displayName)")
+        let status = globalHotKey.start(
+            shortcut: state.globalHotKeyShortcut,
+            f4Enabled: state.systemF4KeyEnabled
+        ) {
             [weak self] in
             LaunchLog.line("global hotkey toggle")
             self?.launcherLifecycle?.toggle()

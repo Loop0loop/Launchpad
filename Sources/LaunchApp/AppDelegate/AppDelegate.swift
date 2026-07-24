@@ -48,6 +48,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         installTerminationSignalHandlers()
         installMainMenu()
         makeWindow()
+        state.refreshAccessibilityStatus()
         state.refreshAppsAsync(
             priority: state.apps.isEmpty ? .userInitiated : .utility,
             delay: state.apps.isEmpty ? 0.15 : 1.5
@@ -70,6 +71,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
 
     public func applicationDidBecomeActive(_ notification: Notification) {
         state.refreshLoginItemStatus()
+        let wasAccessibilityTrusted = state.accessibilityTrusted
+        state.refreshAccessibilityStatus()
+        if state.accessibilityTrusted != wasAccessibilityTrusted {
+            startGlobalHotKey()
+        }
     }
 
     public func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

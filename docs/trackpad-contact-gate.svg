@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1010 360" font-family="-apple-system, 'SF Pro', system-ui, sans-serif" text-rendering="geometricPrecision">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#ef4444"/>
+    </marker>
+    <style>
+      .ttl  { font-size: 17px; font-weight: 700; fill: #0f172a; }
+      .sub  { font-size: 12px; fill: #475569; }
+      .box  { fill: #eff6ff; stroke: #3b82f6; stroke-width: 1.5; }
+      .gate { fill: #ecfeff; stroke: #06b6d4; stroke-width: 1.5; }
+      .out  { fill: #ecfdf5; stroke: #10b981; stroke-width: 1.5; }
+      .lbl  { font-size: 12px; font-weight: 600; fill: #0f172a; }
+      .num  { font-size: 11px; font-weight: 700; fill: #06b6d4; }
+      .rej  { font-size: 10.5px; fill: #b91c1c; }
+      .rejb { fill: #fef2f2; stroke: #fca5a5; stroke-width: 1; }
+    </style>
+  </defs>
+
+  <!-- Title -->
+  <text x="505" y="30" text-anchor="middle" class="ttl">TrackpadContactGate — raw contact frame → pinch 세션</text>
+  <text x="505" y="50" text-anchor="middle" class="sub">각 단계를 통과하지 못한 노이즈는 아래로 탈락 (천·물티슈 유령 접촉 차단)</text>
+
+  <!-- Input -->
+  <rect x="10"  y="100" width="120" height="80" rx="8" class="box"/>
+  <text x="70"  y="128" text-anchor="middle" class="lbl">Raw MTTouch</text>
+  <text x="70"  y="146" text-anchor="middle" class="sub">contact frame</text>
+  <text x="70"  y="164" text-anchor="middle" class="sub">state 1~7 혼재</text>
+
+  <!-- Gate 1 -->
+  <rect x="155" y="100" width="120" height="80" rx="8" class="gate"/>
+  <text x="215" y="124" text-anchor="middle" class="num">① STATE == 4</text>
+  <text x="215" y="144" text-anchor="middle" class="lbl">물리적 접촉만</text>
+  <text x="215" y="162" text-anchor="middle" class="sub">nearby/release 제거</text>
+
+  <!-- Gate 2 -->
+  <rect x="300" y="100" width="120" height="80" rx="8" class="gate"/>
+  <text x="360" y="124" text-anchor="middle" class="num">② FINGER COUNT</text>
+  <text x="360" y="144" text-anchor="middle" class="lbl">정확히 4개</text>
+  <text x="360" y="162" text-anchor="middle" class="sub">(또는 3 / 5)</text>
+
+  <!-- Gate 3 -->
+  <rect x="445" y="100" width="120" height="80" rx="8" class="gate"/>
+  <text x="505" y="124" text-anchor="middle" class="num">③ STABLE IDs</text>
+  <text x="505" y="144" text-anchor="middle" class="lbl">동일 세트 유지</text>
+  <text x="505" y="162" text-anchor="middle" class="sub">20 ~ 60 ms</text>
+
+  <!-- Gate 4 -->
+  <rect x="590" y="100" width="120" height="80" rx="8" class="gate"/>
+  <text x="650" y="124" text-anchor="middle" class="num">④ RADIAL</text>
+  <text x="650" y="144" text-anchor="middle" class="lbl">방향 확정</text>
+  <text x="650" y="162" text-anchor="middle" class="sub">in / out</text>
+
+  <!-- Gate 5 -->
+  <rect x="735" y="100" width="120" height="80" rx="8" class="gate"/>
+  <text x="795" y="124" text-anchor="middle" class="num">⑤ CLAIM</text>
+  <text x="795" y="144" text-anchor="middle" class="lbl">ownership 락</text>
+  <text x="795" y="162" text-anchor="middle" class="sub">ID 끝까지 추적</text>
+
+  <!-- Output -->
+  <rect x="880" y="100" width="120" height="80" rx="8" class="out"/>
+  <text x="940" y="132" text-anchor="middle" class="lbl">Pinch 세션</text>
+  <text x="940" y="152" text-anchor="middle" class="sub">비로소 open/close</text>
+
+  <!-- Flow arrows -->
+  <line x1="130" y1="140" x2="153" y2="140" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="275" y1="140" x2="298" y2="140" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="420" y1="140" x2="443" y2="140" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="565" y1="140" x2="588" y2="140" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="710" y1="140" x2="733" y2="140" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="855" y1="140" x2="878" y2="140" stroke="#10b981" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Rejection off-ramps -->
+  <line x1="215" y1="180" x2="215" y2="218" stroke="#ef4444" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#arrR)"/>
+  <rect x="150" y="222" width="130" height="34" rx="6" class="rejb"/>
+  <text x="215" y="238" text-anchor="middle" class="rej">유령 접촉</text>
+  <text x="215" y="251" text-anchor="middle" class="rej">(천 · 물티슈 스침)</text>
+
+  <line x1="360" y1="180" x2="360" y2="218" stroke="#ef4444" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#arrR)"/>
+  <rect x="295" y="222" width="130" height="34" rx="6" class="rejb"/>
+  <text x="360" y="238" text-anchor="middle" class="rej">개수 불일치</text>
+  <text x="360" y="251" text-anchor="middle" class="rej">(손바닥 · 2/6점)</text>
+
+  <line x1="505" y1="180" x2="505" y2="218" stroke="#ef4444" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#arrR)"/>
+  <rect x="440" y="222" width="130" height="34" rx="6" class="rejb"/>
+  <text x="505" y="238" text-anchor="middle" class="rej">찰나 튐</text>
+  <text x="505" y="251" text-anchor="middle" class="rej">(일시적 과부하)</text>
+
+  <line x1="650" y1="180" x2="650" y2="218" stroke="#ef4444" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#arrR)"/>
+  <rect x="585" y="222" width="130" height="34" rx="6" class="rejb"/>
+  <text x="650" y="238" text-anchor="middle" class="rej">방향 미확정</text>
+  <text x="650" y="251" text-anchor="middle" class="rej">(흔들림)</text>
+</svg>

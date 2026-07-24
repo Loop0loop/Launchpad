@@ -5,3 +5,30 @@ args = [
     "code_review_graph",
     "serve",
 ]
+
+[mcp_servers.code-review-graph.tools.get_minimal_context_tool]
+approval_mode = "approve"
+
+[mcp_servers.code-review-graph.tools.get_architecture_overview_tool]
+approval_mode = "approve"
+
+[mcp_servers.code-review-graph.tools.list_flows_tool]
+approval_mode = "approve"
+
+[mcp_servers.code-review-graph.tools.list_communities_tool]
+approval_mode = "approve"
+
+[mcp_servers.code-review-graph.tools.detect_changes_tool]
+approval_mode = "approve"
+
+[mcp_servers.code-review-graph.tools.semantic_search_nodes_tool]
+approval_mode = "approve"
+
+[mcp_servers.code-review-graph.tools.get_knowledge_gaps_tool]
+approval_mode = "approve"
+
+[mcp_servers.code-review-graph.tools.get_hub_nodes_tool]
+approval_mode = "approve"
+
+[mcp_servers.code-review-graph.tools.query_graph_tool]
+approval_mode = "approve"

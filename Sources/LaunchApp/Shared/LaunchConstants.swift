@@ -119,6 +119,7 @@ enum LaunchConstants {
         static let sortModeKey = "sortMode"
         static let appLanguageKey = "appLanguage"
         static let catalogAppsKey = "catalogApps"
+        static let globalHotKeyKey = "globalHotKey"
     }
 
     enum Catalog {
@@ -252,8 +253,6 @@ enum LaunchConstants {
         static let signature: OSType = 0x4C6E6368
         static let toggleID: UInt32 = 1
         static let f4ID: UInt32 = 2
-        static let toggleKeyCode: UInt32 = UInt32(kVK_ANSI_2)
-        static let toggleModifiers: UInt32 = UInt32(cmdKey)
         static let f4KeyCode: UInt32 = UInt32(kVK_F4)
         static let f4Modifiers: UInt32 = 0
         static let cgSystemDefinedEventType: UInt32 = 14

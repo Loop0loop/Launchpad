@@ -34,6 +34,11 @@ extension AppState {
         accessibilityState = accessibilityTrusted ? .allowed : .needsApproval
     }
 
+    func requestF4Permission() {
+        requestAccessibilityPermission()
+        actions.applyInputSettings()
+    }
+
     func setTrackpadGateActive(_ isActive: Bool, conflicted: Bool = false) {
         trackpadGateState = isActive && !conflicted ? .exactPinch : .fallbackPinch
     }

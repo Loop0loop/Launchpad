@@ -3,8 +3,6 @@ import LaunchpadCore
 import SwiftUI
 
 /// Tabbed settings panel (General / Interface / Apps / Advanced / About), liquid-glass styled.
-/// Stage 1 wires every control that already has backing in `AppState`; new-backend controls
-/// (menu bar icon, app icon, configurable hotkey, hot corner, trackpad fingers) land in later stages.
 struct SettingsView: View {
     @ObservedObject var state: AppState
     @State private var tab: SettingsTab = .general
@@ -58,22 +56,32 @@ struct SettingsView: View {
                 }
 
                 SettingsRow(title: Localized.t("전역 단축키", "Global HotKey")) {
-                    Button {
-                        // Interactive UI feedback
-                    } label: {
-                        Text(state.hotkeyDisplay)
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(Capsule().fill(Color.primary.opacity(0.08)))
-                    }
-                    .buttonStyle(.plain)
+                    GlobalHotKeyRecorder(shortcut: $state.globalHotKeyShortcut)
+                        .fixedSize()
+                }
+                if state.globalHotKeyState == .required {
+                    Text(Localized.t(
+                        "이 단축키를 등록할 수 없습니다. 다른 조합을 선택하세요.",
+                        "This shortcut could not be registered. Choose another combination."
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(.orange)
                 }
 
                 SettingsToggleRow(
                     title: Localized.t("F4 키로 런처 열기", "Open Launcher with F4 key"),
                     isOn: $state.systemF4KeyEnabled
                 )
+                if state.systemF4KeyEnabled, state.accessibilityState != .allowed {
+                    SettingsActionRow(
+                        title: Localized.t(
+                            "F4 입력을 위한 손쉬운 사용 권한 허용",
+                            "Allow Accessibility Access for F4"
+                        )
+                    ) {
+                        state.requestF4Permission()
+                    }
+                }
 
                 SettingsRow(title: Localized.t("트랙패드 동작", "Trackpad Action")) {
                     Picker("", selection: $state.trackpadSetting) {

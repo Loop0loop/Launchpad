@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import SwiftUI
 
 struct SettingsSection<Content: View>: View {
@@ -40,6 +41,128 @@ struct SettingsToggleRow: View {
         SettingsRow(title: title) {
             Toggle("", isOn: $isOn).labelsHidden().toggleStyle(.switch)
         }
+    }
+}
+
+struct GlobalHotKeyRecorder: NSViewRepresentable {
+    @Binding var shortcut: GlobalHotKeyShortcut
+
+    func makeNSView(context: Context) -> HotKeyRecorderButton {
+        let button = HotKeyRecorderButton()
+        button.bezelStyle = .rounded
+        button.font = .systemFont(ofSize: 12, weight: .medium)
+        button.setButtonType(.momentaryPushIn)
+        button.onRecordRequested = { [weak coordinator = context.coordinator] in
+            coordinator?.beginRecording()
+        }
+        button.onKeyEvent = { [weak coordinator = context.coordinator] event in
+            coordinator?.record(event)
+        }
+        button.onRecordingCancelled = { [weak coordinator = context.coordinator] in
+            coordinator?.endRecording()
+        }
+        context.coordinator.button = button
+        context.coordinator.updateTitle()
+        return button
+    }
+
+    func updateNSView(_ button: HotKeyRecorderButton, context: Context) {
+        context.coordinator.parent = self
+        context.coordinator.updateTitle()
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    static func dismantleNSView(_ button: HotKeyRecorderButton, coordinator: Coordinator) {
+        coordinator.endRecording()
+    }
+
+    @MainActor
+    final class Coordinator {
+        var parent: GlobalHotKeyRecorder
+        weak var button: HotKeyRecorderButton?
+        private var eventMonitor: Any?
+
+        init(parent: GlobalHotKeyRecorder) {
+            self.parent = parent
+        }
+
+        func beginRecording() {
+            guard let button else { return }
+            button.isRecording = true
+            button.title = Localized.t("단축키 입력…", "Type Shortcut…")
+            button.window?.makeFirstResponder(button)
+            eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard let self, self.button?.isRecording == true else { return event }
+                self.record(event)
+                return nil
+            }
+        }
+
+        func record(_ event: NSEvent) {
+            guard let button, button.isRecording else { return }
+            if event.keyCode == UInt16(kVK_Escape) {
+                endRecording()
+                return
+            }
+            guard let shortcut = GlobalHotKeyShortcut(event: event) else {
+                NSSound.beep()
+                return
+            }
+            parent.shortcut = shortcut
+            endRecording()
+        }
+
+        func endRecording() {
+            if let eventMonitor {
+                NSEvent.removeMonitor(eventMonitor)
+                self.eventMonitor = nil
+            }
+            button?.isRecording = false
+            updateTitle()
+        }
+
+        func updateTitle() {
+            guard let button, !button.isRecording else { return }
+            button.title = parent.shortcut.displayName
+            button.toolTip = Localized.t(
+                "클릭한 다음 새 단축키를 누르세요. ESC는 취소합니다.",
+                "Click, then press a new shortcut. Escape cancels."
+            )
+        }
+    }
+}
+
+final class HotKeyRecorderButton: NSButton {
+    var isRecording = false
+    var onRecordRequested: (() -> Void)?
+    var onKeyEvent: ((NSEvent) -> Void)?
+    var onRecordingCancelled: (() -> Void)?
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func mouseDown(with event: NSEvent) {
+        super.mouseDown(with: event)
+        window?.makeFirstResponder(self)
+        onRecordRequested?()
+    }
+
+    override func keyDown(with event: NSEvent) {
+        guard isRecording else {
+            super.keyDown(with: event)
+            return
+        }
+        onKeyEvent?(event)
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let resigned = super.resignFirstResponder()
+        if resigned, isRecording {
+            onRecordingCancelled?()
+        }
+        return resigned
     }
 }
 

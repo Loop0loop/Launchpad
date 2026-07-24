@@ -9,6 +9,7 @@ final class GlobalHotKeyAdapter {
     private var actions: [UInt32: @MainActor () -> Void] = [:]
 
     func start(
+        shortcut: GlobalHotKeyShortcut,
         f4Enabled: Bool,
         toggleAction: @escaping @MainActor () -> Void,
         f4Action: @escaping @MainActor () -> Void
@@ -34,8 +35,8 @@ final class GlobalHotKeyAdapter {
 
         let toggleRegistered = register(
             id: LaunchConstants.HotKey.toggleID,
-            LaunchConstants.HotKey.toggleKeyCode,
-            modifiers: LaunchConstants.HotKey.toggleModifiers,
+            shortcut.keyCode,
+            modifiers: shortcut.modifiers,
             action: toggleAction
         )
         let f4Registered = f4Enabled
@@ -126,7 +127,7 @@ final class F4KeyTapMonitor {
             | CGEventMask(1 << LaunchConstants.HotKey.cgSystemDefinedEventType)
         let userData = Unmanaged.passUnretained(self).toOpaque()
         guard let tap = CGEvent.tapCreate(
-            tap: .cghidEventTap,
+            tap: .cgSessionEventTap,
             place: .headInsertEventTap,
             options: .defaultTap,
             eventsOfInterest: mask,
