@@ -106,10 +106,6 @@ final class TrackpadGestureMonitor {
         pinchMonitor.systemDesktopVisibility = visibility
     }
 
-    func setSystemDesktopTransitionPending(_ pending: Bool) {
-        pinchMonitor.systemDesktopTransitionPending = pending
-    }
-
     @discardableResult
     func systemDesktopTransitionReceived(visibility: SystemDesktopVisibility) -> Bool {
         pinchMonitor.systemDesktopTransitionReceived(visibility: visibility)
@@ -193,7 +189,6 @@ final class PinchContactMonitor: @unchecked Sendable {
     private var _preservesSystemShowDesktop = false
     private var _controlsSystemShowDesktop = false
     private var _systemDesktopVisibility = SystemDesktopVisibility.unknown
-    private var _systemDesktopTransitionPending = false
     private var _launcherVisible = false
     var requiredFingerCounts: [Int] {
         get {
@@ -260,19 +255,6 @@ final class PinchContactMonitor: @unchecked Sendable {
         }
     }
 
-    var systemDesktopTransitionPending: Bool {
-        get {
-            lock.lock()
-            defer { lock.unlock() }
-            return _systemDesktopTransitionPending
-        }
-        set {
-            lock.lock()
-            _systemDesktopTransitionPending = newValue
-            lock.unlock()
-        }
-    }
-
     private var _isReady = false
     var isReady: Bool {
         lock.lock()
@@ -331,7 +313,6 @@ final class PinchContactMonitor: @unchecked Sendable {
         pendingDelivery.invalidate()
         deliveryScheduled = false
         _systemDesktopVisibility = .unknown
-        _systemDesktopTransitionPending = false
         lock.unlock()
         for update in cancellations {
             DispatchQueue.main.async {
@@ -360,9 +341,7 @@ final class PinchContactMonitor: @unchecked Sendable {
         // Capture ownership on the first physical contact, before the contact
         // count stabilizes and before native Exposé can emit its exit event.
         let hasContacts = touches.contains(where: \.isInContactSequence)
-        if hasContacts,
-           !deviceState.desktopContactSession.hasContacts,
-           !_systemDesktopTransitionPending {
+        if hasContacts, !deviceState.desktopContactSession.hasContacts {
             _systemDesktopVisibility = SystemShowDesktopController.currentVisibility()
         }
         deviceState.desktopContactSession.update(
@@ -453,9 +432,7 @@ final class PinchContactMonitor: @unchecked Sendable {
             )
             let showDesktopOwner = SystemShowDesktopGestureOwner(
                 launcherIsVisible: _launcherVisible,
-                systemDesktopVisibility: _systemDesktopTransitionPending
-                    ? .unknown
-                    : deviceState.desktopContactSession.isSystemOwned
+                systemDesktopVisibility: deviceState.desktopContactSession.isSystemOwned
                     ? .desktopVisible
                     : _systemDesktopVisibility
             )
@@ -594,6 +571,8 @@ final class PinchContactMonitor: @unchecked Sendable {
         defer { lock.unlock() }
         guard _systemDesktopVisibility != visibility else { return false }
         _systemDesktopVisibility = visibility
+        let activeOwnership = activeDeviceID.flatMap { deviceStates[$0]?.intentArbiter?.ownership }
+        guard visibility.preemptsLauncherGesture(ownedBy: activeOwnership) else { return false }
         for deviceID in Array(deviceStates.keys) {
             guard deviceStates[deviceID]?.desktopGestureSession.isActive != true else { continue }
             deviceStates[deviceID]?.desktopContactSession.systemTransitionReceived()

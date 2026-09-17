@@ -8,9 +8,8 @@ extension AppDelegate {
         SystemTrackpadSettings.restoreNativeLaunchpadPinch()
         showDesktopController.start { [weak self] visibility in
             guard let self else { return }
-            let changed = trackpadMonitor.systemDesktopTransitionReceived(visibility: visibility)
-            trackpadMonitor.setSystemDesktopTransitionPending(showDesktopController.isTransitioning)
-            if changed,
+            let systemTookOver = trackpadMonitor.systemDesktopTransitionReceived(visibility: visibility)
+            if systemTookOver,
                visibility == .desktopVisible || launcherLifecycle?.isPinchTracking == true {
                 launcherLifecycle?.dismissForSystemGesture()
             }
@@ -154,7 +153,6 @@ extension AppDelegate {
                 }
             }
             _ = showDesktopController.handleGesture(update)
-            trackpadMonitor.setSystemDesktopTransitionPending(showDesktopController.isTransitioning)
         }
     }
 

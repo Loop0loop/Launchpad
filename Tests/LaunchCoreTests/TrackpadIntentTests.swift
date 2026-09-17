@@ -87,6 +87,12 @@ final class TrackpadIntentTests: XCTestCase {
         XCTAssertEqual(TrackpadIntent.projectedTransitionTarget(progress: 0.35, velocity: 0), 0)
         XCTAssertEqual(TrackpadIntent.projectedTransitionTarget(progress: 0.35, velocity: 2), 1)
         XCTAssertEqual(TrackpadIntent.projectedTransitionTarget(progress: 0.7, velocity: -2), 0)
+        XCTAssertEqual(TrackpadIntent.settledTransitionTarget(
+            progress: 0.41, velocity: 3.8, committed: false, startProgress: 0
+        ), 0)
+        XCTAssertEqual(TrackpadIntent.settledTransitionTarget(
+            progress: 0.38, velocity: -3.8, committed: false, startProgress: 1
+        ), 1)
     }
 
     func testAdditiveProgressHasConstantSensitivity() {
@@ -106,6 +112,13 @@ final class TrackpadIntentTests: XCTestCase {
         XCTAssertFalse(SystemShowDesktopGestureOwner.desktop.acceptsLauncherIntent(.close))
         XCTAssertTrue(SystemShowDesktopGestureOwner.launcher.acceptsLauncherIntent(.close))
         XCTAssertFalse(SystemShowDesktopGestureOwner.launcher.acceptsLauncherIntent(.open))
+    }
+
+    func testLateDesktopExitDoesNotPreemptOwnedLauncherGesture() {
+        XCTAssertFalse(SystemDesktopVisibility.windowsVisible.preemptsLauncherGesture(ownedBy: .launcherRadialIn))
+        XCTAssertFalse(SystemDesktopVisibility.windowsVisible.preemptsLauncherGesture(ownedBy: .launcherRadialOut))
+        XCTAssertTrue(SystemDesktopVisibility.windowsVisible.preemptsLauncherGesture(ownedBy: .undecided))
+        XCTAssertTrue(SystemDesktopVisibility.desktopVisible.preemptsLauncherGesture(ownedBy: .launcherRadialIn))
     }
 
     func testDirectDesktopControlWaitsForClearFourFingerMotion() {

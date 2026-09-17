@@ -18,7 +18,7 @@ final class TrackpadGesturePreferenceSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.restoreLaunchAgentLabels, ["com.apple.Dock.agent"])
     }
 
-    func testReservationDisablesNativePinchesAndKeepsOnlyDesktopActionAvailable() {
+    func testReservationPlanCanSnapshotMissionControlForTemporarySuppression() {
         for original: Int? in [nil, 0, 1] {
             let values: [String: Int?] = [
                 "showSpotlightGestureEnabled": original,

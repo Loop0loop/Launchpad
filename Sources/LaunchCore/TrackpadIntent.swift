@@ -81,6 +81,21 @@ public enum TrackpadIntent: Equatable, Sendable {
         return projected >= 0.5 ? 1 : 0
     }
 
+    public static func settledTransitionTarget(
+        progress: Double,
+        velocity: Double,
+        committed: Bool,
+        startProgress: Double,
+        projectionTime: Double = 0.12
+    ) -> Double {
+        guard committed else { return startProgress >= 0.5 ? 1 : 0 }
+        return projectedTransitionTarget(
+            progress: progress,
+            velocity: velocity,
+            projectionTime: projectionTime
+        )
+    }
+
     public static func additiveTransitionProgress(
         start: Double,
         gestureProgress: Double,
@@ -113,6 +128,13 @@ public enum SystemDesktopVisibility: Equatable, Sendable {
     case desktopVisible
 
     public var allowsLauncherPresentation: Bool { self == .windowsVisible }
+
+    public func preemptsLauncherGesture(ownedBy ownership: TrackpadGestureOwnership?) -> Bool {
+        switch (self, ownership) {
+        case (.windowsVisible, .launcherRadialIn?), (.windowsVisible, .launcherRadialOut?): false
+        default: true
+        }
+    }
 }
 
 public enum SystemShowDesktopGestureOwner: Equatable, Sendable {

@@ -36,10 +36,8 @@ final class SystemShowDesktopController {
     )
     private var gestureStartActive: Bool?
     private var didPostGestureBegin = false
-    private var expectedVisibility: SystemDesktopVisibility?
     private(set) var visibility = SystemDesktopVisibility.unknown
     var isActive: Bool { visibility == .desktopVisible }
-    var isTransitioning: Bool { expectedVisibility != nil }
     private(set) var isSupported = false
     private(set) var supportsContinuousGesture = false
 
@@ -110,17 +108,10 @@ final class SystemShowDesktopController {
         if posted {
             switch update {
             case .ended:
-                if let gestureStartActive {
-                    let targetActive = SystemShowDesktopGestureUpdate
-                        .ended(progress: progress, velocity: velocity)
-                        .resolvedDesktopActive(from: gestureStartActive)
-                    let targetVisibility: SystemDesktopVisibility = targetActive ? .desktopVisible : .windowsVisible
-                    expectedVisibility = targetVisibility == visibility ? nil : targetVisibility
-                }
                 gestureStartActive = nil
                 didPostGestureBegin = false
                 LaunchLog.line(
-                    "trackpad continuous show desktop ended progress=\(progress) velocity=\(velocity) awaitingObservedState=\(isTransitioning)"
+                    "trackpad continuous show desktop ended progress=\(progress) velocity=\(velocity) awaitingObservedState=true"
                 )
             case .cancelled:
                 gestureStartActive = nil
@@ -203,7 +194,6 @@ final class SystemShowDesktopController {
         disconnect()
         onVisibilityChange = nil
         gestureStartActive = nil
-        expectedVisibility = nil
         visibility = .unknown
     }
 
@@ -265,7 +255,6 @@ final class SystemShowDesktopController {
     }
 
     private func setVisibility(_ visibility: SystemDesktopVisibility) {
-        if expectedVisibility == visibility { expectedVisibility = nil }
         guard self.visibility != visibility else { return }
         self.visibility = visibility
         LaunchLog.line("system desktop visibility=\(visibility)")

@@ -24,8 +24,8 @@ enum SystemTrackpadSettings {
         "com.apple.trackpad.fourFingerPinchSwipeGesture",
         "com.apple.trackpad.fiveFingerPinchSwipeGesture"
     ]
-    private static let competingGestureKeys = ["TrackpadFourFingerVertSwipeGesture"]
-    private static let currentHostCompetingGestureKeys = ["com.apple.trackpad.fourFingerVertSwipeGesture"]
+    private static let missionControlGestureKeys = ["TrackpadFourFingerVertSwipeGesture"]
+    private static let currentHostMissionControlGestureKeys = ["com.apple.trackpad.fourFingerVertSwipeGesture"]
     static func load() -> SystemTrackpadGestureSettings {
         let appsEnabled = userAppsGestureEnabled
         return SystemTrackpadGestureSettings(
@@ -57,11 +57,11 @@ enum SystemTrackpadSettings {
     static func reserveNativeLaunchpadPinch() -> Bool {
         saveSnapshot()
         for domain in domains {
-            let plan = TrackpadGesturePreferenceSnapshot(values: appValues(domain: domain))
+            let plan = TrackpadGesturePreferenceSnapshot(values: launchpadValues(domain: domain))
             for (key, value) in plan.reserveWrites { write(value, key: key, domain: domain) }
             CFPreferencesAppSynchronize(domain as CFString)
         }
-        for (key, value) in TrackpadGesturePreferenceSnapshot(values: currentHostValues()).reserveWrites {
+        for (key, value) in TrackpadGesturePreferenceSnapshot(values: currentHostLaunchpadValues()).reserveWrites {
             writeCurrentHostGlobal(value, key: key)
         }
         CFPreferencesSynchronize(
@@ -77,9 +77,16 @@ enum SystemTrackpadSettings {
         let reserved = optionalInt(showAppsGestureKey, domain: dockDomain) == 0
             && optionalInt(showDesktopGestureKey, domain: dockDomain) == 1
             && !physicalPinchIsEnabled
-            && !competingGestureIsEnabled
-        LaunchLog.line("exclusive pinch reserved=\(reserved); Apps and four-finger Mission Control disabled; Dock Show Desktop action enabled")
+        LaunchLog.line("exclusive pinch reserved=\(reserved); Apps disabled; Dock Show Desktop action enabled")
         return reserved
+    }
+
+    static func suppressMissionControlGesture() {
+        setMissionControlGestureSuppressed(true)
+    }
+
+    static func restoreMissionControlGesture() {
+        setMissionControlGestureSuppressed(false)
     }
 
     static func restoreNativeLaunchpadPinch(refreshRegistrationsIfNeeded: Bool = false) {
@@ -147,11 +154,6 @@ enum SystemTrackpadSettings {
             || currentHostLaunchpadGestureKeys.contains { currentHostGlobalInt($0) > 0 }
     }
 
-    private static var competingGestureIsEnabled: Bool {
-        competingGestureKeys.contains { bool($0) }
-            || currentHostCompetingGestureKeys.contains { currentHostGlobalInt($0) > 0 }
-    }
-
     private static func effectiveBool(_ key: String) -> Bool {
         guard let snapshot = loadSnapshot() else { return bool(key) }
         return domains.contains { domain in
@@ -177,18 +179,30 @@ enum SystemTrackpadSettings {
     private static func defaultAppRestoreValues() -> [String: Int?] {
         Dictionary(uniqueKeysWithValues:
             launchpadGestureKeys.map { ($0, 1) }
-                + competingGestureKeys.map { ($0, 2) }
+                + missionControlGestureKeys.map { ($0, 2) }
         )
     }
 
     private static func appValues(domain: String) -> [String: Int?] {
-        Dictionary(uniqueKeysWithValues: (launchpadGestureKeys + competingGestureKeys).map {
+        Dictionary(uniqueKeysWithValues: (launchpadGestureKeys + missionControlGestureKeys).map {
+            ($0, optionalInt($0, domain: domain))
+        })
+    }
+
+    private static func launchpadValues(domain: String) -> [String: Int?] {
+        Dictionary(uniqueKeysWithValues: launchpadGestureKeys.map {
             ($0, optionalInt($0, domain: domain))
         })
     }
 
     private static func currentHostValues() -> [String: Int?] {
-        Dictionary(uniqueKeysWithValues: (currentHostLaunchpadGestureKeys + currentHostCompetingGestureKeys).map {
+        Dictionary(uniqueKeysWithValues: (currentHostLaunchpadGestureKeys + currentHostMissionControlGestureKeys).map {
+            ($0, optionalCurrentHostGlobalInt($0))
+        })
+    }
+
+    private static func currentHostLaunchpadValues() -> [String: Int?] {
+        Dictionary(uniqueKeysWithValues: currentHostLaunchpadGestureKeys.map {
             ($0, optionalCurrentHostGlobalInt($0))
         })
     }
@@ -206,6 +220,40 @@ enum SystemTrackpadSettings {
             "com.apple.trackpad.fiveFingerPinchSwipeGesture": 2,
             "com.apple.trackpad.fourFingerVertSwipeGesture": 2
         ]
+    }
+
+    private static func setMissionControlGestureSuppressed(_ suppressed: Bool) {
+        guard let snapshot = loadSnapshot() else { return }
+        var changed = false
+        for domain in domains {
+            let original = snapshot[appScope(domain)] ?? defaultAppRestoreValues()
+            for key in missionControlGestureKeys {
+                let target = suppressed ? 0 : original[key] ?? nil
+                guard optionalInt(key, domain: domain) != target else { continue }
+                write(target, key: key, domain: domain)
+                changed = true
+            }
+            CFPreferencesAppSynchronize(domain as CFString)
+        }
+        let original = snapshot[currentHostScope] ?? defaultCurrentHostRestoreValues()
+        for key in currentHostMissionControlGestureKeys {
+            let target = suppressed ? 0 : original[key] ?? nil
+            guard optionalCurrentHostGlobalInt(key) != target else { continue }
+            writeCurrentHostGlobal(target, key: key)
+            changed = true
+        }
+        CFPreferencesSynchronize(
+            kCFPreferencesAnyApplication,
+            kCFPreferencesCurrentUser,
+            kCFPreferencesCurrentHost
+        )
+        guard changed else { return }
+        applySystemSettings()
+        postNotifications([
+            "com.apple.AppleMultitouchTrackpadDomainDidChangeNotification",
+            "com.apple.AppleMenuGesturesDidChangeNotification"
+        ])
+        LaunchLog.line("Mission Control gesture suppressed=\(suppressed)")
     }
 
     private static func write(_ value: Int?, key: String, domain: String) {
