@@ -3,6 +3,7 @@ import LaunchpadCore
 
 enum SystemTrackpadSettings {
     private static let snapshotDefaultsKey = "systemTrackpadSettings.nativeLaunchpadPinchSnapshot"
+    private static let missionControlSnapshotDefaultsKey = "systemTrackpadSettings.missionControlSnapshot"
     private static let dockDomain = "com.apple.dock"
     private static let appsSnapshotKey = "systemTrackpadSettings.nativeAppsGestureSnapshot.v27"
     private static let legacyAppsSnapshotKey = "systemTrackpadSettings.nativeAppsGestureSnapshot"
@@ -24,8 +25,14 @@ enum SystemTrackpadSettings {
         "com.apple.trackpad.fourFingerPinchSwipeGesture",
         "com.apple.trackpad.fiveFingerPinchSwipeGesture"
     ]
-    private static let missionControlGestureKeys = ["TrackpadFourFingerVertSwipeGesture"]
-    private static let currentHostMissionControlGestureKeys = ["com.apple.trackpad.fourFingerVertSwipeGesture"]
+    private static let missionControlGestureKeys = [
+        "TrackpadThreeFingerVertSwipeGesture",
+        "TrackpadFourFingerVertSwipeGesture"
+    ]
+    private static let currentHostMissionControlGestureKeys = [
+        "com.apple.trackpad.threeFingerVertSwipeGesture",
+        "com.apple.trackpad.fourFingerVertSwipeGesture"
+    ]
     static func load() -> SystemTrackpadGestureSettings {
         let appsEnabled = userAppsGestureEnabled
         return SystemTrackpadGestureSettings(
@@ -177,27 +184,12 @@ enum SystemTrackpadSettings {
     }
 
     private static func defaultAppRestoreValues() -> [String: Int?] {
-        Dictionary(uniqueKeysWithValues:
-            launchpadGestureKeys.map { ($0, 1) }
-                + missionControlGestureKeys.map { ($0, 2) }
-        )
-    }
-
-    private static func appValues(domain: String) -> [String: Int?] {
-        Dictionary(uniqueKeysWithValues: (launchpadGestureKeys + missionControlGestureKeys).map {
-            ($0, optionalInt($0, domain: domain))
-        })
+        Dictionary(uniqueKeysWithValues: launchpadGestureKeys.map { ($0, 1) })
     }
 
     private static func launchpadValues(domain: String) -> [String: Int?] {
         Dictionary(uniqueKeysWithValues: launchpadGestureKeys.map {
             ($0, optionalInt($0, domain: domain))
-        })
-    }
-
-    private static func currentHostValues() -> [String: Int?] {
-        Dictionary(uniqueKeysWithValues: (currentHostLaunchpadGestureKeys + currentHostMissionControlGestureKeys).map {
-            ($0, optionalCurrentHostGlobalInt($0))
         })
     }
 
@@ -217,16 +209,18 @@ enum SystemTrackpadSettings {
     private static func defaultCurrentHostRestoreValues() -> [String: Int?] {
         [
             "com.apple.trackpad.fourFingerPinchSwipeGesture": 2,
-            "com.apple.trackpad.fiveFingerPinchSwipeGesture": 2,
-            "com.apple.trackpad.fourFingerVertSwipeGesture": 2
+            "com.apple.trackpad.fiveFingerPinchSwipeGesture": 2
         ]
     }
 
     private static func setMissionControlGestureSuppressed(_ suppressed: Bool) {
-        guard let snapshot = loadSnapshot() else { return }
+        if suppressed { saveMissionControlSnapshot() }
+        guard let snapshot = loadSnapshot(key: missionControlSnapshotDefaultsKey) else { return }
         var changed = false
         for domain in domains {
-            let original = snapshot[appScope(domain)] ?? defaultAppRestoreValues()
+            let original = snapshot[appScope(domain)] ?? Dictionary(
+                uniqueKeysWithValues: missionControlGestureKeys.map { ($0, Optional(2)) }
+            )
             for key in missionControlGestureKeys {
                 let target = suppressed ? 0 : original[key] ?? nil
                 guard optionalInt(key, domain: domain) != target else { continue }
@@ -235,7 +229,9 @@ enum SystemTrackpadSettings {
             }
             CFPreferencesAppSynchronize(domain as CFString)
         }
-        let original = snapshot[currentHostScope] ?? defaultCurrentHostRestoreValues()
+        let original = snapshot[currentHostScope] ?? Dictionary(
+            uniqueKeysWithValues: currentHostMissionControlGestureKeys.map { ($0, Optional(2)) }
+        )
         for key in currentHostMissionControlGestureKeys {
             let target = suppressed ? 0 : original[key] ?? nil
             guard optionalCurrentHostGlobalInt(key) != target else { continue }
@@ -247,13 +243,16 @@ enum SystemTrackpadSettings {
             kCFPreferencesCurrentUser,
             kCFPreferencesCurrentHost
         )
-        guard changed else { return }
-        applySystemSettings()
-        postNotifications([
-            "com.apple.AppleMultitouchTrackpadDomainDidChangeNotification",
-            "com.apple.AppleMenuGesturesDidChangeNotification"
-        ])
-        LaunchLog.line("Mission Control gesture suppressed=\(suppressed)")
+        if changed {
+            postDarwinNotifications([
+                "com.apple.AppleMultitouchTrackpadDomainDidChangeNotification",
+                "com.apple.AppleMenuGesturesDidChangeNotification"
+            ])
+        }
+        if !suppressed {
+            UserDefaults.standard.removeObject(forKey: missionControlSnapshotDefaultsKey)
+        }
+        LaunchLog.line("Mission Control gesture suppressed=\(suppressed) changed=\(changed)")
     }
 
     private static func write(_ value: Int?, key: String, domain: String) {
@@ -296,8 +295,8 @@ enum SystemTrackpadSettings {
         "app:\(domain)"
     }
 
-    private static func loadSnapshot() -> [String: [String: Int?]]? {
-        guard let data = UserDefaults.standard.data(forKey: snapshotDefaultsKey),
+    private static func loadSnapshot(key: String = snapshotDefaultsKey) -> [String: [String: Int?]]? {
+        guard let data = UserDefaults.standard.data(forKey: key),
               let stored = try? JSONDecoder().decode([String: [String: String]].self, from: data) else { return nil }
         return stored.mapValues { values in
             values.mapValues { $0.isEmpty ? nil : Int($0) }
@@ -307,14 +306,32 @@ enum SystemTrackpadSettings {
     private static func saveSnapshot() {
         guard loadSnapshot() == nil else { return }
         var snapshot: [String: [String: Int?]] = [
-            currentHostScope: currentHostValues(),
+            currentHostScope: currentHostLaunchpadValues(),
             dockScope: dockValues()
         ]
-        for domain in domains { snapshot[appScope(domain)] = appValues(domain: domain) }
+        for domain in domains { snapshot[appScope(domain)] = launchpadValues(domain: domain) }
         let data = try? JSONEncoder().encode(snapshot.mapValues { values in
             values.mapValues { $0.map(String.init) ?? "" }
         })
         UserDefaults.standard.set(data, forKey: snapshotDefaultsKey)
+    }
+
+    private static func saveMissionControlSnapshot() {
+        guard loadSnapshot(key: missionControlSnapshotDefaultsKey) == nil else { return }
+        var snapshot = [
+            currentHostScope: Dictionary(uniqueKeysWithValues: currentHostMissionControlGestureKeys.map {
+                ($0, optionalCurrentHostGlobalInt($0))
+            })
+        ]
+        for domain in domains {
+            snapshot[appScope(domain)] = Dictionary(uniqueKeysWithValues: missionControlGestureKeys.map {
+                ($0, optionalInt($0, domain: domain))
+            })
+        }
+        let data = try? JSONEncoder().encode(snapshot.mapValues { values in
+            values.mapValues { $0.map(String.init) ?? "" }
+        })
+        UserDefaults.standard.set(data, forKey: missionControlSnapshotDefaultsKey)
     }
 
     private static func applySystemSettings() {
@@ -335,6 +352,19 @@ enum SystemTrackpadSettings {
             process.arguments = ["-p", notificationName]
             try? process.run()
             process.waitUntilExit()
+        }
+    }
+
+    private static func postDarwinNotifications(_ notificationNames: [String]) {
+        let center = CFNotificationCenterGetDarwinNotifyCenter()
+        for notificationName in notificationNames {
+            CFNotificationCenterPostNotification(
+                center,
+                CFNotificationName(notificationName as CFString),
+                nil,
+                nil,
+                true
+            )
         }
     }
 

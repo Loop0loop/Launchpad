@@ -42,9 +42,13 @@ Ownership and Mission Control are restored only after `window.orderOut` in
 `completeHide()`.
 
 Mission Control suppression is a project integration rule, not a public AppKit
-capability. The implementation snapshots the user's values, uses guarded
-system preference/private integration, avoids redundant writes, and restores
-the snapshot on hide, disable, failed startup, and process termination.
+capability. The implementation snapshots the user's three- and four-finger
+vertical-swipe values independently from native Launchpad-pinch reservation,
+uses guarded system preference/private integration, and restores the snapshot
+after the window is ordered out. Presentation-time changes use direct Darwin
+notifications instead of launching and waiting for system helper processes, so
+the first tracking sample can present immediately. Normal termination restores
+synchronously; abnormal termination is recovered on the next launch.
 
 ## Routing Rules
 
@@ -118,7 +122,7 @@ Do not tune thresholds from a single unexplained trace.
 | Contract | Status | Evidence / next action |
 | --- | --- | --- |
 | Visible lifecycle owns the gesture through `hiding` | implemented | Ownership clears only in `completeHide()` |
-| Mission Control suppressed only for the visible lifecycle | implemented; physical verification required | Suppress before ordering front; restore after ordering out |
+| Mission Control suppressed only for the visible lifecycle | implemented; physical verification required | Independent 3/4-finger snapshot; direct suppression before ordering front; restore after ordering out |
 | Final input sample and velocity feed settlement | implemented | `finishPinch` synchronizes progress and uses `interactionVelocity` |
 | Claimed radial gesture cannot flip owner | covered by core tests | `testClaimedCloseCannotFlipToOpen` |
 | Re-arm requires clean contact release | covered by core tests; hardware repetition required | Contact-gate and desktop ownership tests |
@@ -151,6 +155,8 @@ Manual checks on a physical trackpad:
 - Start a new gesture during both opening and closing animation.
 - Verify Mission Control cannot activate in `showing`, `shown`, or `hiding`.
 - Verify Mission Control returns only after the launcher is fully hidden.
+- Repeat Mission Control checks after opening by F4, shortcut, menu, and hot corner.
+- Repeat after disabling trackpad gestures and after disconnecting an external trackpad.
 - Verify Show Desktop/restore from normal and desktop-visible contexts.
 - Verify partial contact loss does not re-arm before all fingers lift.
 - Verify icon/folder/page drag blocks launcher gesture ownership.
@@ -164,6 +170,7 @@ Manual checks on a physical trackpad:
 | 2026-09-17 | Treat `showing`, `shown`, and `hiding` as launcher-owned; suppress Mission Control only for that visible lifecycle. |
 | 2026-09-17 | Use final interaction progress and velocity as the settle animation's initial state. |
 | 2026-09-17 | Invalidate queued delivery when a new pinch baseline is captured so delayed terminals cannot cross gestures. |
+| 2026-09-17 | Avoid presentation-time helper processes; notify Mission Control preference changes directly and snapshot 3/4-finger vertical swipes independently from native pinch ownership. |
 
 ## Apple References And Boundary
 
