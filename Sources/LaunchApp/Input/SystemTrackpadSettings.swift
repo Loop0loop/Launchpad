@@ -3,6 +3,10 @@ import LaunchpadCore
 
 enum SystemTrackpadSettings {
     private static let missionControlLock = NSLock()
+    private static let systemSettingsRefreshQueue = DispatchQueue(
+        label: "app.launchpad.system-trackpad-settings",
+        qos: .userInitiated
+    )
     private static let snapshotDefaultsKey = "systemTrackpadSettings.nativeLaunchpadPinchSnapshot"
     private static let missionControlSnapshotDefaultsKey = "systemTrackpadSettings.missionControlSnapshot"
     private static let dockDomain = "com.apple.dock"
@@ -95,6 +99,10 @@ enum SystemTrackpadSettings {
 
     static func restoreMissionControlGesture() {
         setMissionControlGestureSuppressed(false)
+    }
+
+    static func flushMissionControlGestureChanges() {
+        systemSettingsRefreshQueue.sync {}
     }
 
     static func restoreNativeLaunchpadPinch(refreshRegistrationsIfNeeded: Bool = false) {
@@ -251,6 +259,10 @@ enum SystemTrackpadSettings {
                 "com.apple.AppleMultitouchTrackpadDomainDidChangeNotification",
                 "com.apple.AppleMenuGesturesDidChangeNotification"
             ])
+            systemSettingsRefreshQueue.async {
+                applySystemSettings()
+                LaunchLog.line("system trackpad gesture registrations refreshed")
+            }
         }
         if !suppressed {
             UserDefaults.standard.removeObject(forKey: missionControlSnapshotDefaultsKey)

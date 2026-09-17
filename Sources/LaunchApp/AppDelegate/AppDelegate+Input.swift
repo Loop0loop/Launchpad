@@ -6,6 +6,7 @@ extension AppDelegate {
     func prepareExclusiveTrackpadGestures() {
         // Recover a snapshot left by a previous abnormal exit before taking ownership again.
         SystemTrackpadSettings.restoreMissionControlGesture()
+        SystemTrackpadSettings.flushMissionControlGestureChanges()
         SystemTrackpadSettings.restoreNativeLaunchpadPinch()
         showDesktopController.start { [weak self] visibility in
             guard let self else { return }

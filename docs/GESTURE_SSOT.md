@@ -47,10 +47,11 @@ Mission Control suppression is a project integration rule, not a public AppKit
 capability. The implementation snapshots the user's three- and four-finger
 vertical-swipe values independently from native Launchpad-pinch reservation,
 uses guarded system preference/private integration, and restores the snapshot
-after the window is ordered out. Presentation-time changes use direct Darwin
-notifications instead of launching and waiting for system helper processes, so
-the first tracking sample can present immediately. Normal termination restores
-synchronously; abnormal termination is recovered on the next launch.
+after the window is ordered out. Presentation-time changes write preferences
+and post Darwin notifications immediately, then refresh the live system gesture
+registration on a dedicated serial queue so the first tracking sample never
+waits for the helper process. Normal termination drains that queue after
+restoring; abnormal termination is recovered on the next launch.
 
 ## Routing Rules
 

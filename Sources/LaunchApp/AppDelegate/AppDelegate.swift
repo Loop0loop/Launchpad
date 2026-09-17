@@ -113,6 +113,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         trackpadMonitor.stop()
         showDesktopController.stop()
         SystemTrackpadSettings.restoreMissionControlGesture()
+        SystemTrackpadSettings.flushMissionControlGestureChanges()
         SystemTrackpadSettings.restoreNativeLaunchpadPinch()
         ownsNativePinchGestures = false
         return .terminateNow
