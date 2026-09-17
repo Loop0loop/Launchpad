@@ -85,12 +85,10 @@ generation must never finish or reverse a newer gesture.
 
 While contacts are down:
 
-- Keep physical progress authoritative for commit/cancel decisions. Derive a
-  monotonic fast-start visual progress from it so the first recognized movement
-  is visible without weakening ownership recognition.
+- Map the latest gesture progress directly to presentation progress.
 - Present the final tracking sample before processing its terminal update.
-- Keep alpha and scale driven by the same visual progress.
-- Do not add time-delayed easing or a visual dead zone while contacts are down.
+- Keep alpha and scale driven by the same normalized progress.
+- Do not add easing that creates an initial dead zone.
 
 After release or cancellation:
 
