@@ -159,6 +159,7 @@ assert(TrackpadIntent.pinchOpenProgress(ratio: 0.82) == 1)
 assert(TrackpadIntent.pinchCloseProgress(ratio: 1.0) == 0)
 assert(abs(TrackpadIntent.pinchCloseProgress(ratio: 1.14) - 0.5) < 0.001)
 assert(TrackpadIntent.pinchCloseProgress(ratio: 1.18) == 1)
+assert(abs(TrackpadIntent.visualPresentationProgress(0.25) - 0.5) < 0.001)
 
 var continuousPinch = TrackpadGestureSession()
 assert(continuousPinch.trackPinch(radius: 1.0, timestamp: 10.0) == nil)

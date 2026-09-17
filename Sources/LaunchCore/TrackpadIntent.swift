@@ -105,6 +105,12 @@ public enum TrackpadIntent: Equatable, Sendable {
         return min(max(start + delta, 0), 1)
     }
 
+    /// Makes the first recognized movement visible without changing gesture
+    /// ownership, commit thresholds, or the underlying physical progress.
+    public static func visualPresentationProgress(_ progress: Double) -> Double {
+        sqrt(min(max(progress, 0), 1))
+    }
+
     public static func shouldInterpolatePresentationJump(
         delta: Double,
         previousDelta: Double,

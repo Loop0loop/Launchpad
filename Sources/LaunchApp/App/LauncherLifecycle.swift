@@ -184,12 +184,13 @@ final class LauncherLifecycle {
 
     func applyPresentationProgress(_ progress: CGFloat) {
         presentationProgress = min(max(progress, 0), 1)
-        window.alphaValue = presentationProgress
+        let visualProgress = CGFloat(TrackpadIntent.visualPresentationProgress(Double(presentationProgress)))
+        window.alphaValue = visualProgress
 
         if let container = window.contentView as? LauncherPresentationContainer {
             let scale = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
                 ? 1
-                : 1 + (1 - presentationProgress) * (LaunchConstants.Lifecycle.interactiveStartScale - 1)
+                : 1 + (1 - visualProgress) * (LaunchConstants.Lifecycle.interactiveStartScale - 1)
             container.layer?.setAffineTransform(CGAffineTransform(scaleX: scale, y: scale))
         }
     }

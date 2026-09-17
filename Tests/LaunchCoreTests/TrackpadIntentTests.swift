@@ -101,6 +101,12 @@ final class TrackpadIntentTests: XCTestCase {
         XCTAssertEqual(TrackpadIntent.additiveTransitionProgress(start: 0.8, gestureProgress: 0.1, intent: .close), 0.7, accuracy: 0.001)
     }
 
+    func testVisualPresentationMakesInitialProgressVisible() {
+        XCTAssertEqual(TrackpadIntent.visualPresentationProgress(0), 0)
+        XCTAssertEqual(TrackpadIntent.visualPresentationProgress(0.25), 0.5, accuracy: 0.001)
+        XCTAssertEqual(TrackpadIntent.visualPresentationProgress(1), 1)
+    }
+
     func testNativeDesktopGesturesNeverOpenLauncher() {
         XCTAssertFalse(SystemDesktopVisibility.unknown.allowsLauncherPresentation)
         XCTAssertTrue(SystemDesktopVisibility.windowsVisible.allowsLauncherPresentation)
