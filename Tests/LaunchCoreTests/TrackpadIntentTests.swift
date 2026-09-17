@@ -239,6 +239,19 @@ final class TrackpadIntentTests: XCTestCase {
         XCTAssertNotNil(delivery.drain().tracking, "A fresh gesture still works")
     }
 
+    func testNewPhysicalGestureReplacesQueuedPriorGesture() {
+        var delivery = TrackpadPinchDelivery()
+        delivery.enqueue(.tracking(intent: .open, progress: 0.9, timestamp: 1))
+        delivery.enqueue(.commit(.open))
+
+        delivery.invalidate()
+        delivery.enqueue(.tracking(intent: .close, progress: 0.2, timestamp: 2))
+        let batch = delivery.drain()
+
+        XCTAssertEqual(batch.tracking, .tracking(intent: .close, progress: 0.2, timestamp: 2))
+        XCTAssertNil(batch.terminal)
+    }
+
     func testYieldDuringTrackingInvalidatesAlreadyDrainedCommit() {
         var delivery = TrackpadPinchDelivery()
         delivery.enqueue(.tracking(intent: .open, progress: 0.2, timestamp: 1))

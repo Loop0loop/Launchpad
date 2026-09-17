@@ -425,6 +425,9 @@ final class PinchContactMonitor: @unchecked Sendable {
         let centerX = selected.map(\.x).reduce(0, +) / Double(selected.count)
         let centerY = selected.map(\.y).reduce(0, +) / Double(selected.count)
         if deviceState.baselineTouches == nil {
+            // A queued terminal from the previous lift must never reach a
+            // newer qualified gesture when the main actor was delayed.
+            pendingDelivery.invalidate()
             deviceState.baselineTouches = selected
             deviceState.intentArbiter = TrackpadGestureIntentArbiter(
                 baseline: selected,

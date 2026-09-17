@@ -122,6 +122,7 @@ Do not tune thresholds from a single unexplained trace.
 | Final input sample and velocity feed settlement | implemented | `finishPinch` synchronizes progress and uses `interactionVelocity` |
 | Claimed radial gesture cannot flip owner | covered by core tests | `testClaimedCloseCannotFlipToOpen` |
 | Re-arm requires clean contact release | covered by core tests; hardware repetition required | Contact-gate and desktop ownership tests |
+| New qualified gesture invalidates a queued prior terminal | implemented; covered by core tests | Delivery generation advances when a new pinch baseline is captured |
 | Physical ranges and spring constants | calibration pending | Tune only after the 20-cycle diagnostics run |
 
 ## Verification Matrix
@@ -162,6 +163,7 @@ Manual checks on a physical trackpad:
 | 2026-09-17 | Keep the macOS gesture grammar; fix ownership and presentation continuity instead of inventing new directions. |
 | 2026-09-17 | Treat `showing`, `shown`, and `hiding` as launcher-owned; suppress Mission Control only for that visible lifecycle. |
 | 2026-09-17 | Use final interaction progress and velocity as the settle animation's initial state. |
+| 2026-09-17 | Invalidate queued delivery when a new pinch baseline is captured so delayed terminals cannot cross gestures. |
 
 ## Apple References And Boundary
 
