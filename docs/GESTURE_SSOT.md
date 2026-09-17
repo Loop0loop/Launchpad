@@ -36,10 +36,12 @@ hidden -> showing -> shown -> hiding -> hidden
 | `shown` | visible | yes | suppressed |
 | `hiding` | visible until completion | yes | suppressed |
 
-The launcher becomes the gesture owner immediately before its window is
-ordered front. It remains the owner through the entire closing animation.
+For a trackpad open, Mission Control suppression starts synchronously on the
+input frame that claims inward radial ownership, before main-actor window
+preparation. Other launch paths suppress immediately before ordering the window
+front. The launcher remains the owner through the entire closing animation.
 Ownership and Mission Control are restored only after `window.orderOut` in
-`completeHide()`.
+`completeHide()`; a rejected presentation restores them immediately.
 
 Mission Control suppression is a project integration rule, not a public AppKit
 capability. The implementation snapshots the user's three- and four-finger

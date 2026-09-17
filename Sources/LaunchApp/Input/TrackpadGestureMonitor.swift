@@ -479,6 +479,14 @@ final class PinchContactMonitor: @unchecked Sendable {
         case .undecided, .ignoredUntilLift:
             claimedIntent = nil
         }
+        if previousOwnership == .undecided,
+           ownership == .launcherRadialIn,
+           deviceState.showDesktopOwner?.acceptsLauncherIntent(.open) == true {
+            // Reserve the system gesture on the claiming input frame. Waiting
+            // for main-actor window preparation lets Mission Control win the
+            // same four-finger contact sequence.
+            SystemTrackpadSettings.suppressMissionControlGesture()
+        }
         if let claimedIntent, _controlsSystemShowDesktop {
             let owner = deviceState.showDesktopOwner ?? .undecided
             let controlsDesktop = selected.count == 4 && (

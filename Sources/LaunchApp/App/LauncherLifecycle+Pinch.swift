@@ -28,7 +28,10 @@ extension LauncherLifecycle {
         let sampleTimestamp = timestamp.isFinite ? timestamp : 0
         switch intent {
         case .open:
-            guard canPresentLauncher else { return }
+            guard canPresentLauncher else {
+                SystemTrackpadSettings.restoreMissionControlGesture()
+                return
+            }
             guard state.openFolder == nil else { return }
             if phase == .shown, pinchTracking == nil { return }
             if pinchTracking == nil {

@@ -2,6 +2,7 @@ import Foundation
 import LaunchpadCore
 
 enum SystemTrackpadSettings {
+    private static let missionControlLock = NSLock()
     private static let snapshotDefaultsKey = "systemTrackpadSettings.nativeLaunchpadPinchSnapshot"
     private static let missionControlSnapshotDefaultsKey = "systemTrackpadSettings.missionControlSnapshot"
     private static let dockDomain = "com.apple.dock"
@@ -214,6 +215,8 @@ enum SystemTrackpadSettings {
     }
 
     private static func setMissionControlGestureSuppressed(_ suppressed: Bool) {
+        missionControlLock.lock()
+        defer { missionControlLock.unlock() }
         if suppressed { saveMissionControlSnapshot() }
         guard let snapshot = loadSnapshot(key: missionControlSnapshotDefaultsKey) else { return }
         var changed = false
