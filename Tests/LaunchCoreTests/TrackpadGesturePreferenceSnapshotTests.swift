@@ -17,4 +17,25 @@ final class TrackpadGesturePreferenceSnapshotTests: XCTestCase {
         ])
         XCTAssertEqual(snapshot.restoreLaunchAgentLabels, ["com.apple.Dock.agent"])
     }
+
+    func testReservationDisablesNativePinchesAndKeepsOnlyDesktopActionAvailable() {
+        for original: Int? in [nil, 0, 1] {
+            let values: [String: Int?] = [
+                "showSpotlightGestureEnabled": original,
+                "showDesktopGestureEnabled": 1,
+                "TrackpadFourFingerPinchGesture": 2,
+                "com.apple.trackpad.fourFingerPinchSwipeGesture": 2,
+                "TrackpadFourFingerVertSwipeGesture": 2
+            ]
+            let snapshot = TrackpadGesturePreferenceSnapshot(values: values)
+            XCTAssertEqual(snapshot.reserveWrites, [
+                "showSpotlightGestureEnabled": 0,
+                "showDesktopGestureEnabled": 1,
+                "TrackpadFourFingerPinchGesture": 0,
+                "com.apple.trackpad.fourFingerPinchSwipeGesture": 0,
+                "TrackpadFourFingerVertSwipeGesture": 0
+            ])
+            XCTAssertEqual(snapshot.restoreWrites, values)
+        }
+    }
 }

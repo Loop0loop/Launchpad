@@ -278,5 +278,6 @@ enum LaunchConstants {
         static let scaleFilterResponse = 0.018
         static let triggerCooldown: Double = 0.65
         static let lifecycleBounceCooldown: Double = 0.18
+        static let maximumShowDesktopReleaseVelocity = 3.5
     }
 }

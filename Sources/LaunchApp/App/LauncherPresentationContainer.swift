@@ -12,6 +12,25 @@ final class LauncherPanel: NSPanel {
 final class LauncherPresentationContainer: NSView {
     nonisolated override var isFlipped: Bool { true }
 
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        registerForDraggedTypes([.launcherInternalItem])
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        registerForDraggedTypes([.launcherInternalItem])
+    }
+
+    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation { internalOperation(sender) }
+    override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation { internalOperation(sender) }
+    override func prepareForDragOperation(_ sender: any NSDraggingInfo) -> Bool { internalOperation(sender) == .move }
+    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool { internalOperation(sender) == .move }
+
+    private func internalOperation(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        sender.draggingPasteboard.availableType(from: [.launcherInternalItem]) == nil ? [] : .move
+    }
+
     override func layout() {
         super.layout()
         for subview in subviews {

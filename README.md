@@ -2,7 +2,7 @@
 ![alt text](public/img/ex.png)
 [English](README.en.md)
 
-macOS 26에서 빠진 기존 Launchpad의 사용감을 되살리는 네이티브 macOS 앱 런처입니다. 목표는 단순한 앱 목록이 아니라, Apple Launchpad처럼 자연스러운 제스처, 페이지 전환, 폴더, 검색, 드래그 앤 드롭을 제공하는 것입니다.
+macOS 26에서 빠진 기존 Launchpad의 사용감을 macOS 27에서 되살리는 네이티브 앱 런처입니다. 목표는 단순한 앱 목록이 아니라, Apple Launchpad처럼 자연스러운 제스처, 페이지 전환, 폴더, 검색, 드래그 앤 드롭을 제공하는 것입니다.
 
 ## 주요 기능
 
@@ -21,6 +21,9 @@ macOS 26에서 빠진 기존 Launchpad의 사용감을 되살리는 네이티브
 - 아이콘 다운샘플 캐시와 SwiftUI 업데이트 범위 최적화
 
 ## 설치와 실행
+
+- 실행 환경: macOS 27 이상
+- 빌드 환경: Xcode 27, macOS SDK 27, Swift 6.4
 
 로컬 앱 번들을 빌드합니다.
 

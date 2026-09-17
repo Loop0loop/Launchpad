@@ -71,6 +71,10 @@ final class LauncherLifecycle {
     }
 
     func show() {
+        guard canPresentLauncher else {
+            LaunchLog.line("lifecycle show blocked systemDesktop=\((NSApp.delegate as? AppDelegate)?.showDesktopController.visibility ?? .unknown)")
+            return
+        }
         guard phase != .shown else { return }
         if pinchTracking != nil {
             pinchTracking = nil
@@ -91,6 +95,12 @@ final class LauncherLifecycle {
         LaunchLog.line("lifecycle show requested visible=\(state.launcherVisible)")
     }
 
+    var canPresentLauncher: Bool {
+        guard let delegate = NSApp.delegate as? AppDelegate else { return true }
+        return delegate.showDesktopController.refreshVisibility().allowsLauncherPresentation
+            && !delegate.showDesktopController.isTransitioning
+    }
+
     func hide() {
         if pinchTracking != nil {
             pinchTracking = nil
@@ -104,11 +114,12 @@ final class LauncherLifecycle {
         mouseMonitor?.setEnabled(false)
         state.clearFolderTransientAnimations()
         state.stopEditingLayout()
-        state.cancelDrag()
+        state.cancelDrag(reason: "lifecycle-hide")
 
         let token = UUID()
         transitionToken = token
         phase = .hiding
+        (NSApp.delegate as? AppDelegate)?.trackpadMonitor.setLauncherVisible(false)
 
         runPresentationAnimation(toVisible: false) { [weak self] in
             guard let self, self.transitionToken == token else { return }
@@ -126,7 +137,7 @@ final class LauncherLifecycle {
         mouseMonitor?.setEnabled(false)
         state.clearFolderTransientAnimations()
         state.stopEditingLayout()
-        state.cancelDrag()
+        state.cancelDrag(reason: "system-gesture-dismiss")
         completeHide(activatePrevious: false)
     }
 
@@ -136,10 +147,11 @@ final class LauncherLifecycle {
             mouseMonitor?.setEnabled(false)
             state.clearFolderTransientAnimations()
             state.stopEditingLayout()
-            state.cancelDrag()
+            state.cancelDrag(reason: "launch-app")
             let token = UUID()
             transitionToken = token
             phase = .hiding
+            (NSApp.delegate as? AppDelegate)?.trackpadMonitor.setLauncherVisible(false)
             runPresentationAnimation(toVisible: false) { [weak self] in
                 guard let self, self.transitionToken == token else { return }
                 self.completeHide(activatePrevious: false)
@@ -170,7 +182,6 @@ final class LauncherLifecycle {
     }
 
     func runPresentationAnimation(toVisible: Bool, completion: @escaping @MainActor () -> Void) {
-        (NSApp.delegate as? AppDelegate)?.trackpadMonitor.setLauncherVisible(toVisible)
         settlePresentation(to: toVisible ? 1 : 0, initialVelocity: presentationVelocity, completion: completion)
     }
 
@@ -352,6 +363,7 @@ final class LauncherLifecycle {
         // ponytail: keep the hidden launcher warm; revisit eviction only if measured idle memory is excessive.
         restoreSystemVisibility()
         window.orderOut(nil)
+        LaunchLog.line("launcher hidden; system presentation restored options=\(NSApp.presentationOptions.rawValue)")
         resetPresentation()
         if activatePrevious { activatePreviousApp() }
     }

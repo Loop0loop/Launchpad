@@ -95,146 +95,161 @@ final class TrackpadIntentTests: XCTestCase {
         XCTAssertEqual(TrackpadIntent.additiveTransitionProgress(start: 0.8, gestureProgress: 0.1, intent: .close), 0.7, accuracy: 0.001)
     }
 
-    func testFourFingerShowDesktopPairYieldsToSystem() {
-        var state = SystemShowDesktopGestureState()
-
-        XCTAssertFalse(state.shouldYield(
-            fingerCount: 4,
-            intent: .open,
-            systemGestureEnabled: true
-        ))
-        XCTAssertTrue(state.shouldYield(
-            fingerCount: 4,
-            intent: .close,
-            systemGestureEnabled: true
-        ))
-        XCTAssertFalse(state.shouldYield(
-            fingerCount: 5,
-            intent: .open,
-            systemGestureEnabled: true
-        ))
-        XCTAssertTrue(state.shouldYield(
-            fingerCount: 4,
-            intent: .open,
-            systemGestureEnabled: true
-        ))
-        XCTAssertFalse(state.shouldYield(
-            fingerCount: 4,
-            intent: .open,
-            systemGestureEnabled: true
-        ))
+    func testNativeDesktopGesturesNeverOpenLauncher() {
+        XCTAssertFalse(SystemDesktopVisibility.unknown.allowsLauncherPresentation)
+        XCTAssertTrue(SystemDesktopVisibility.windowsVisible.allowsLauncherPresentation)
+        XCTAssertFalse(SystemDesktopVisibility.desktopVisible.allowsLauncherPresentation)
+        XCTAssertFalse(SystemShowDesktopGestureOwner.unknown.acceptsLauncherIntent(.open))
+        XCTAssertTrue(SystemShowDesktopGestureOwner.undecided.acceptsLauncherIntent(.open))
+        XCTAssertFalse(SystemShowDesktopGestureOwner.undecided.acceptsLauncherIntent(.close))
+        XCTAssertFalse(SystemShowDesktopGestureOwner.desktop.acceptsLauncherIntent(.open))
+        XCTAssertFalse(SystemShowDesktopGestureOwner.desktop.acceptsLauncherIntent(.close))
+        XCTAssertTrue(SystemShowDesktopGestureOwner.launcher.acceptsLauncherIntent(.close))
+        XCTAssertFalse(SystemShowDesktopGestureOwner.launcher.acceptsLauncherIntent(.open))
     }
 
-    func testDisablingShowDesktopClearsPendingReturn() {
-        var state = SystemShowDesktopGestureState()
-        XCTAssertTrue(state.shouldYield(
-            fingerCount: 4,
-            intent: .close,
-            systemGestureEnabled: true
-        ))
-        XCTAssertFalse(state.shouldYield(
-            fingerCount: 4,
-            intent: .open,
-            systemGestureEnabled: false
-        ))
-        XCTAssertFalse(state.shouldYield(
-            fingerCount: 4,
-            intent: .open,
-            systemGestureEnabled: true
-        ))
-    }
-
-    func testDirectShowDesktopWaitsForClearFourFingerMotion() {
+    func testDirectDesktopControlWaitsForClearFourFingerMotion() {
         XCTAssertEqual(
             TrackpadIntent.systemShowDesktopDecision(
-                fingerCount: 4,
-                intent: .close,
-                scaleRatio: 1.02,
-                owner: .undecided,
-                isEnabled: true
+                fingerCount: 4, intent: .close, scaleRatio: 1.02,
+                owner: .undecided, isEnabled: true
             ),
             .wait
         )
         XCTAssertEqual(
             TrackpadIntent.systemShowDesktopDecision(
-                fingerCount: 4,
-                intent: .close,
-                scaleRatio: 1.08,
-                owner: .undecided,
-                isEnabled: true
+                fingerCount: 4, intent: .close, scaleRatio: 1.08,
+                owner: .undecided, isEnabled: true
             ),
             .show
         )
     }
 
-    func testDirectShowDesktopRestoresOnlyWhileActive() {
+    func testDirectDesktopControlRestoresOnlyAnActiveDesktop() {
         XCTAssertEqual(
             TrackpadIntent.systemShowDesktopDecision(
-                fingerCount: 4,
-                intent: .open,
-                scaleRatio: 0.92,
-                owner: .desktop,
-                isEnabled: true
+                fingerCount: 4, intent: .open, scaleRatio: 0.92,
+                owner: .desktop, isEnabled: true
             ),
             .restore
         )
         XCTAssertEqual(
             TrackpadIntent.systemShowDesktopDecision(
-                fingerCount: 4,
-                intent: .open,
-                scaleRatio: 0.80,
-                owner: .undecided,
-                isEnabled: true
+                fingerCount: 4, intent: .open, scaleRatio: 0.80,
+                owner: .undecided, isEnabled: true
             ),
             .launcher
         )
         XCTAssertEqual(
             TrackpadIntent.systemShowDesktopDecision(
-                fingerCount: 5,
-                intent: .close,
-                scaleRatio: 1.20,
-                owner: .undecided,
-                isEnabled: true
+                fingerCount: 5, intent: .close, scaleRatio: 1.20,
+                owner: .undecided, isEnabled: true
             ),
             .launcher
         )
     }
 
-    func testVisibleLauncherOwnsFourFingerRadialMotion() {
+    func testVisibleLauncherKeepsFourFingerGesture() {
         XCTAssertEqual(
             TrackpadIntent.systemShowDesktopDecision(
-                fingerCount: 4,
-                intent: .close,
-                scaleRatio: 1.20,
-                owner: .launcher,
-                isEnabled: true
+                fingerCount: 4, intent: .close, scaleRatio: 1.20,
+                owner: .launcher, isEnabled: true
             ),
             .launcher
         )
-        XCTAssertEqual(
-            TrackpadIntent.systemShowDesktopDecision(
-                fingerCount: 4,
-                intent: .open,
-                scaleRatio: 0.80,
-                owner: .launcher,
-                isEnabled: true
-            ),
-            .launcher
+    }
+
+    func testDesktopReturnRemainsOwnedUntilEveryFingerLifts() {
+        var session = SystemDesktopContactSession()
+        session.update(hasContacts: true, desktopIsActive: true)
+        XCTAssertTrue(session.isSystemOwned)
+        // Native exit can arrive while fingers are still landing or pinching.
+        session.update(hasContacts: true, desktopIsActive: false)
+        XCTAssertTrue(session.isSystemOwned)
+        let owner = SystemShowDesktopGestureOwner(
+            launcherIsVisible: false,
+            systemDesktopVisibility: session.isSystemOwned ? .desktopVisible : .windowsVisible
         )
+        XCTAssertFalse(owner.acceptsLauncherIntent(.open))
+        session.update(hasContacts: false, desktopIsActive: false)
+        XCTAssertFalse(session.isSystemOwned)
+        session.update(hasContacts: true, desktopIsActive: false)
+        XCTAssertFalse(session.isSystemOwned)
+    }
+
+    func testCancelledDesktopSpreadDoesNotConsumeNextLauncherPinch() {
+        var session = SystemDesktopContactSession()
+        session.update(hasContacts: true, desktopIsActive: true)
+        session.update(hasContacts: true, desktopIsActive: false)
+        session.update(hasContacts: false, desktopIsActive: false)
+        session.update(hasContacts: true, desktopIsActive: false)
+        XCTAssertTrue(SystemShowDesktopGestureOwner(
+            launcherIsVisible: false,
+            systemDesktopVisibility: session.isSystemOwned ? .desktopVisible : .windowsVisible
+        ).acceptsLauncherIntent(.open))
+    }
+
+    func testNativeExitClaimsCurrentContactWithoutEnterNotification() {
+        var session = SystemDesktopContactSession()
+        session.update(hasContacts: true, desktopIsActive: false)
+        session.systemTransitionReceived()
+        session.update(hasContacts: true, desktopIsActive: false)
+        XCTAssertTrue(session.isSystemOwned)
+        session.update(hasContacts: false, desktopIsActive: false)
+        session.systemTransitionReceived()
+        session.update(hasContacts: true, desktopIsActive: false)
+        XCTAssertFalse(session.isSystemOwned, "An idle exit must not consume the next pinch")
+    }
+
+    func testDesktopOwnershipCoversLandingAndReleaseWithoutCountingHoverAsFinger() {
+        var session = SystemDesktopContactSession()
+        for phase: UInt32 in [1, 2, 3, 4, 5, 6] {
+            let touch = TrackpadTouchSample(id: 1, x: 0.5, y: 0.5, state: phase)
+            session.update(hasContacts: touch.isInContactSequence, desktopIsActive: phase == 1)
+            XCTAssertTrue(session.isSystemOwned)
+            XCTAssertEqual(touch.isGestureContact, phase == 4)
+        }
+        let ended = TrackpadTouchSample(id: 1, x: 0.5, y: 0.5, state: 7)
+        session.update(hasContacts: ended.isInContactSequence, desktopIsActive: false)
+        XCTAssertFalse(session.isSystemOwned)
+    }
+
+    func testNativeTakeoverDiscardsPendingLauncherCommitAfterLift() {
+        var delivery = TrackpadPinchDelivery()
+        delivery.enqueue(.tracking(intent: .open, progress: 0.8, timestamp: 1))
+        delivery.enqueue(.commit(.open))
+        delivery.invalidate()
+        let batch = delivery.drain()
+        XCTAssertNil(batch.tracking)
+        XCTAssertNil(batch.terminal)
+        delivery.enqueue(.tracking(intent: .open, progress: 0.1, timestamp: 2))
+        XCTAssertNotNil(delivery.drain().tracking, "A fresh gesture still works")
+    }
+
+    func testYieldDuringTrackingInvalidatesAlreadyDrainedCommit() {
+        var delivery = TrackpadPinchDelivery()
+        delivery.enqueue(.tracking(intent: .open, progress: 0.2, timestamp: 1))
+        delivery.enqueue(.tracking(intent: .open, progress: 0.9, timestamp: 2))
+        delivery.enqueue(.commit(.open))
+        let batch = delivery.drain()
+        XCTAssertEqual(batch.tracking, .tracking(intent: .open, progress: 0.9, timestamp: 2))
+        XCTAssertEqual(batch.terminal, .commit(.open))
+        delivery.invalidate() // The tracking callback yields to the native gesture.
+        XCTAssertNotEqual(batch.generation, delivery.generation)
     }
 
     func testLauncherWinsPresentationOwnerSnapshot() {
         XCTAssertEqual(
             SystemShowDesktopGestureOwner(
                 launcherIsVisible: true,
-                systemShowDesktopIsActive: true
+                systemDesktopVisibility: .desktopVisible
             ),
             .launcher
         )
         XCTAssertEqual(
             SystemShowDesktopGestureOwner(
                 launcherIsVisible: false,
-                systemShowDesktopIsActive: true
+                systemDesktopVisibility: .desktopVisible
             ),
             .desktop
         )
@@ -329,8 +344,8 @@ final class TrackpadIntentTests: XCTestCase {
         let gradualPinch = baseline.map {
             TrackpadTouchSample(
                 id: $0.id,
-                x: 0.5 + ($0.x - 0.5) * 0.98,
-                y: 0.5 + ($0.y - 0.5) * 0.98
+                x: 0.5 + ($0.x - 0.5) * 0.97,
+                y: 0.5 + ($0.y - 0.5) * 0.97
             )
         }
         swipeArbiter.ignoreUntilLift()
@@ -352,8 +367,8 @@ final class TrackpadIntentTests: XCTestCase {
         let gradualSpread = baseline.map {
             TrackpadTouchSample(
                 id: $0.id,
-                x: 0.5 + ($0.x - 0.5) * 1.02,
-                y: 0.5 + ($0.y - 0.5) * 1.02
+                x: 0.5 + ($0.x - 0.5) * 1.03,
+                y: 0.5 + ($0.y - 0.5) * 1.03
             )
         }
         var immediateSpreadArbiter = TrackpadGestureIntentArbiter(baseline: baseline, timestamp: 0)
@@ -368,6 +383,60 @@ final class TrackpadIntentTests: XCTestCase {
         XCTAssertEqual(interruptedArbiter.update(current: baseline, timestamp: 0.02), .undecided)
         XCTAssertEqual(interruptedArbiter.update(current: gradualPinch, timestamp: 0.03), .undecided)
         XCTAssertEqual(interruptedArbiter.update(current: gradualPinch, timestamp: 0.04), .launcherRadialIn)
+
+        let landingBounce = baseline.map {
+            TrackpadTouchSample(
+                id: $0.id,
+                x: 0.5 + ($0.x - 0.5) * 1.02,
+                y: 0.5 + ($0.y - 0.5) * 1.02
+            )
+        }
+        var settlingArbiter = TrackpadGestureIntentArbiter(baseline: baseline, timestamp: 0)
+        XCTAssertEqual(settlingArbiter.update(current: landingBounce, timestamp: 0.01), .undecided)
+        XCTAssertEqual(settlingArbiter.update(current: landingBounce, timestamp: 0.02), .undecided)
+        XCTAssertEqual(settlingArbiter.update(current: pinched, timestamp: 0.03), .launcherRadialIn)
+    }
+
+    func testSystemShowDesktopGestureTracksProgressAndReleaseVelocity() {
+        var session = SystemShowDesktopGestureSession()
+        guard case .began(let began) = session.update(scaleRatio: 1.1, timestamp: 1) else {
+            return XCTFail("expected began")
+        }
+        guard case .changed(let changed) = session.update(scaleRatio: 1.2, timestamp: 1.01) else {
+            return XCTFail("expected changed")
+        }
+        guard case .ended(let ended, let velocity) = session.finish() else {
+            return XCTFail("expected ended")
+        }
+        XCTAssertEqual(began, 0)
+        XCTAssertGreaterThan(changed, began)
+        XCTAssertEqual(ended, changed)
+        XCTAssertGreaterThan(velocity, 0)
+        XCTAssertTrue(SystemShowDesktopGestureUpdate.ended(progress: 0.2, velocity: 4)
+            .resolvedDesktopActive(from: false))
+        XCTAssertFalse(SystemShowDesktopGestureUpdate.ended(progress: -0.2, velocity: -4)
+            .resolvedDesktopActive(from: true))
+        XCTAssertFalse(SystemShowDesktopGestureUpdate.cancelled(progress: 1, velocity: 10)
+            .resolvedDesktopActive(from: false))
+        XCTAssertFalse(session.isActive)
+    }
+
+    func testDesktopGestureReversalCannotCrossIntoOppositeAction() {
+        var show = SystemShowDesktopGestureSession()
+        _ = show.update(scaleRatio: 1.03, timestamp: 1)
+        guard case .changed(let spread) = show.update(scaleRatio: 1.15, timestamp: 1.1) else {
+            return XCTFail("expected live spread")
+        }
+        XCTAssertGreaterThan(spread, 0)
+        XCTAssertEqual(show.update(scaleRatio: 0.95, timestamp: 1.2), .changed(progress: 0))
+
+        var restore = SystemShowDesktopGestureSession()
+        _ = restore.update(scaleRatio: 0.97, restoring: true, timestamp: 2)
+        guard case .changed(let pinch) = restore.update(scaleRatio: 0.85, restoring: true, timestamp: 2.1) else {
+            return XCTFail("expected live restore")
+        }
+        XCTAssertLessThan(pinch, 0)
+        XCTAssertEqual(restore.update(scaleRatio: 1.05, restoring: true, timestamp: 2.2), .changed(progress: 0))
     }
 
     func testContactGateRequiresExactStableFingerCount() {
@@ -452,10 +521,14 @@ final class TrackpadIntentTests: XCTestCase {
             .waiting
         )
         XCTAssertEqual(
-            gate.update(touches: Array(threeTouches.prefix(2)), requiredFingerCounts: [3], timestamp: 0.09),
+            gate.update(touches: Array(threeTouches.prefix(2)), requiredFingerCounts: [3], timestamp: 0.13),
             .ended
         )
-        XCTAssertEqual(gate.update(touches: threeTouches, requiredFingerCounts: [3], timestamp: 0.10), .waiting)
+        XCTAssertEqual(gate.update(touches: threeTouches, requiredFingerCounts: [3], timestamp: 0.14), .waiting)
+        XCTAssertEqual(gate.update(touches: threeTouches, requiredFingerCounts: [3], timestamp: 0.25), .waiting)
+        XCTAssertEqual(gate.update(touches: [], requiredFingerCounts: [3], timestamp: 0.26), .ended)
+        XCTAssertEqual(gate.update(touches: threeTouches, requiredFingerCounts: [3], timestamp: 0.27), .waiting)
+        XCTAssertEqual(gate.update(touches: threeTouches, requiredFingerCounts: [3], timestamp: 0.30), .qualified(threeTouches))
     }
 
     func testContactGateCountsOnlyPhysicallyTouchingContacts() {
@@ -503,7 +576,7 @@ final class TrackpadIntentTests: XCTestCase {
                 requiredFingerCounts: [3],
                 timestamp: 0.02
             ),
-            .rejected
+            .waiting
         )
 
         var ownedGate = TrackpadContactGate()

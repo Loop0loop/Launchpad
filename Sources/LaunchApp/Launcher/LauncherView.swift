@@ -80,7 +80,13 @@ struct LauncherView: View {
                             y: state.launcherGridFrame.minY - geoGlobal.minY
                         )
                         // DragModel을 직접 관찰하는 전용 뷰. LauncherView 전체 리렌더 없이 고스트만 포인터를 따라간다.
-                        DragGhostView(drag: state.drag, item: item, iconSize: layout.iconSize, originOffset: originOffset)
+                        DragGhostView(
+                            drag: state.drag,
+                            position: state.drag.position,
+                            item: item,
+                            iconSize: layout.iconSize,
+                            originOffset: originOffset
+                        )
                             .zIndex(22)
                     }
                 }
@@ -99,6 +105,7 @@ struct LauncherView: View {
 /// 직접 구독해, 부모(LauncherView)를 리렌더하지 않고 이 뷰만 매 프레임 위치를 갱신한다.
 private struct DragGhostView: View {
     @ObservedObject var drag: DragModel
+    @ObservedObject var position: DragPositionModel
     let item: LauncherItem
     let iconSize: CGFloat
     let originOffset: CGPoint
@@ -150,7 +157,7 @@ private struct DragGhostView: View {
             .scaleEffect(1.1)
             .opacity(drag.hoverTargetID == nil ? 0.95 : 0.55)
             .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
-            .position(x: originOffset.x + drag.location.x, y: originOffset.y + drag.location.y)
+            .position(x: originOffset.x + position.location.x, y: originOffset.y + position.location.y)
             .allowsHitTesting(false)
     }
 }

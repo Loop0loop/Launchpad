@@ -21,7 +21,7 @@ concurrency:
 jobs:
   build-sign-notarize:
     name: Build, sign, notarize DMG
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 45
 
     env:
@@ -35,6 +35,14 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Verify Xcode 27 toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(xcodebuild -version | awk 'NR == 1 { split($2, version, "."); print version[1] }')" = "27"
+          test "$(xcrun --sdk macosx --show-sdk-version | cut -d. -f1)" = "27"
+          swift --version
 
       - name: Resolve release version
         id: version

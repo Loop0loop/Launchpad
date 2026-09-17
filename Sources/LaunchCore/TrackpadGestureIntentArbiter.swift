@@ -20,8 +20,8 @@ public struct TrackpadGestureIntentArbiter: Sendable {
     public mutating func update(
         current: [TrackpadTouchSample],
         timestamp _: Double,
-        minimumScaleChange: Double = 0.01,
-        immediateScaleChange: Double = 0.04,
+        minimumScaleChange: Double = 0.025,
+        immediateScaleChange: Double = 0.06,
         requiredEvidenceFrames: Int = 2
     ) -> TrackpadGestureOwnership {
         guard ownership == .undecided else { return ownership }

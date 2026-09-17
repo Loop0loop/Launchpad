@@ -5,6 +5,32 @@ import SwiftUI
 
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    private static var processLock: Int32 = -1
+
+    /// CLI, development bundle and production bundle all change the same Dock
+    /// preferences. Hold one per-user lock for the entire process lifetime.
+    public static func acquireProcessOwnership() -> Bool {
+        if processLock >= 0 { return true }
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Launchpad.input-owner.lock").path
+        let descriptor = open(path, O_CREAT | O_RDWR | O_CLOEXEC | O_NOFOLLOW, 0o600)
+        guard descriptor >= 0 else {
+            LaunchLog.line("cannot open Launchpad process lock errno=\(errno)")
+            return false
+        }
+        guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
+            let error = errno
+            close(descriptor)
+            LaunchLog.line(error == EWOULDBLOCK
+                ? "another Launchpad instance owns input; quit it before starting this build"
+                : "cannot acquire Launchpad process lock errno=\(error)")
+            return false
+        }
+        // The OS releases flock on exit/crash. Never unlink the shared inode.
+        processLock = descriptor
+        return true
+    }
+
     let state = AppState()
     let iconCache = IconCache()
     let appCatalogMonitor = AppCatalogMonitor()
@@ -35,7 +61,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
         LaunchLog.app.info("applicationDidFinishLaunching")
-        LaunchLog.line("app did finish launching")
+        LaunchLog.line("app did finish launching pid=\(getpid())")
         #if DEBUG
         let fallbackBuildVariant = "development"
         #else
@@ -75,6 +101,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         state.refreshAccessibilityStatus()
         if state.accessibilityTrusted != wasAccessibilityTrusted {
             startGlobalHotKey()
+            showDesktopController.refreshObservation()
+            startTrackpadMonitor()
         }
     }
 
@@ -82,6 +110,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         NSWorkspace.shared.notificationCenter.removeObserver(self)
         terminationSignalSources.forEach { $0.cancel() }
         terminationSignalSources.removeAll()
+        trackpadMonitor.stop()
         showDesktopController.stop()
         SystemTrackpadSettings.restoreNativeLaunchpadPinch()
         ownsNativePinchGestures = false

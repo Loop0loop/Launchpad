@@ -243,6 +243,26 @@ private extension View {
 
 /// Applies the lift/follow visual + drag gesture to a grid icon. The grid container must
 /// declare `.coordinateSpace(name: "launcherGrid")`.
+private struct LiftedLauncherItem<Icon: View>: View {
+    @ObservedObject var position: DragPositionModel
+    let icon: Icon
+    let draggedCenter: CGPoint
+    let pageOffset: CGFloat
+    let mergesOnDrop: Bool
+
+    var body: some View {
+        icon
+            .scaleEffect(1.1)
+            .opacity(mergesOnDrop ? 0.55 : 0.95)
+            .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
+            .offset(
+                x: position.location.x - draggedCenter.x - pageOffset,
+                y: position.location.y - draggedCenter.y
+            )
+            .allowsHitTesting(false)
+    }
+}
+
 struct LauncherDragModifier: ViewModifier {
     let id: String
     let state: AppState
@@ -250,8 +270,6 @@ struct LauncherDragModifier: ViewModifier {
     let pageOffset: CGFloat
 
     @EnvironmentObject private var drag: DragModel
-    @GestureState private var isDragActive = false
-
     func body(content: Content) -> some View {
         let isDragging = state.draggingItemID == id
         let isMergeTarget = drag.hoverTargetID == id
@@ -259,19 +277,18 @@ struct LauncherDragModifier: ViewModifier {
         // The dragged item reserves its preview cell as a gap so the others reflow around it,
         // while a lifted copy is offset to sit under the pointer wherever the gap lands.
         let draggedCenter = isDragging ? state.draggedCellCenter(layout: layout) : nil
-        let floatOffset = draggedCenter.map {
-            CGSize(width: drag.location.x - $0.x, height: drag.location.y - $0.y)
-        } ?? .zero
-
         return Group {
             if isDragging {
                 ZStack {
-                    content.opacity(0)
-                    if draggedCenter != nil {
-                        content
-                            .scaleEffect(1.1)
-                            .opacity(drag.hoverTargetID == nil ? 0.95 : 0.55)
-                            .offset(floatOffset)
+                    content.opacity(0.08)
+                    if let draggedCenter {
+                        LiftedLauncherItem(
+                            position: drag.position,
+                            icon: content,
+                            draggedCenter: draggedCenter,
+                            pageOffset: pageOffset,
+                            mergesOnDrop: drag.hoverTargetID != nil
+                        )
                     }
                 }
             } else {
@@ -283,36 +300,10 @@ struct LauncherDragModifier: ViewModifier {
         }
         .zIndex(isDragging ? 100 : 0)
             .animation(LaunchConstants.Animation.iconLift, value: isMergeTarget)
-            .animation(isDragging ? nil : LaunchConstants.Animation.iconLift, value: isDragging)
-            .gesture(
-                DragGesture(minimumDistance: 8, coordinateSpace: .named("launcherGrid"))
-                    .updating($isDragActive) { _, dragActiveState, _ in
-                        dragActiveState = true
-                    }
-                    .onChanged { value in
-                        if state.draggingItemID == nil {
-                            state.beginItemDrag(id, at: value.startLocation, layout: layout)
-                        }
-                        let iconCenter = state.drag.iconCenter(for: value.location)
-                        let resolved = state.dropResolution(at: iconCenter, layout: layout)
-                        state.updateItemDrag(pointerLocation: value.location, translation: value.translation, resolution: resolved)
-                    }
-                    .onEnded { value in
-                        if state.dragAwaitingMouseUp {
-                            state.finishCommittedMergeDrag()
-                            return
-                        }
-                        let iconCenter = state.drag.iconCenter(for: value.location)
-                        let resolved = state.dropResolution(at: iconCenter, layout: layout)
-                        state.endItemDrag(slotID: resolved.slotID, targetIndex: resolved.targetIndex)
-                    }
-            )
-            .onChange(of: isDragActive) { oldValue, newValue in
-                if oldValue && !newValue {
-                    if state.draggingItemID == id, !state.dragAwaitingMouseUp {
-                        LaunchLog.line("Drag gesture cancelled/interrupted for \(id)")
-                        state.cancelDrag()
-                    }
+            .gesture(LauncherNativeDragGesture(itemID: id, state: state, layout: layout))
+            .onDisappear {
+                if state.draggingItemID == id {
+                    LaunchLog.line("drag source disappeared session=\(state.dragSessionID.map(String.init) ?? "nil") item=\(id) page=\(state.currentPage)")
                 }
             }
     }

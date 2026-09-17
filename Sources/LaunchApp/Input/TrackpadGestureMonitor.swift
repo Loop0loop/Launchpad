@@ -16,7 +16,7 @@ final class TrackpadGestureMonitor {
         onGateStatus: @escaping @MainActor (Bool) -> Void,
         onIntent: @escaping @MainActor (TrackpadIntent) -> Void,
         onPinchUpdate: (@MainActor (TrackpadPinchUpdate) -> Void)? = nil,
-        onSystemShowDesktop: @escaping @MainActor (SystemShowDesktopGestureDecision) -> Void
+        onSystemShowDesktop: (@MainActor (SystemShowDesktopGestureUpdate) -> Void)? = nil
     ) {
         pinchMonitor.requiredFingerCounts = requiredFingerCounts
         pinchMonitor.preservesSystemShowDesktop = preservesSystemShowDesktop
@@ -102,8 +102,17 @@ final class TrackpadGestureMonitor {
         pinchMonitor.yieldCurrentGestureToSystem()
     }
 
-    func setSystemShowDesktopActive(_ active: Bool) {
-        pinchMonitor.systemShowDesktopActive = active
+    func setSystemDesktopVisibility(_ visibility: SystemDesktopVisibility) {
+        pinchMonitor.systemDesktopVisibility = visibility
+    }
+
+    func setSystemDesktopTransitionPending(_ pending: Bool) {
+        pinchMonitor.systemDesktopTransitionPending = pending
+    }
+
+    @discardableResult
+    func systemDesktopTransitionReceived(visibility: SystemDesktopVisibility) -> Bool {
+        pinchMonitor.systemDesktopTransitionReceived(visibility: visibility)
     }
 
     func setLauncherVisible(_ visible: Bool) {
@@ -120,6 +129,8 @@ final class PinchContactMonitor: @unchecked Sendable {
         var showDesktopOwner: SystemShowDesktopGestureOwner?
         var filteredScaleRatio: Double?
         var lastScaleTimestamp: Double?
+        var desktopContactSession = SystemDesktopContactSession()
+        var desktopGestureSession = SystemShowDesktopGestureSession()
     }
 
     fileprivate struct MTPoint {
@@ -170,20 +181,19 @@ final class PinchContactMonitor: @unchecked Sendable {
     private var activeDeviceID: UInt?
     private var lastQualifiedTouchTime: TimeInterval = 0
     private var onPinchUpdate: (@MainActor (TrackpadPinchUpdate) -> Void)?
-    private var onSystemShowDesktop: (@MainActor (SystemShowDesktopGestureDecision) -> Void)?
-    private var pendingTrackingUpdate: TrackpadPinchUpdate?
-    private var pendingTerminalUpdate: TrackpadPinchUpdate?
+    private var onSystemShowDesktop: (@MainActor (SystemShowDesktopGestureUpdate) -> Void)?
+    private var pendingDelivery = TrackpadPinchDelivery()
     private var deliveryScheduled = false
     private let diagnosticsEnabled = ProcessInfo.processInfo.environment["LAUNCH_TRACKPAD_DIAGNOSTICS"] == "1"
     private var lastDiagnosticFrameTime: TimeInterval = 0
     private var lastDiagnosticFrameSignature = ""
     private var lastDiagnosticDeliveryTime: TimeInterval = 0
-    private var systemShowDesktopGestureState = SystemShowDesktopGestureState()
     nonisolated(unsafe) fileprivate static var current: PinchContactMonitor?
     private var _requiredFingerCounts = [LaunchConstants.Multitouch.defaultGestureFingerCount]
     private var _preservesSystemShowDesktop = false
     private var _controlsSystemShowDesktop = false
-    private var _systemShowDesktopActive = false
+    private var _systemDesktopVisibility = SystemDesktopVisibility.unknown
+    private var _systemDesktopTransitionPending = false
     private var _launcherVisible = false
     var requiredFingerCounts: [Int] {
         get {
@@ -207,7 +217,6 @@ final class PinchContactMonitor: @unchecked Sendable {
         set {
             lock.lock()
             _preservesSystemShowDesktop = newValue
-            if !newValue { systemShowDesktopGestureState.reset() }
             lock.unlock()
         }
     }
@@ -225,15 +234,15 @@ final class PinchContactMonitor: @unchecked Sendable {
         }
     }
 
-    var systemShowDesktopActive: Bool {
+    var systemDesktopVisibility: SystemDesktopVisibility {
         get {
             lock.lock()
             defer { lock.unlock() }
-            return _systemShowDesktopActive
+            return _systemDesktopVisibility
         }
         set {
             lock.lock()
-            _systemShowDesktopActive = newValue
+            _systemDesktopVisibility = newValue
             lock.unlock()
         }
     }
@@ -251,6 +260,19 @@ final class PinchContactMonitor: @unchecked Sendable {
         }
     }
 
+    var systemDesktopTransitionPending: Bool {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return _systemDesktopTransitionPending
+        }
+        set {
+            lock.lock()
+            _systemDesktopTransitionPending = newValue
+            lock.unlock()
+        }
+    }
+
     private var _isReady = false
     var isReady: Bool {
         lock.lock()
@@ -260,7 +282,7 @@ final class PinchContactMonitor: @unchecked Sendable {
 
     func start(
         onPinchUpdate: @escaping @MainActor (TrackpadPinchUpdate) -> Void,
-        onSystemShowDesktop: @escaping @MainActor (SystemShowDesktopGestureDecision) -> Void
+        onSystemShowDesktop: (@MainActor (SystemShowDesktopGestureUpdate) -> Void)?
     ) {
         lock.lock()
         defer { lock.unlock() }
@@ -296,17 +318,26 @@ final class PinchContactMonitor: @unchecked Sendable {
 
     func stop() {
         lock.lock()
-        defer { lock.unlock() }
+        let callback = onSystemShowDesktop
+        let cancellations = deviceStates.values.compactMap { state -> SystemShowDesktopGestureUpdate? in
+            var session = state.desktopGestureSession
+            return session.finish(cancelled: true)
+        }
         onPinchUpdate = nil
         onSystemShowDesktop = nil
         deviceStates = [:]
         activeDeviceID = nil
         lastQualifiedTouchTime = 0
-        pendingTrackingUpdate = nil
-        pendingTerminalUpdate = nil
+        pendingDelivery.invalidate()
         deliveryScheduled = false
-        systemShowDesktopGestureState.reset()
-        _systemShowDesktopActive = false
+        _systemDesktopVisibility = .unknown
+        _systemDesktopTransitionPending = false
+        lock.unlock()
+        for update in cancellations {
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { callback?(update) }
+            }
+        }
     }
 
     var hasRecentQualifiedTouch: Bool {
@@ -323,10 +354,24 @@ final class PinchContactMonitor: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
 
+        guard onPinchUpdate != nil else { return }
         let deviceID = UInt(bitPattern: device)
         var deviceState = deviceStates[deviceID] ?? DeviceGestureState()
+        // Capture ownership on the first physical contact, before the contact
+        // count stabilizes and before native Exposé can emit its exit event.
+        let hasContacts = touches.contains(where: \.isInContactSequence)
+        if hasContacts,
+           !deviceState.desktopContactSession.hasContacts,
+           !_systemDesktopTransitionPending {
+            _systemDesktopVisibility = SystemShowDesktopController.currentVisibility()
+        }
+        deviceState.desktopContactSession.update(
+            hasContacts: hasContacts,
+            desktopIsActive: _systemDesktopVisibility == .desktopVisible
+                && !deviceState.desktopGestureSession.isActive
+        )
         var observedFingerCounts = _requiredFingerCounts
-        if _preservesSystemShowDesktop, !observedFingerCounts.contains(4) {
+        if (_preservesSystemShowDesktop || _controlsSystemShowDesktop), !observedFingerCounts.contains(4) {
             observedFingerCounts.append(4)
         }
         let selected: [TrackpadTouchSample]
@@ -335,7 +380,15 @@ final class PinchContactMonitor: @unchecked Sendable {
             requiredFingerCounts: observedFingerCounts,
             timestamp: timestamp
         ) {
-        case .provisional(let touches), .qualified(let touches):
+        case .provisional:
+            guard activeDeviceID == nil || activeDeviceID == deviceID else {
+                deviceStates[deviceID] = deviceState
+                return
+            }
+            activeDeviceID = deviceID
+            deviceStates[deviceID] = deviceState
+            return
+        case .qualified(let touches):
             guard activeDeviceID == nil || activeDeviceID == deviceID else {
                 deviceStates[deviceID] = deviceState
                 return
@@ -345,8 +398,9 @@ final class PinchContactMonitor: @unchecked Sendable {
         case .ended:
             let ownership = deviceState.intentArbiter?.ownership
             let isLauncherOwned = ownership == .launcherRadialIn || ownership == .launcherRadialOut
+            let desktopUpdate = deviceState.desktopGestureSession.finish()
             if ownership == .ignoredUntilLift {
-                let owner = deviceState.showDesktopOwner ?? .undecided
+                let owner = deviceState.showDesktopOwner ?? .unknown
                 LaunchLog.line("trackpad session end owner=\(owner) reason=allTouchesLifted")
             } else if diagnosticsEnabled {
                 LaunchLog.line("trackpad diagnostic gate=ended device=\(deviceID) ownership=\(String(describing: ownership))")
@@ -355,7 +409,11 @@ final class PinchContactMonitor: @unchecked Sendable {
                 ? deviceState.gestureSession.trackPinch(radius: nil, timestamp: timestamp)
                 : nil
             if activeDeviceID == deviceID { activeDeviceID = nil }
-            deviceStates[deviceID] = DeviceGestureState()
+            deviceStates[deviceID] = DeviceGestureState(
+                contactGate: deviceState.contactGate,
+                desktopContactSession: deviceState.desktopContactSession
+            )
+            if let desktopUpdate { deliverSystemShowDesktop(desktopUpdate) }
             guard let update else { return }
             enqueuePinchUpdate(update)
             return
@@ -363,6 +421,7 @@ final class PinchContactMonitor: @unchecked Sendable {
             let wasActiveDevice = activeDeviceID == deviceID
             let ownership = deviceState.intentArbiter?.ownership
             let isLauncherOwned = ownership == .launcherRadialIn || ownership == .launcherRadialOut
+            let desktopUpdate = deviceState.desktopGestureSession.finish(cancelled: true)
             if diagnosticsEnabled {
                 LaunchLog.line("trackpad diagnostic gate=rejected device=\(deviceID) active=\(wasActiveDevice)")
             }
@@ -371,9 +430,10 @@ final class PinchContactMonitor: @unchecked Sendable {
                 : nil
             if wasActiveDevice {
                 activeDeviceID = nil
-                deviceState = DeviceGestureState()
+                deviceState = DeviceGestureState(desktopContactSession: deviceState.desktopContactSession)
             }
             deviceStates[deviceID] = deviceState
+            if let desktopUpdate { deliverSystemShowDesktop(desktopUpdate) }
             guard let update else { return }
             enqueuePinchUpdate(update)
             return
@@ -393,11 +453,18 @@ final class PinchContactMonitor: @unchecked Sendable {
             )
             let showDesktopOwner = SystemShowDesktopGestureOwner(
                 launcherIsVisible: _launcherVisible,
-                systemShowDesktopIsActive: _systemShowDesktopActive
+                systemDesktopVisibility: _systemDesktopTransitionPending
+                    ? .unknown
+                    : deviceState.desktopContactSession.isSystemOwned
+                    ? .desktopVisible
+                    : _systemDesktopVisibility
             )
             deviceState.showDesktopOwner = showDesktopOwner
             let launcherIntent = showDesktopOwner.launcherIntent.map { String(describing: $0) } ?? "none"
             LaunchLog.line("trackpad candidate fingers=\(selected.count) owner=\(showDesktopOwner) launcherIntent=\(launcherIntent)")
+        }
+        if deviceState.desktopContactSession.isSystemOwned, deviceState.showDesktopOwner != .launcher {
+            deviceState.showDesktopOwner = .desktop
         }
         guard let baselineTouches = deviceState.baselineTouches,
               var intentArbiter = deviceState.intentArbiter,
@@ -432,58 +499,45 @@ final class PinchContactMonitor: @unchecked Sendable {
         case .undecided, .ignoredUntilLift:
             claimedIntent = nil
         }
-        if _controlsSystemShowDesktop, let claimedIntent {
-            let decision = TrackpadIntent.systemShowDesktopDecision(
-                fingerCount: selected.count,
-                intent: claimedIntent,
-                scaleRatio: radius,
-                owner: deviceState.showDesktopOwner ?? .undecided,
-                isEnabled: _preservesSystemShowDesktop
+        if let claimedIntent, _controlsSystemShowDesktop {
+            let owner = deviceState.showDesktopOwner ?? .undecided
+            let controlsDesktop = selected.count == 4 && (
+                (owner == .undecided && claimedIntent == .close)
+                    || (owner == .desktop && claimedIntent == .open)
             )
-            switch decision {
-            case .launcher:
-                break
-            case .wait:
+            if controlsDesktop {
+                deviceState.contactGate.claim()
                 deviceState.gestureSession = TrackpadGestureSession()
+                let update = deviceState.desktopGestureSession.update(
+                    scaleRatio: radius,
+                    restoring: owner == .desktop,
+                    timestamp: timestamp
+                )
                 deviceStates[deviceID] = deviceState
-                return
-            case .ignore:
-                deviceState.intentArbiter?.ignoreUntilLift()
-                deviceState.contactGate.ignoreUntilAllTouchesLift()
-                deviceState.gestureSession = TrackpadGestureSession()
-                deviceStates[deviceID] = deviceState
-                return
-            case .show, .restore:
-                deviceState.intentArbiter?.ignoreUntilLift()
-                deviceState.contactGate.ignoreUntilAllTouchesLift()
-                deviceState.gestureSession = TrackpadGestureSession()
-                deviceState.showDesktopOwner = .desktop
-                deviceStates[deviceID] = deviceState
-                LaunchLog.line("trackpad direct system show desktop action=\(decision) fingers=4")
-                let callback = onSystemShowDesktop
-                DispatchQueue.main.async {
-                    MainActor.assumeIsolated { callback?(decision) }
+                if let update {
+                    if case .began(let progress) = update {
+                        LaunchLog.line("trackpad continuous show desktop began progress=\(progress)")
+                    }
+                    deliverSystemShowDesktop(update)
                 }
                 return
             }
-        } else if deviceState.showDesktopOwner != .launcher,
-                  let claimedIntent,
-                  systemShowDesktopGestureState.shouldYield(
-            fingerCount: selected.count,
-            intent: claimedIntent,
-            systemGestureEnabled: _preservesSystemShowDesktop
-        ) {
+            if owner == .desktop {
+                deviceState.intentArbiter?.ignoreUntilLift()
+                deviceState.contactGate.ignoreUntilAllTouchesLift()
+                deviceState.gestureSession = TrackpadGestureSession()
+                deviceStates[deviceID] = deviceState
+                return
+            }
+        }
+        if let claimedIntent,
+                  deviceState.showDesktopOwner?.acceptsLauncherIntent(claimedIntent) != true {
+            // Native Show Desktop is enabled, so preserve its continuous gesture.
             deviceState.intentArbiter?.ignoreUntilLift()
             deviceState.contactGate.ignoreUntilAllTouchesLift()
             deviceState.gestureSession = TrackpadGestureSession()
             deviceStates[deviceID] = deviceState
-            let phase = claimedIntent == .close ? "show" : "return"
-            LaunchLog.line("trackpad system show desktop \(phase) fingers=4")
-            let callback = onSystemShowDesktop
-            let action: SystemShowDesktopGestureDecision = claimedIntent == .close ? .show : .restore
-            DispatchQueue.main.async {
-                MainActor.assumeIsolated { callback?(action) }
-            }
+            LaunchLog.line("trackpad native gesture left to macOS intent=\(claimedIntent)")
             return
         }
         if ownership != .undecided, !_requiredFingerCounts.contains(selected.count) {
@@ -532,12 +586,40 @@ final class PinchContactMonitor: @unchecked Sendable {
     func yieldCurrentGestureToSystem() {
         lock.lock()
         defer { lock.unlock() }
-        guard let activeDeviceID, var deviceState = deviceStates[activeDeviceID] else { return }
-        deviceState.intentArbiter?.ignoreUntilLift()
-        deviceState.contactGate.ignoreUntilAllTouchesLift()
-        deviceState.gestureSession = TrackpadGestureSession()
-        deviceStates[activeDeviceID] = deviceState
-        pendingTrackingUpdate = nil
+        discardLauncherGesture()
+    }
+
+    func systemDesktopTransitionReceived(visibility: SystemDesktopVisibility) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard _systemDesktopVisibility != visibility else { return false }
+        _systemDesktopVisibility = visibility
+        for deviceID in Array(deviceStates.keys) {
+            guard deviceStates[deviceID]?.desktopGestureSession.isActive != true else { continue }
+            deviceStates[deviceID]?.desktopContactSession.systemTransitionReceived()
+        }
+        discardLauncherGesture()
+        return true
+    }
+
+    /// Called with lock held. Clear queued completion even after all fingers
+    /// lifted and activeDeviceID was cleared by the contact callback.
+    private func discardLauncherGesture() {
+        for deviceID in Array(deviceStates.keys) {
+            guard deviceStates[deviceID]?.desktopContactSession.hasContacts == true else { continue }
+            guard deviceStates[deviceID]?.desktopGestureSession.isActive != true else { continue }
+            deviceStates[deviceID]?.intentArbiter?.ignoreUntilLift()
+            deviceStates[deviceID]?.contactGate.ignoreUntilAllTouchesLift()
+            deviceStates[deviceID]?.gestureSession = TrackpadGestureSession()
+        }
+        pendingDelivery.invalidate()
+    }
+
+    private func deliverSystemShowDesktop(_ update: SystemShowDesktopGestureUpdate) {
+        let callback = onSystemShowDesktop
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated { callback?(update) }
+        }
     }
 
     fileprivate func logDiagnosticFrame(
@@ -565,13 +647,7 @@ final class PinchContactMonitor: @unchecked Sendable {
     }
 
     private func enqueuePinchUpdate(_ update: TrackpadPinchUpdate) {
-        switch update {
-        case .tracking:
-            guard pendingTerminalUpdate == nil else { return }
-            pendingTrackingUpdate = update
-        case .commit, .cancel:
-            pendingTerminalUpdate = update
-        }
+        pendingDelivery.enqueue(update)
         guard !deliveryScheduled else { return }
         deliveryScheduled = true
         DispatchQueue.main.async { [weak self] in
@@ -584,10 +660,9 @@ final class PinchContactMonitor: @unchecked Sendable {
     @MainActor
     private func deliverLatestPinchUpdate() {
         lock.lock()
-        let trackingUpdate = pendingTrackingUpdate
-        let terminalUpdate = pendingTerminalUpdate
-        pendingTrackingUpdate = nil
-        pendingTerminalUpdate = nil
+        let batch = pendingDelivery.drain()
+        let trackingUpdate = batch.tracking
+        let terminalUpdate = batch.terminal
         deliveryScheduled = false
         let callback = onPinchUpdate
         let now = Date().timeIntervalSinceReferenceDate
@@ -602,8 +677,15 @@ final class PinchContactMonitor: @unchecked Sendable {
         if diagnosticsEnabled, let terminalUpdate {
             LaunchLog.line("trackpad diagnostic deliver=\(String(describing: terminalUpdate))")
         }
-        if let trackingUpdate { callback?(trackingUpdate) }
-        if let terminalUpdate { callback?(terminalUpdate) }
+        if let trackingUpdate, isCurrentDelivery(batch.generation) { callback?(trackingUpdate) }
+        // The tracking callback can synchronously yield to macOS.
+        if let terminalUpdate, isCurrentDelivery(batch.generation) { callback?(terminalUpdate) }
+    }
+
+    private func isCurrentDelivery(_ generation: UInt) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return generation == pendingDelivery.generation
     }
 }
 

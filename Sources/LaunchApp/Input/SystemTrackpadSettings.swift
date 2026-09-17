@@ -4,6 +4,10 @@ import LaunchpadCore
 enum SystemTrackpadSettings {
     private static let snapshotDefaultsKey = "systemTrackpadSettings.nativeLaunchpadPinchSnapshot"
     private static let dockDomain = "com.apple.dock"
+    private static let appsSnapshotKey = "systemTrackpadSettings.nativeAppsGestureSnapshot.v27"
+    private static let legacyAppsSnapshotKey = "systemTrackpadSettings.nativeAppsGestureSnapshot"
+    private static let legacyShowAppsGestureKey = "showLaunchpadGestureEnabled"
+    private static let showAppsGestureKey = TrackpadGesturePreferenceSnapshot.nativeAppsGestureKey
     private static let showDesktopGestureKey = "showDesktopGestureEnabled"
     private static let domains = [
         "com.apple.AppleMultitouchTrackpad",
@@ -20,16 +24,29 @@ enum SystemTrackpadSettings {
         "com.apple.trackpad.fourFingerPinchSwipeGesture",
         "com.apple.trackpad.fiveFingerPinchSwipeGesture"
     ]
-
+    private static let competingGestureKeys = ["TrackpadFourFingerVertSwipeGesture"]
+    private static let currentHostCompetingGestureKeys = ["com.apple.trackpad.fourFingerVertSwipeGesture"]
     static func load() -> SystemTrackpadGestureSettings {
-        SystemTrackpadGestureSettings(
-            fourFingerPinchEnabled: bool("TrackpadFourFingerPinchGesture")
-                || bool("com.apple.trackpad.fourFingerPinchSwipeGesture")
-                || currentHostGlobalInt("com.apple.trackpad.fourFingerPinchSwipeGesture") > 0,
-            fiveFingerPinchEnabled: bool("TrackpadFiveFingerPinchGesture")
-                || bool("com.apple.trackpad.fiveFingerPinchSwipeGesture")
-                || currentHostGlobalInt("com.apple.trackpad.fiveFingerPinchSwipeGesture") > 0
+        let appsEnabled = userAppsGestureEnabled
+        return SystemTrackpadGestureSettings(
+            fourFingerPinchEnabled: appsEnabled && (effectiveBool("TrackpadFourFingerPinchGesture")
+                || effectiveBool("com.apple.trackpad.fourFingerPinchSwipeGesture")
+                || effectiveCurrentHostInt("com.apple.trackpad.fourFingerPinchSwipeGesture") > 0),
+            fiveFingerPinchEnabled: appsEnabled && (effectiveBool("TrackpadFiveFingerPinchGesture")
+                || effectiveBool("com.apple.trackpad.fiveFingerPinchSwipeGesture")
+                || effectiveCurrentHostInt("com.apple.trackpad.fiveFingerPinchSwipeGesture") > 0)
         )
+    }
+
+    private static var userAppsGestureEnabled: Bool {
+        if let original = UserDefaults.standard.string(forKey: appsSnapshotKey) {
+            return original == "missing" || (Int(original) ?? 0) != 0
+        }
+        if let dockValues = loadSnapshot()?[dockScope],
+           dockValues.keys.contains(showAppsGestureKey) {
+            return (dockValues[showAppsGestureKey] ?? nil).map { $0 != 0 } ?? true
+        }
+        return (optionalInt(showAppsGestureKey, domain: dockDomain) ?? 1) != 0
     }
 
     static var isShowDesktopGestureEnabled: Bool {
@@ -40,9 +57,8 @@ enum SystemTrackpadSettings {
     static func reserveNativeLaunchpadPinch() -> Bool {
         saveSnapshot()
         for domain in domains {
-            for (key, value) in TrackpadGesturePreferenceSnapshot(values: appValues(domain: domain)).reserveWrites {
-                write(value, key: key, domain: domain)
-            }
+            let plan = TrackpadGesturePreferenceSnapshot(values: appValues(domain: domain))
+            for (key, value) in plan.reserveWrites { write(value, key: key, domain: domain) }
             CFPreferencesAppSynchronize(domain as CFString)
         }
         for (key, value) in TrackpadGesturePreferenceSnapshot(values: currentHostValues()).reserveWrites {
@@ -53,15 +69,33 @@ enum SystemTrackpadSettings {
             kCFPreferencesCurrentUser,
             kCFPreferencesCurrentHost
         )
+        let dockPlan = TrackpadGesturePreferenceSnapshot(values: dockValues())
+        for (key, value) in dockPlan.reserveWrites { write(value, key: key, domain: dockDomain) }
+        CFPreferencesAppSynchronize(dockDomain as CFString)
         applySystemSettings()
-        refreshNativeGestureRegistrations(showDesktopOriginalValue: nil)
-        let settings = load()
-        let reserved = !settings.fourFingerPinchEnabled && !settings.fiveFingerPinchEnabled
-        LaunchLog.line("reserve native apps pinch success=\(reserved)")
+        refreshNativeGestureRegistrations(showDesktopOriginalValue: 1)
+        let reserved = optionalInt(showAppsGestureKey, domain: dockDomain) == 0
+            && optionalInt(showDesktopGestureKey, domain: dockDomain) == 1
+            && !physicalPinchIsEnabled
+            && !competingGestureIsEnabled
+        LaunchLog.line("exclusive pinch reserved=\(reserved); Apps and four-finger Mission Control disabled; Dock Show Desktop action enabled")
         return reserved
     }
 
     static func restoreNativeLaunchpadPinch(refreshRegistrationsIfNeeded: Bool = false) {
+        if let original = UserDefaults.standard.string(forKey: legacyAppsSnapshotKey) {
+            write(Int(original), key: legacyShowAppsGestureKey, domain: dockDomain)
+            CFPreferencesAppSynchronize(dockDomain as CFString)
+            UserDefaults.standard.removeObject(forKey: legacyAppsSnapshotKey)
+        }
+        if let original = UserDefaults.standard.string(forKey: appsSnapshotKey) {
+            write(Int(original), key: showAppsGestureKey, domain: dockDomain)
+            CFPreferencesAppSynchronize(dockDomain as CFString)
+            applySystemSettings()
+            refreshNativeGestureRegistrations(showDesktopOriginalValue: nil)
+            UserDefaults.standard.removeObject(forKey: appsSnapshotKey)
+        }
+        // Restore the exclusive reservation; older snapshots may omit the Dock Apps key.
         guard let snapshot = loadSnapshot() else {
             guard refreshRegistrationsIfNeeded else { return }
             let showDesktopValue = optionalInt(showDesktopGestureKey, domain: dockDomain)
@@ -90,6 +124,11 @@ enum SystemTrackpadSettings {
             kCFPreferencesCurrentUser,
             kCFPreferencesCurrentHost
         )
+        let dock = snapshot[dockScope] ?? [:]
+        for (key, value) in TrackpadGesturePreferenceSnapshot(values: dock).restoreWrites {
+            write(value, key: key, domain: dockDomain)
+        }
+        CFPreferencesAppSynchronize(dockDomain as CFString)
         UserDefaults.standard.removeObject(forKey: snapshotDefaultsKey)
         applySystemSettings()
         postNotifications(notificationNames)
@@ -103,27 +142,69 @@ enum SystemTrackpadSettings {
         domains.contains { int(key, domain: $0) > 0 }
     }
 
+    private static var physicalPinchIsEnabled: Bool {
+        launchpadGestureKeys.contains { bool($0) }
+            || currentHostLaunchpadGestureKeys.contains { currentHostGlobalInt($0) > 0 }
+    }
+
+    private static var competingGestureIsEnabled: Bool {
+        competingGestureKeys.contains { bool($0) }
+            || currentHostCompetingGestureKeys.contains { currentHostGlobalInt($0) > 0 }
+    }
+
+    private static func effectiveBool(_ key: String) -> Bool {
+        guard let snapshot = loadSnapshot() else { return bool(key) }
+        return domains.contains { domain in
+            let values = snapshot[appScope(domain)]
+            return values?.keys.contains(key) == true
+                ? (values?[key] ?? nil).map { $0 > 0 } ?? false
+                : int(key, domain: domain) > 0
+        }
+    }
+
+    private static func effectiveCurrentHostInt(_ key: String) -> Int {
+        guard let values = loadSnapshot()?[currentHostScope],
+              values.keys.contains(key),
+              let stored = values[key] else { return currentHostGlobalInt(key) }
+        return stored ?? 0
+    }
+
     private static func int(_ key: String, domain: String) -> Int {
         let value = CFPreferencesCopyAppValue(key as CFString, domain as CFString)
         return (value as? NSNumber)?.intValue ?? 0
     }
 
+    private static func defaultAppRestoreValues() -> [String: Int?] {
+        Dictionary(uniqueKeysWithValues:
+            launchpadGestureKeys.map { ($0, 1) }
+                + competingGestureKeys.map { ($0, 2) }
+        )
+    }
+
     private static func appValues(domain: String) -> [String: Int?] {
-        Dictionary(uniqueKeysWithValues: launchpadGestureKeys.map { ($0, optionalInt($0, domain: domain)) })
+        Dictionary(uniqueKeysWithValues: (launchpadGestureKeys + competingGestureKeys).map {
+            ($0, optionalInt($0, domain: domain))
+        })
     }
 
     private static func currentHostValues() -> [String: Int?] {
-        Dictionary(uniqueKeysWithValues: currentHostLaunchpadGestureKeys.map { ($0, optionalCurrentHostGlobalInt($0)) })
+        Dictionary(uniqueKeysWithValues: (currentHostLaunchpadGestureKeys + currentHostCompetingGestureKeys).map {
+            ($0, optionalCurrentHostGlobalInt($0))
+        })
     }
 
-    private static func defaultAppRestoreValues() -> [String: Int?] {
-        Dictionary(uniqueKeysWithValues: launchpadGestureKeys.map { ($0, 1) })
+    private static func dockValues() -> [String: Int?] {
+        [
+            showAppsGestureKey: optionalInt(showAppsGestureKey, domain: dockDomain),
+            showDesktopGestureKey: optionalInt(showDesktopGestureKey, domain: dockDomain)
+        ]
     }
 
     private static func defaultCurrentHostRestoreValues() -> [String: Int?] {
         [
             "com.apple.trackpad.fourFingerPinchSwipeGesture": 2,
-            "com.apple.trackpad.fiveFingerPinchSwipeGesture": 2
+            "com.apple.trackpad.fiveFingerPinchSwipeGesture": 2,
+            "com.apple.trackpad.fourFingerVertSwipeGesture": 2
         ]
     }
 
@@ -167,27 +248,25 @@ enum SystemTrackpadSettings {
         "app:\(domain)"
     }
 
-    private static func saveSnapshot() {
-        guard loadSnapshot() == nil else { return }
-        var snapshot: [String: [String: Int?]] = [
-            currentHostScope: currentHostValues(),
-            dockScope: [showDesktopGestureKey: optionalInt(showDesktopGestureKey, domain: dockDomain)]
-        ]
-        for domain in domains {
-            snapshot[appScope(domain)] = appValues(domain: domain)
-        }
-        let data = try? JSONEncoder().encode(snapshot.mapValues { values in
-            values.mapValues { $0.map(String.init) ?? "" }
-        })
-        UserDefaults.standard.set(data, forKey: snapshotDefaultsKey)
-    }
-
     private static func loadSnapshot() -> [String: [String: Int?]]? {
         guard let data = UserDefaults.standard.data(forKey: snapshotDefaultsKey),
               let stored = try? JSONDecoder().decode([String: [String: String]].self, from: data) else { return nil }
         return stored.mapValues { values in
             values.mapValues { $0.isEmpty ? nil : Int($0) }
         }
+    }
+
+    private static func saveSnapshot() {
+        guard loadSnapshot() == nil else { return }
+        var snapshot: [String: [String: Int?]] = [
+            currentHostScope: currentHostValues(),
+            dockScope: dockValues()
+        ]
+        for domain in domains { snapshot[appScope(domain)] = appValues(domain: domain) }
+        let data = try? JSONEncoder().encode(snapshot.mapValues { values in
+            values.mapValues { $0.map(String.init) ?? "" }
+        })
+        UserDefaults.standard.set(data, forKey: snapshotDefaultsKey)
     }
 
     private static func applySystemSettings() {

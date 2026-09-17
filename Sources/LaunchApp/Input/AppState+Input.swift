@@ -32,7 +32,7 @@ extension AppState {
             return
         }
         if isHandlingLauncherDrag {
-            cancelDrag()
+            cancelDrag(reason: "escape")
         } else if isEditingLayout {
             LaunchLog.line("handleEscape stop layout edit mode")
             stopEditingLayout()
@@ -152,7 +152,7 @@ extension AppState {
         let nextPage = min(max(page, 0), pageCount - 1)
         guard nextPage != currentPage else { return }
         let oldPage = currentPage
-        LaunchLog.line("select page \(oldPage) -> \(nextPage) pageCount=\(pageCount)")
+        LaunchLog.line("select page \(oldPage) -> \(nextPage) pageCount=\(pageCount) dragSession=\(dragSessionID.map(String.init) ?? "nil")")
         currentPage = nextPage
         if isDraggingLauncherItem {
             resetDragIntent()

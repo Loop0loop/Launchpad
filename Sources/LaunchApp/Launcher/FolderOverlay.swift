@@ -64,8 +64,10 @@ struct FolderOverlay: View {
             .frame(maxWidth: .infinity, minHeight: LaunchConstants.FolderOverlay.minGridHeight, alignment: .topLeading)
             .coordinateSpace(name: "folderGrid")
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { state.folderGridFrame = $0 }
-            .animation(LaunchConstants.Animation.iconLift, value: state.folderDragInsertionIndex)
-            .animation(LaunchConstants.Animation.iconLift, value: folder.appIDs)
+            .animation(
+                state.folderReorderingID != nil ? LaunchConstants.Animation.iconLift : nil,
+                value: state.folderDragInsertionIndex
+            )
         }
         .padding(.horizontal, LaunchConstants.FolderOverlay.horizontalPadding)
         .padding(.vertical, LaunchConstants.FolderOverlay.verticalPadding)

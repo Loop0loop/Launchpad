@@ -9,6 +9,7 @@ enum LaunchLog {
     static let input = Logger(subsystem: subsystem, category: "input")
 
     static func line(_ message: String) {
-        FileHandle.standardError.write(Data("[Launch] \(message)\n".utf8))
+        let time = String(format: "%.3f", ProcessInfo.processInfo.systemUptime)
+        FileHandle.standardError.write(Data("[Launch \(ProcessInfo.processInfo.processIdentifier) t=\(time)] \(message)\n".utf8))
     }
 }

@@ -285,8 +285,8 @@ let pinchedTouches = scaleBaseline.map {
 let gradualPinchedTouches = scaleBaseline.map {
     TrackpadTouchSample(
         id: $0.id,
-        x: 0.5 + ($0.x - 0.5) * 0.98,
-        y: 0.5 + ($0.y - 0.5) * 0.98
+        x: 0.5 + ($0.x - 0.5) * 0.97,
+        y: 0.5 + ($0.y - 0.5) * 0.97
     )
 }
 assert(intentArbiter.update(current: gradualPinchedTouches, timestamp: 0.02) == .undecided)
@@ -303,8 +303,8 @@ let spreadTouches = scaleBaseline.map {
 let gradualSpreadTouches = scaleBaseline.map {
     TrackpadTouchSample(
         id: $0.id,
-        x: 0.5 + ($0.x - 0.5) * 1.02,
-        y: 0.5 + ($0.y - 0.5) * 1.02
+        x: 0.5 + ($0.x - 0.5) * 1.03,
+        y: 0.5 + ($0.y - 0.5) * 1.03
     )
 }
 var immediateSpreadArbiter = TrackpadGestureIntentArbiter(baseline: scaleBaseline, timestamp: 0)
@@ -314,6 +314,28 @@ assert(interruptedIntentArbiter.update(current: gradualPinchedTouches, timestamp
 assert(interruptedIntentArbiter.update(current: scaleBaseline, timestamp: 0.02) == .undecided)
 assert(interruptedIntentArbiter.update(current: gradualSpreadTouches, timestamp: 0.03) == .undecided)
 assert(interruptedIntentArbiter.update(current: gradualSpreadTouches, timestamp: 0.04) == .launcherRadialOut)
+let landingBounceTouches = scaleBaseline.map {
+    TrackpadTouchSample(
+        id: $0.id,
+        x: 0.5 + ($0.x - 0.5) * 1.02,
+        y: 0.5 + ($0.y - 0.5) * 1.02
+    )
+}
+var settlingIntentArbiter = TrackpadGestureIntentArbiter(baseline: scaleBaseline, timestamp: 0)
+assert(settlingIntentArbiter.update(current: landingBounceTouches, timestamp: 0.01) == .undecided)
+assert(settlingIntentArbiter.update(current: landingBounceTouches, timestamp: 0.02) == .undecided)
+assert(settlingIntentArbiter.update(current: pinchedTouches, timestamp: 0.03) == .launcherRadialIn)
+var desktopGestureSession = SystemShowDesktopGestureSession()
+guard case .began(let desktopBegin) = desktopGestureSession.update(scaleRatio: 1.1),
+      case .changed(let desktopChanged) = desktopGestureSession.update(scaleRatio: 1.2),
+      case .ended(let desktopEnd, let desktopVelocity) = desktopGestureSession.finish() else {
+    assertionFailure("continuous Show Desktop session did not complete")
+    exit(1)
+}
+assert(desktopChanged > desktopBegin)
+assert(desktopBegin == 0)
+assert(desktopEnd == desktopChanged)
+assert(desktopVelocity > 0)
 assert(TrackpadIntent.projectedTransitionTarget(progress: 0.49, velocity: 1) == 1)
 assert(TrackpadIntent.projectedTransitionTarget(progress: 0.51, velocity: -1) == 0)
 assert(TrackpadIntent.projectedTransitionTarget(progress: 0.702, velocity: -2.5, projectionTime: 0.10) == 0)

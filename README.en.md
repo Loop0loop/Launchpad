@@ -2,7 +2,7 @@
 ![alt text](public/img/ex.png)
 [한국어](README.md)
 
-Launchpad is a native macOS app launcher for macOS 26. It aims to bring back the feel of Apple's Launchpad: smooth gestures, page transitions, folders, search, and drag-and-drop organization.
+Launchpad is a native app launcher for macOS 27 that restores the feel of Apple's Launchpad: smooth gestures, page transitions, folders, search, and drag-and-drop organization.
 
 ## Features
 
@@ -21,6 +21,9 @@ Launchpad is a native macOS app launcher for macOS 26. It aims to bring back the
 - Downsampled icon cache and scoped SwiftUI update paths for performance
 
 ## Run
+
+- Runtime: macOS 27 or later
+- Build toolchain: Xcode 27, macOS SDK 27, Swift 6.4
 
 Build the local app bundle:
 

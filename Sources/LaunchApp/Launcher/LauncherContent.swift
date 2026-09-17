@@ -128,7 +128,10 @@ struct PagedGridView: View {
         .frame(width: pageWidth, alignment: .leading)
         .clipped()
         .animation(LaunchConstants.Animation.pageSnap, value: state.currentPage)
-        .animation(LaunchConstants.Animation.iconLift, value: state.dragInsertionIndex)
+        .animation(
+            state.isDraggingLauncherItem ? LaunchConstants.Animation.iconLift : nil,
+            value: state.dragInsertionIndex
+        )
         .frame(height: gridHeight)
     }
 

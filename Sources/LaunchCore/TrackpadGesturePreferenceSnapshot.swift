@@ -1,4 +1,6 @@
 public struct TrackpadGesturePreferenceSnapshot: Equatable, Sendable {
+    public static let nativeAppsGestureKey = "showSpotlightGestureEnabled"
+    public static let nativeShowDesktopGestureKey = "showDesktopGestureEnabled"
     public let values: [String: Int?]
 
     public init(values: [String: Int?]) {
@@ -6,7 +8,9 @@ public struct TrackpadGesturePreferenceSnapshot: Equatable, Sendable {
     }
 
     public var reserveWrites: [String: Int] {
-        Dictionary(uniqueKeysWithValues: values.keys.map { ($0, 0) })
+        Dictionary(uniqueKeysWithValues: values.keys.map { key in
+            (key, key == Self.nativeShowDesktopGestureKey ? 1 : 0)
+        })
     }
 
     public var restoreWrites: [String: Int?] {

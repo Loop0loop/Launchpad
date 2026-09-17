@@ -34,8 +34,8 @@ swift run Launchpad
   - app target creates a folder
   - folder target adds the app to that folder
   - root reorder is separate from folder create/add
-- Grid icon drag is owned by SwiftUI gesture state, not pasteboard drag/drop.
-  `LauncherMouseMonitor` only handles empty-space page dragging.
+- Grid icon drag is owned by an AppKit `NSDraggingSession` with the private
+  in-process item type. `LauncherMouseMonitor` only handles empty-space page dragging.
 
 Required checks:
 
@@ -64,8 +64,8 @@ manual restart when persistence changed
 ### P3 - Platform Polish
 
 - macOS-style visual behavior.
-- Tahoe/Liquid Glass path on macOS 26.
-- Material fallback on older macOS.
+- Liquid Glass behavior is tuned for macOS 27.
+- Material choices preserve contrast and accessibility.
 - Text remains readable and fits.
 - Menu/window behavior follows platform expectations.
 - Native-grade gestures should use continuous progress state while tracking and
@@ -84,8 +84,6 @@ manual visual check
 
 - Internal folder reorder.
 - Drag-out folder removal.
-- Full geometry-driven drag engine for Launchpad-style reorder if SwiftUI
-  `onDrag`/`onDrop` remains too limited.
 - Localization.
 - Logging cleanup.
 - Signing/notarization.
@@ -136,6 +134,9 @@ Official references:
 
 ### Next
 
+- Manually profile DnD frame pacing while repeatedly crossing launcher pages;
+  the pointer-only observation, source gap, lifted shadow, merge fade, and page
+  offset correction are implemented.
 - Add folder internal reorder.
 - Add drag-out removal.
 - Replace one-shot gesture intents with continuous progress for native-feeling

@@ -73,7 +73,7 @@ Bundle variants:
 - production: `.build/Launchpad.app`, `app.launchpad.mvp`, Release, updater enabled
 - version: `0.1.0`
 - build: `1`
-- minimum macOS: `26.0`
+- minimum macOS: `27.0`
 - activation style: `LSUIElement`
 
 Notes:

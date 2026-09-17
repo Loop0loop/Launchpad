@@ -2,9 +2,8 @@ import AppKit
 import SwiftUI
 import LaunchpadCore
 
-/// Empty-space page swiping plus Launchpad-style icon-drag paging. Icon dragging is
-/// owned by SwiftUI `DragGesture`; this monitor decides when horizontal movement
-/// should reveal another page or when edge-hovering should page-scroll.
+/// Empty-space page swiping. Icon dragging and edge paging are owned by
+/// `LauncherNativeDragController` so page reconstruction cannot end the drag session.
 @MainActor
 final class LauncherMouseMonitor {
     private weak var window: NSWindow?
@@ -18,14 +17,6 @@ final class LauncherMouseMonitor {
     private var lastDragTime = Date.distantPast
     private var dragStartPage = 0
     private var pageLockedUntil = Date.distantPast
-
-    private var edgeHoverTimer: Task<Void, Never>?
-    private var activeEdge: DragEdge?
-
-    private enum DragEdge {
-        case left
-        case right
-    }
 
     func configure(window: NSWindow, state: AppState) {
         self.window = window
@@ -55,9 +46,6 @@ final class LauncherMouseMonitor {
         dragOffset = 0
         dragVelocityX = 0
         state?.pageDragOffset = 0
-        edgeHoverTimer?.cancel()
-        edgeHoverTimer = nil
-        activeEdge = nil
     }
 
     private func handle(_ event: NSEvent) -> NSEvent? {
@@ -74,7 +62,7 @@ final class LauncherMouseMonitor {
     private func down(_ event: NSEvent, _ state: AppState) -> NSEvent? {
         if state.isHandlingLauncherDrag {
             LaunchLog.line("LauncherMouseMonitor down: cancelling active/stale drag")
-            state.cancelDrag()
+            state.cancelDrag(reason: "new-mouse-down")
         }
 
         // Outside-click-to-close is handled by the SwiftUI FolderDimLayer. A hand-rolled
@@ -103,86 +91,6 @@ final class LauncherMouseMonitor {
                 dragOffset = 0
                 state.pageDragOffset = 0
             }
-            guard let window = self.window else { return event }
-            let x = event.locationInWindow.x
-            let w = window.frame.width
-            let edgeWidth = LaunchConstants.Launcher.dragEdgeWidth
-            
-            var currentEdge: DragEdge? = nil
-            if x < edgeWidth {
-                currentEdge = .left
-            } else if x > w - edgeWidth {
-                currentEdge = .right
-            }
-            
-            if let edge = currentEdge {
-                if activeEdge != edge {
-                    activeEdge = edge
-                    edgeHoverTimer?.cancel()
-                    edgeHoverTimer = Task {
-                        defer {
-                            if activeEdge == edge {
-                                activeEdge = nil
-                                edgeHoverTimer = nil
-                            }
-                        }
-                        var isFirst = true
-                        while true {
-                            do {
-                                let interval = isFirst ? LaunchConstants.Launcher.dragPageScrollInterval : 0.9
-                                let sleepNs = UInt64(interval * 1_000_000_000)
-                                try await Task.sleep(nanoseconds: sleepNs)
-                                try Task.checkCancellation()
-                                
-                                guard let currentWindow = self.window,
-                                      let currentState = self.state,
-                                      currentState.isDraggingLauncherItem else { break }
-                                
-                                let currentX = NSEvent.mouseLocation.x - currentWindow.frame.origin.x
-                                
-                                var checkEdge: DragEdge? = nil
-                                if currentX < edgeWidth {
-                                    checkEdge = .left
-                                } else if currentX > currentWindow.frame.width - edgeWidth {
-                                    checkEdge = .right
-                                }
-                                
-                                if checkEdge == edge {
-                                    var switched = false
-                                    if edge == .left {
-                                        if currentState.currentPage > 0 {
-                                            withAnimation(LaunchConstants.Animation.pageSnap) {
-                                                currentState.selectPage(currentState.currentPage - 1)
-                                            }
-                                            switched = true
-                                        }
-                                    } else {
-                                        if currentState.currentPage < currentState.pageCount - 1 {
-                                            withAnimation(LaunchConstants.Animation.pageSnap) {
-                                                currentState.selectPage(currentState.currentPage + 1)
-                                            }
-                                            switched = true
-                                        }
-                                    }
-                                    if !switched {
-                                        break
-                                    }
-                                    isFirst = false
-                                } else {
-                                    break
-                                }
-                            } catch {
-                                break
-                            }
-                        }
-                    }
-                }
-            } else {
-                activeEdge = nil
-                edgeHoverTimer?.cancel()
-                edgeHoverTimer = nil
-            }
-            
             return event
         }
 
@@ -230,10 +138,6 @@ final class LauncherMouseMonitor {
         tracking = false
         dragOffset = 0
         dragVelocityX = 0
-        edgeHoverTimer?.cancel()
-        edgeHoverTimer = nil
-        activeEdge = nil
-
         withAnimation(LaunchConstants.Animation.pageSnap) {
             if let target {
                 state.selectPage(target)

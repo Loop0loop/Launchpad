@@ -14,6 +14,7 @@ extension LauncherLifecycle {
     }
 
     func dismissForSystemGesture() {
+        (NSApp.delegate as? AppDelegate)?.trackpadMonitor.yieldCurrentGestureToSystem()
         pinchTracking = nil
         stopPresentationAnimation()
         interactionVelocity = 0
@@ -27,6 +28,7 @@ extension LauncherLifecycle {
         let sampleTimestamp = timestamp.isFinite ? timestamp : 0
         switch intent {
         case .open:
+            guard canPresentLauncher else { return }
             guard state.openFolder == nil else { return }
             if phase == .shown, pinchTracking == nil { return }
             if pinchTracking == nil {
@@ -53,7 +55,7 @@ extension LauncherLifecycle {
                 mouseMonitor?.setEnabled(false)
                 state.clearFolderTransientAnimations()
                 state.stopEditingLayout()
-                state.cancelDrag()
+                state.cancelDrag(reason: "pinch-close")
                 preparePresentationLayer()
                 beginPinch(intent: .close, timestamp: sampleTimestamp)
             }
@@ -118,7 +120,8 @@ extension LauncherLifecycle {
             velocity: Double(decisionVelocity),
             projectionTime: LaunchConstants.Lifecycle.decisionProjectionTime
         ))
-        (NSApp.delegate as? AppDelegate)?.trackpadMonitor.setLauncherVisible(target == 1)
+        // Ownership follows the visible panel until completeHide restores the
+        // Dock presentation options; a spring target is not a hidden window.
         LaunchLog.line(
             "trackpad settle intent=\(tracking.intent) committed=\(committed) progress=\(interactionProgress) velocity=\(interactionVelocity) target=\(target)"
         )
@@ -128,6 +131,7 @@ extension LauncherLifecycle {
         )
         if target == 0 {
             phase = .hiding
+            (NSApp.delegate as? AppDelegate)?.trackpadMonitor.setLauncherVisible(false)
             mouseMonitor?.setEnabled(false)
             settlePresentation(to: 0, initialVelocity: springVelocity) { [weak self] in
                 guard let self, self.transitionToken == token else { return }
@@ -135,6 +139,7 @@ extension LauncherLifecycle {
             }
         } else {
             phase = .showing
+            (NSApp.delegate as? AppDelegate)?.trackpadMonitor.setLauncherVisible(true)
             mouseMonitor?.setEnabled(true)
             settlePresentation(to: 1, initialVelocity: springVelocity) { [weak self] in
                 guard let self, self.transitionToken == token else { return }
@@ -151,7 +156,7 @@ extension LauncherLifecycle {
         state.openFolder = nil
         state.clearSelection()
         state.stopEditingLayout()
-        state.cancelDrag()
+        state.cancelDrag(reason: "pinch-show")
         state.actions.restoreLauncherRoot()
 
         state.launcherVisible = true

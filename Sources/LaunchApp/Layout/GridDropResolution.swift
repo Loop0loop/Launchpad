@@ -53,9 +53,10 @@ extension AppState {
     func beginItemDrag(_ id: String, at pointerLocation: CGPoint, layout: LaunchpadLayoutMetrics) {
         guard query.isEmpty, openFolder == nil else { return }
         stopEditingLayout()
+        dragSequence += 1
+        dragSessionID = dragSequence
         draggingItemID = id
         dragAwaitingMouseUp = false
-        dragTranslation = .zero
         resetDragIntent()
         dragInsertionIndex = nil
         let iconCenter = draggedCellCenter(layout: layout) ?? pointerLocation
@@ -64,12 +65,12 @@ extension AppState {
             height: iconCenter.y - pointerLocation.y
         )
         drag.location = iconCenter
+        LaunchLog.line("drag begin session=\(dragSequence) item=\(id) page=\(currentPage) start=\(pointerLocation)")
     }
 
-    func updateItemDrag(pointerLocation: CGPoint, translation: CGSize, resolution: GridDropResolution) {
+    func updateItemDrag(pointerLocation: CGPoint, resolution: GridDropResolution) {
         guard let dragging = draggingItemID else { return }
         drag.location = drag.iconCenter(for: pointerLocation)
-        dragTranslation = translation
         // 폴더가 열린 상태(spring-loaded 드롭 중)에는 아이콘 중심만 추적한다. 그리드 reflow 불필요.
         if openFolder != nil { return }
         let canMerge = appByID(dragging) != nil
@@ -209,7 +210,7 @@ extension AppState {
     }
 
     func endItemDrag(slotID: String?, targetIndex: Int?) {
-        defer { cancelDrag() }
+        defer { cancelDrag(reason: "drop-ended") }
         guard let dragged = draggingItemID, query.isEmpty else { return }
 
         // Spring-loaded: 폴더가 열린 상태로 드롭 — 아이콘 중심이 폴더 안이면 해당 슬롯에 추가, 밖이면 취소.
@@ -254,11 +255,16 @@ extension AppState {
         saveOrder(LayoutOrder.move(id, toIndex: targetIndex, in: orderIDs))
     }
 
-    func cancelDrag() {
+    func cancelDrag(reason: String = "unspecified") {
+        if let session = dragSessionID {
+            LaunchLog.line(
+                "drag cancel session=\(session) reason=\(reason) item=\(draggingItemID ?? "nil") page=\(currentPage) insertion=\(dragInsertionIndex.map(String.init) ?? "nil")"
+            )
+        }
         draggingItemID = nil
+        dragSessionID = nil
         dragAwaitingMouseUp = false
         resetDragIntent()
-        dragTranslation = .zero
         dragInsertionIndex = nil
         pageDragOffset = 0
         drag.location = .zero
@@ -270,7 +276,7 @@ extension AppState {
 
     func finishCommittedMergeDrag() {
         guard dragAwaitingMouseUp else { return }
-        cancelDrag()
+        cancelDrag(reason: "merge-mouse-up")
     }
 
     /// Maps the dragged icon center (in the `"launcherGrid"` coordinate space) to the item under it.

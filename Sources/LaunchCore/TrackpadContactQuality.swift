@@ -29,6 +29,10 @@ public struct TrackpadTouchSample: Equatable, Sendable {
 
     /// State 4 is the only physically touching phase; nearby and release phases are not fingers.
     public var isGestureContact: Bool { state == 4 }
+
+    /// Ownership starts as fingers approach and ends when they leave range.
+    /// These phases must not count toward the four-finger recognition gate.
+    public var isInContactSequence: Bool { state > 0 && state < 7 }
 }
 
 public enum TrackpadContactQuality {
@@ -136,6 +140,7 @@ public struct TrackpadContactGate: Sendable {
             if contactLossSince == nil { contactLossSince = timestamp }
             guard timestamp - (contactLossSince ?? timestamp) >= contactLossGrace else { return .waiting }
             self = TrackpadContactGate()
+            ignoreUntilAllTouchesLift()
             return .ended
         }
         let landingCount = touches.filter { $0.state < 4 }.count
