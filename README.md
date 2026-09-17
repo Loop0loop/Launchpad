@@ -82,7 +82,9 @@ LaunchpadCheck LaunchCore 규칙 검증 실행 파일
 - process-level AppKit wiring은 `AppDelegate`가 담당합니다.
 - SwiftUI view는 `AppState`를 호출하고, AppKit 부작용은 `LauncherActions`를 통해 나갑니다.
 
-자세한 내용은 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)를 보세요.
+자세한 내용은 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)를 보세요. 트랙패드
+판정과 시스템 제스처 공존 규칙은 [docs/GESTURE_SSOT.md](docs/GESTURE_SSOT.md)가
+단일 기준 문서입니다.
 
 ## 패키징
 

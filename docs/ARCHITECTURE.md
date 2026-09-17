@@ -195,6 +195,10 @@ steal focus from the launched app.
 
 ## Input Lifecycle
 
+The normative gesture behavior, ownership rules, and verification matrix live
+in [GESTURE_SSOT.md](GESTURE_SSOT.md). Update that document before changing a
+gesture contract; dated plans and research notes are supporting history only.
+
 Input is split by source:
 
 - `GlobalHotKeyAdapter`: Carbon global hot keys.

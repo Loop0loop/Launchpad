@@ -108,6 +108,12 @@ extension LauncherLifecycle {
 
     private func finishPinch(committed: Bool) {
         guard let tracking = pinchTracking else { return }
+        // The terminal update can arrive before the display link presents the
+        // final tracking sample. Settle from the actual input position/velocity.
+        applyPresentationProgress(interactionProgress)
+        hasPendingInteractionSample = false
+        jumpTarget = nil
+        jumpFramesRemaining = 0
         pinchTracking = nil
         let token = UUID()
         transitionToken = token
@@ -115,9 +121,11 @@ extension LauncherLifecycle {
             max(interactionVelocity, -LaunchConstants.Lifecycle.maximumDecisionVelocity),
             LaunchConstants.Lifecycle.maximumDecisionVelocity
         )
-        let target = CGFloat(TrackpadIntent.projectedTransitionTarget(
+        let target = CGFloat(TrackpadIntent.settledTransitionTarget(
             progress: Double(interactionProgress),
             velocity: Double(decisionVelocity),
+            committed: committed,
+            startProgress: Double(tracking.startProgress),
             projectionTime: LaunchConstants.Lifecycle.decisionProjectionTime
         ))
         // Ownership follows the visible panel until completeHide restores the
@@ -126,12 +134,11 @@ extension LauncherLifecycle {
             "trackpad settle intent=\(tracking.intent) committed=\(committed) progress=\(interactionProgress) velocity=\(interactionVelocity) target=\(target)"
         )
         let springVelocity = min(
-            max(presentationVelocity, -LaunchConstants.Lifecycle.maximumSpringVelocity),
+            max(interactionVelocity, -LaunchConstants.Lifecycle.maximumSpringVelocity),
             LaunchConstants.Lifecycle.maximumSpringVelocity
         )
         if target == 0 {
             phase = .hiding
-            (NSApp.delegate as? AppDelegate)?.trackpadMonitor.setLauncherVisible(false)
             mouseMonitor?.setEnabled(false)
             settlePresentation(to: 0, initialVelocity: springVelocity) { [weak self] in
                 guard let self, self.transitionToken == token else { return }
@@ -170,6 +177,7 @@ extension LauncherLifecycle {
 
         preparePresentationLayer()
         if !wasVisible { applyPresentationProgress(0) }
+        SystemTrackpadSettings.suppressMissionControlGesture()
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()

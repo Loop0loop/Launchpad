@@ -98,7 +98,6 @@ final class LauncherLifecycle {
     var canPresentLauncher: Bool {
         guard let delegate = NSApp.delegate as? AppDelegate else { return true }
         return delegate.showDesktopController.refreshVisibility().allowsLauncherPresentation
-            && !delegate.showDesktopController.isTransitioning
     }
 
     func hide() {
@@ -119,7 +118,6 @@ final class LauncherLifecycle {
         let token = UUID()
         transitionToken = token
         phase = .hiding
-        (NSApp.delegate as? AppDelegate)?.trackpadMonitor.setLauncherVisible(false)
 
         runPresentationAnimation(toVisible: false) { [weak self] in
             guard let self, self.transitionToken == token else { return }
@@ -151,7 +149,6 @@ final class LauncherLifecycle {
             let token = UUID()
             transitionToken = token
             phase = .hiding
-            (NSApp.delegate as? AppDelegate)?.trackpadMonitor.setLauncherVisible(false)
             runPresentationAnimation(toVisible: false) { [weak self] in
                 guard let self, self.transitionToken == token else { return }
                 self.completeHide(activatePrevious: false)
@@ -187,9 +184,7 @@ final class LauncherLifecycle {
 
     func applyPresentationProgress(_ progress: CGFloat) {
         presentationProgress = min(max(progress, 0), 1)
-        window.alphaValue = pinchTracking == nil
-            ? presentationProgress * presentationProgress * (3 - 2 * presentationProgress)
-            : presentationProgress
+        window.alphaValue = presentationProgress
 
         if let container = window.contentView as? LauncherPresentationContainer {
             let scale = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -358,11 +353,12 @@ final class LauncherLifecycle {
     func completeHide(activatePrevious: Bool) {
         pinchTracking = nil
         phase = .hidden
+        window.orderOut(nil)
         state.launcherVisible = false
         (NSApp.delegate as? AppDelegate)?.trackpadMonitor.setLauncherVisible(false)
         // ponytail: keep the hidden launcher warm; revisit eviction only if measured idle memory is excessive.
         restoreSystemVisibility()
-        window.orderOut(nil)
+        SystemTrackpadSettings.restoreMissionControlGesture()
         LaunchLog.line("launcher hidden; system presentation restored options=\(NSApp.presentationOptions.rawValue)")
         resetPresentation()
         if activatePrevious { activatePreviousApp() }
